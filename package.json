@@ -1,0 +1,84 @@
+{
+  "name": "@lokiverse/cache",
+  "version": "0.1.0",
+  "description": "Multi-layer cache with full TypeScript type inference and mapping types",
+  "keywords": [
+    "cache",
+    "multi-layer",
+    "typescript",
+    "redis",
+    "memory",
+    "type-safe",
+    "swr",
+    "stale-while-revalidate"
+  ],
+  "license": "MIT",
+  "author": "",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./drivers": {
+      "types": "./dist/drivers/index.d.ts",
+      "import": "./dist/drivers/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "prepublishOnly": "npm run build && npm run typecheck && npm run lint",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lokiverse/emitter": "^0.1.2",
+    "lru-cache": "^11.2.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@lokiverse/prettier-config": "^0.2.1",
+    "@lokiverse/tsconfig": "^0.2.1",
+    "@types/node": "^22.19.1",
+    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/parser": "^8.18.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/ui": "^2.1.8",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.2.1",
+    "globals": "^16.5.0",
+    "ioredis": "^5.8.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "ioredis": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ioredis": {
+      "optional": true
+    }
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
+  }
+}
