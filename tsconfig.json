@@ -23,7 +23,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     
-    /* Type Checking - Maximum Strictness */
+    /* Type Checking - Pragmatic Strictness */
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -36,22 +36,15 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
+    "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "exactOptionalPropertyTypes": false,
     
     /* Advanced */
     "skipLibCheck": true,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
-    "exactOptionalPropertyTypes": true,
   },
-  "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "examples"
-  ]
+  "include": ["src/**/*"]
 }

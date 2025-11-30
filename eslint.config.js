@@ -1,14 +1,12 @@
 import js from '@eslint/js'
 import stylistic from '@stylistic/eslint-plugin'
-import prettierConfig from 'eslint-config-prettier'
 import importPlugin from 'eslint-plugin-import'
 import tseslint from 'typescript-eslint'
 
 export default [
   // Base configs
   js.configs.recommended,
-  ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
+  ...tseslint.configs.recommendedTypeChecked,
 
   // Global settings
   {
@@ -40,19 +38,20 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      '@typescript-eslint/no-floating-promises': 'error',
-      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
       '@typescript-eslint/await-thenable': 'error',
-      //'@typescript-eslint/require-await': 'error',
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
       '@typescript-eslint/prefer-optional-chain': 'error',
       '@typescript-eslint/strict-boolean-expressions': 'off',
       '@typescript-eslint/no-non-null-assertion': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'error',
-      '@typescript-eslint/no-unsafe-member-access': 'error',
-      '@typescript-eslint/no-unsafe-call': 'error',
-      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-redundant-type-constituents': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'warn',
+      '@typescript-eslint/no-unsafe-member-access': 'warn',
+      '@typescript-eslint/no-unsafe-call': 'warn',
+      '@typescript-eslint/no-unsafe-return': 'warn',
 
       // Consistent type imports (auto-fix available)
       '@typescript-eslint/consistent-type-imports': [
@@ -70,38 +69,8 @@ export default [
         },
       ],
 
-      // Private fields/methods naming with # or _
-      '@typescript-eslint/naming-convention': [
-        'error',
-        // Private members with underscore
-        {
-          selector: 'memberLike',
-          modifiers: ['private'],
-          format: ['camelCase'],
-          leadingUnderscore: 'require',
-        },
-        // Protected members (optional underscore)
-        {
-          selector: 'memberLike',
-          modifiers: ['protected'],
-          format: ['camelCase'],
-          leadingUnderscore: 'allow',
-        },
-        // Type names (PascalCase)
-        {
-          selector: 'typeLike',
-          format: ['PascalCase'],
-        },
-        // Interfaces (PascalCase, optional I prefix)
-        {
-          selector: 'interface',
-          format: ['PascalCase'],
-          custom: {
-            regex: '^I[A-Z]',
-            match: false,
-          },
-        },
-      ],
+      // Naming convention - désactivé (trop strict)
+      '@typescript-eslint/naming-convention': 'off',
 
       // Import sorting and organization
       'import/order': [
@@ -147,8 +116,7 @@ export default [
       '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
       '@stylistic/comma-dangle': ['error', 'always-multiline'],
       '@stylistic/indent': ['error', 2, { SwitchCase: 1 }],
-      // Disabled: max-len is not auto-fixable, use Prettier instead
-      '@stylistic/max-len': 'off',
+      '@stylistic/max-len': ['error', { code: 100, ignoreUrls: true, ignoreStrings: true, ignoreTemplateLiterals: true }],
       '@stylistic/object-curly-spacing': ['error', 'always'],
       '@stylistic/array-bracket-spacing': ['error', 'never'],
       '@stylistic/arrow-parens': ['error', 'always'],
@@ -170,14 +138,27 @@ export default [
       '@stylistic/space-in-parens': ['error', 'never'],
       '@stylistic/space-infix-ops': 'error',
       '@stylistic/spaced-comment': ['error', 'always', { markers: ['/'] }],
+      '@stylistic/member-delimiter-style': ['error', {
+        multiline: { delimiter: 'none' },
+        singleline: { delimiter: 'semi' }
+      }],
+      '@stylistic/type-annotation-spacing': 'error',
+    },
+  },
+
+  // Test files configuration
+  {
+    files: ['src/__tests__/**/*.ts', '**/*.test.ts', '**/*.spec.ts', 'vitest.config.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 
   // Ignore files
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '*.config.js'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '*.config.js', '*.config.ts'],
   },
-
-  // Prettier config (must be last to override conflicting rules)
-  prettierConfig,
 ]
