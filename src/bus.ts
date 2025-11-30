@@ -21,37 +21,47 @@ export type MessageHandler<TPayload = unknown> = (
 ) => void | Promise<void>
 export type Unsubscribe = () => void
 
-export interface BusConfig {
-  /** Transport layer (memory, redis, etc.) */
-  transport: ITransport
-  /** Channel name */
-  channel: string
-  /** Unique instance ID */
-  instanceId: string
-  /** Serializer (default: 'binary') */
-  serializer?: 'binary' | 'json'
-  /** Retry queue config (default: enabled) */
-  retryQueue?: RetryQueueOptions | false
-}
-
 /**
- * Type-safe distributed message bus
+ * Bus configuration
  *
  * @example
  * ```ts
- * const bus = createBus<MyMessages>({
- *   transport: redis(),
- *   channel: 'app',
- *   instanceId: 'server-1'
+ * const bus = createBus<Messages>({
+ *   transport: redis({ host: 'localhost' }),
+ *   channel: 'app-events',
+ *   instanceId: 'server-1',
+ *   serializer: 'binary',
+ *   retryQueue: {
+ *     maxAttempts: 5,
+ *     retryInterval: 2000
+ *   }
  * })
- *
- * await bus.start()
- * bus.subscribe('user:login', (payload) => {
- *   console.log(payload.userId)
- * })
- * await bus.publish('user:login', { userId: 'alice' })
  * ```
  */
+export interface BusConfig {
+  /** Transport layer (memory, redis, etc.) */
+  transport: ITransport
+
+  /** Channel name for pub/sub */
+  channel: string
+
+  /** Unique instance identifier */
+  instanceId: string
+
+  /**
+   * Message serializer
+   * @default 'binary'
+   */
+  serializer?: 'binary' | 'json'
+
+  /**
+   * Retry queue configuration
+   * Set to `false` to disable retries
+   * @default enabled with default options
+   */
+  retryQueue?: RetryQueueOptions | false
+}
+
 export class Bus<TMessages extends MessageMap> {
   #transport: ITransport
   #channel: string
@@ -78,7 +88,6 @@ export class Bus<TMessages extends MessageMap> {
     }
   }
 
-  /** Connect transport and start listening */
   async start(): Promise<void> {
     await this.#transport.connect()
 
@@ -98,7 +107,6 @@ export class Bus<TMessages extends MessageMap> {
     )
   }
 
-  /** Disconnect transport and cleanup */
   async stop(): Promise<void> {
     if (this.#retryQueue) {
       this.#retryQueue.stop()
@@ -111,11 +119,6 @@ export class Bus<TMessages extends MessageMap> {
     this.#handlers.clear()
   }
 
-  /**
-   * Subscribe to a message type
-   *
-   * @returns Unsubscribe function
-   */
   subscribe<K extends MessageType<TMessages>>(
     messageType: K,
     handler: MessageHandler<MessagePayload<TMessages, K>>,
@@ -137,7 +140,6 @@ export class Bus<TMessages extends MessageMap> {
     }
   }
 
-  /** Unsubscribe from a message type */
   unsubscribe<K extends MessageType<TMessages>>(
     messageType: K,
     handler?: MessageHandler<MessagePayload<TMessages, K>>,
@@ -155,11 +157,6 @@ export class Bus<TMessages extends MessageMap> {
     }
   }
 
-  /**
-   * Publish a message (distributed to all instances)
-   *
-   * Automatically retries on failure if retry queue is enabled.
-   */
   async publish<K extends MessageType<TMessages>>(
     messageType: K,
     payload: MessagePayload<TMessages, K>,
@@ -179,7 +176,6 @@ export class Bus<TMessages extends MessageMap> {
     try {
       await this.#transport.publish(this.#channel, data)
     } catch (error) {
-      // Add to retry queue if enabled
       if (this.#retryQueue) {
         await this.#retryQueue.add(message, data, error as Error)
       } else {
@@ -202,29 +198,11 @@ export class Bus<TMessages extends MessageMap> {
     )
   }
 
-  /** Get the underlying transport */
   getTransport(): ITransport {
     return this.#transport
   }
 }
 
-/**
- * Create a new message bus
- *
- * @example
- * ```ts
- * interface MyMessages {
- *   'user:login': { userId: string }
- *   'user:logout': { userId: string }
- * }
- *
- * const bus = createBus<MyMessages>({
- *   transport: redis({ host: 'localhost' }),
- *   channel: 'app',
- *   instanceId: 'server-1'
- * })
- * ```
- */
 export function createBus<TMessages extends MessageMap>(
   config: BusConfig,
 ): Bus<TMessages> {

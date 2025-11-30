@@ -1,4 +1,3 @@
-/** Transport connection state */
 export const TRANSPORT_STATES = {
   DISCONNECTED: 'DISCONNECTED',
   CONNECTING: 'CONNECTING',
@@ -8,13 +7,9 @@ export const TRANSPORT_STATES = {
 
 export type TransportState = typeof TRANSPORT_STATES[keyof typeof TRANSPORT_STATES]
 
-/** Message handler callback */
 export type MessageHandler = (data: Uint8Array) => void | Promise<void>
-
-/** Unsubscribe function */
 export type Unsubscribe = () => Promise<void>
 
-/** Transport interface for pub/sub */
 export interface ITransport {
   readonly name: string
   readonly state: TransportState
@@ -26,7 +21,6 @@ export interface ITransport {
   unsubscribe(channel: string): Promise<void>
 }
 
-/** Bus error with optional cause */
 export class BusError extends Error {
   constructor(
     message: string,

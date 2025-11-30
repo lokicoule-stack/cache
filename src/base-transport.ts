@@ -1,11 +1,5 @@
 import { BusError, TRANSPORT_STATES, type ITransport, type MessageHandler, type TransportState, type Unsubscribe } from './transport'
 
-/**
- * Base transport using Template Method pattern
- *
- * Provides state management, error handling, and handler tracking.
- * Subclasses implement the actual transport logic.
- */
 export abstract class BaseTransport implements ITransport {
   #state: TransportState = TRANSPORT_STATES.DISCONNECTED
   #handlers = new Map<string, Set<MessageHandler>>()
@@ -96,12 +90,10 @@ export abstract class BaseTransport implements ITransport {
     }
   }
 
-  /** Protected getter for handlers (used by subclasses) */
   protected getHandlers(channel: string): Set<MessageHandler> | undefined {
     return this.#handlers.get(channel)
   }
 
-  // Override these in your transport
   protected abstract doConnect(): Promise<void>
   protected abstract doDisconnect(): Promise<void>
   protected abstract doPublish(channel: string, data: Uint8Array): Promise<void>

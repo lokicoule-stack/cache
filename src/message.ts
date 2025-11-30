@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 
-/** Message structure */
 export interface Message {
   readonly id: string
   readonly type: string
@@ -10,7 +9,6 @@ export interface Message {
   readonly metadata?: Readonly<Record<string, unknown>>
 }
 
-/** Create a new message */
 export function createMessage(
   type: string,
   payload: unknown,
@@ -35,25 +33,21 @@ export function createMessage(
   return message
 }
 
-/** Serialize to binary (30-60% smaller than JSON) */
 export function serializeBinary(message: Message): Uint8Array {
   const json = JSON.stringify(message)
   return new TextEncoder().encode(json)
 }
 
-/** Deserialize from binary */
 export function deserializeBinary(data: Uint8Array): Message {
   const json = new TextDecoder().decode(data)
   return JSON.parse(json) as Message
 }
 
-/** Serialize to JSON */
 export function serializeJSON(message: Message): Uint8Array {
   const json = JSON.stringify(message)
   return new TextEncoder().encode(json)
 }
 
-/** Deserialize from JSON */
 export function deserializeJSON(data: Uint8Array): Message {
   const json = new TextDecoder().decode(data)
   return JSON.parse(json) as Message
