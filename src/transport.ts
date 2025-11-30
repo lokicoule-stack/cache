@@ -30,7 +30,7 @@ export interface ITransport {
 export class BusError extends Error {
   constructor(
     message: string,
-    public override readonly cause?: Error
+    public override readonly cause?: Error,
   ) {
     super(message)
     this.name = 'BusError'

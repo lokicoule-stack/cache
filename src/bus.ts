@@ -11,7 +11,6 @@ import { RetryQueue, type RetryQueueOptions } from './retry-queue'
 import type { ITransport } from './transport'
 
 export type MessageMap = Record<string, unknown>
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type MessageType<T extends MessageMap> = keyof T & string
 export type MessagePayload<
   T extends MessageMap,
@@ -89,16 +88,12 @@ export class Bus<TMessages extends MessageMap> {
 
     this.#transportUnsubscribe = await this.#transport.subscribe(
       this.#channel,
-      (data: Uint8Array) => {
-        try {
-          const message =
-            this.#serializer === 'binary'
-              ? deserializeBinary(data)
-              : deserializeJSON(data)
-          this.#handleMessage(message)
-        } catch (error) {
-          console.error('[Bus] Failed to process message:', error)
-        }
+      async (data: Uint8Array) => {
+        const message =
+          this.#serializer === 'binary'
+            ? deserializeBinary(data)
+            : deserializeJSON(data)
+        await this.#handleMessage(message)
       },
     )
   }
@@ -193,20 +188,18 @@ export class Bus<TMessages extends MessageMap> {
     }
   }
 
-  #handleMessage(message: Message): void {
+  async #handleMessage(message: Message): Promise<void> {
     const handlers = this.#handlers.get(message.type)
 
     if (!handlers || handlers.size === 0) {
       return
     }
 
-    handlers.forEach((handler: MessageHandler) => {
-      try {
-        void handler(message.payload)
-      } catch (error) {
-        console.error(`[Bus] Handler error for "${message.type}":`, error)
-      }
-    })
+    await Promise.all(
+      Array.from(handlers).map((handler: MessageHandler) =>
+        Promise.resolve(handler(message.payload)),
+      ),
+    )
   }
 
   /** Get the underlying transport */

@@ -40,14 +40,16 @@ export class RetryQueue {
   readonly #options: Required<RetryQueueOptions>
 
   constructor(options: RetryQueueOptions = {}) {
+    const noop = () => {}
+
     this.#options = {
       enabled: options.enabled ?? true,
       retryInterval: options.retryInterval ?? 1000,
       maxAttempts: options.maxAttempts ?? 3,
       removeDuplicates: options.removeDuplicates ?? true,
       maxSize: options.maxSize ?? 1000,
-      onDeadLetter: options.onDeadLetter ?? (() => { /* noop */ }),
-      onRetry: options.onRetry ?? (() => { /* noop */ }),
+      onDeadLetter: options.onDeadLetter ?? noop,
+      onRetry: options.onRetry ?? noop,
     }
   }
 
@@ -59,8 +61,9 @@ export class RetryQueue {
   /** Start processing the queue */
   start(): void {
     if (this.#running || !this.#options.enabled) {return}
+
     this.#running = true
-    void this.#processQueue()
+    this.#processQueue()
   }
 
   /** Stop processing the queue (keeps messages for potential resume) */
@@ -74,7 +77,9 @@ export class RetryQueue {
 
   /** Add message to retry queue */
   async add(message: Message, data: Uint8Array, error: Error, attempt = 0): Promise<void> {
-    if (!this.#options.enabled) {return}
+    if (!this.#options.enabled) {
+      return
+    }
 
     // Max attempts reached → dead letter
     if (attempt >= this.#options.maxAttempts) {
@@ -118,7 +123,9 @@ export class RetryQueue {
   }
 
   async #processQueue(): Promise<void> {
-    if (!this.#running) {return}
+    if (!this.#running) {
+      return
+    }
 
     const now = Date.now()
     const toRetry: RetryEntry[] = []
@@ -131,10 +138,8 @@ export class RetryQueue {
       }
     }
 
-    // Process retries
-    for (const entry of toRetry) {
-      await this.#retry(entry)
-    }
+    // Process retries in parallel
+    await Promise.allSettled(toRetry.map((entry) => this.#retry(entry)))
 
     // Check every 100ms
     this.#timer = setTimeout(() => void this.#processQueue(), 100)

@@ -17,7 +17,9 @@ export abstract class BaseTransport implements ITransport {
   }
 
   async connect(): Promise<void> {
-    if (this.#state === TRANSPORT_STATES.CONNECTED) {return}
+    if (this.#state === TRANSPORT_STATES.CONNECTED) {
+      return
+    }
 
     this.#state = TRANSPORT_STATES.CONNECTING
     try {
@@ -30,7 +32,9 @@ export abstract class BaseTransport implements ITransport {
   }
 
   async disconnect(): Promise<void> {
-    if (this.#state === TRANSPORT_STATES.DISCONNECTED) {return}
+    if (this.#state === TRANSPORT_STATES.DISCONNECTED) {
+      return
+    }
 
     try {
       await this.doDisconnect()
@@ -63,19 +67,14 @@ export abstract class BaseTransport implements ITransport {
       handlers = new Set()
       this.#handlers.set(channel, handlers)
 
-      try {
-        await this.doSubscribe(channel, async (data) => {
-          const channelHandlers = this.#handlers.get(channel)
-          if (channelHandlers) {
-            for (const h of channelHandlers) {
-              await h(data)
-            }
-          }
-        })
-      } catch (error) {
-        this.#handlers.delete(channel)
-        throw new BusError(`Failed to subscribe to ${channel}`, error as Error)
-      }
+      await this.doSubscribe(channel, async (data) => {
+        const channelHandlers = this.#handlers.get(channel)
+        if (channelHandlers) {
+          await Promise.all(
+            Array.from(channelHandlers).map((h) => Promise.resolve(h(data))),
+          )
+        }
+      })
     }
 
     handlers.add(handler)
