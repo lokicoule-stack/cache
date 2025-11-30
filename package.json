@@ -1,0 +1,85 @@
+{
+  "name": "@lokiverse/bus",
+  "version": "0.1.0",
+  "description": "TypeScript-first bus",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/main.d.ts",
+      "default": "./dist/types/main.js"
+    }
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "fix": "pnpm format && pnpm lint:fix"
+  },
+  "keywords": [
+    "typescript",
+    "event-bus",
+    "event-emitter",
+    "state-management",
+    "middleware",
+    "typed-events",
+    "pub-sub"
+  ],
+  "author": "Loik F. (https://github.com/Lokicoule)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lokicoule-stack/bus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lokicoule-stack/bus/issues"
+  },
+  "homepage": "https://github.com/lokicoule-stack/bus#readme",
+  "peerDependenciesMeta": {
+    "ioredis": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "@eslint/js": "^9.16.0",
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.1",
+    "@stylistic/eslint-plugin": "^5.6.1",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "2.1.8",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "globals": "^15.13.0",
+    "prettier": "^3.0.0",
+    "rollup": "^4.28.1",
+    "rollup-plugin-dts": "^6.1.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.17.0",
+    "vitest": "^2.1.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest"
+  }
+}
