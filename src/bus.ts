@@ -1,10 +1,9 @@
+import { resolveCodec, type CodecOption, type ICodec } from './codec'
 import { type ITransport, type MessageHandler, type Serializable } from './types'
-
-import type { ICodec } from './codec'
 
 export interface BusOptions {
   transport: ITransport
-  codec: ICodec
+  codec: CodecOption
   onHandlerError?: (channel: string, error: Error) => void
 }
 
@@ -19,7 +18,7 @@ export class Bus {
 
   constructor(options: BusOptions) {
     this.#transport = options.transport
-    this.#codec = options.codec
+    this.#codec = resolveCodec(options.codec)
     this.#onHandlerError = options.onHandlerError
   }
 

@@ -1,4 +1,10 @@
+import { decode, encode } from '@msgpack/msgpack'
+
 import type { Serializable, TransportData } from './types'
+
+export type CodecType = 'json' | 'msgpack'
+
+export type CodecOption = CodecType | ICodec
 
 /**
  * Codec interface
@@ -23,13 +29,20 @@ export class JsonCodec implements ICodec {
 
 /**
  * MessagePack codec
- *//*
+ */
 export class MsgPackCodec implements ICodec {
   encode<T extends Serializable>(data: T): TransportData {
-    return new Uint8Array(msgpack.encode(data))
+    return new Uint8Array(encode(data))
   }
 
   decode<T extends Serializable>(data: TransportData): T {
-    return msgpack.decode(Buffer.from(data)) as T
+    return decode(Buffer.from(data)) as T
   }
-} */
+}
+
+export const resolveCodec = (codec?: CodecOption): ICodec => {
+  if (!codec || codec === 'json') {return new JsonCodec()}
+  if (codec === 'msgpack') {return new MsgPackCodec()}
+  if (typeof codec === 'string') {return new JsonCodec()}
+  return codec
+}
