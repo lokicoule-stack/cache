@@ -1,85 +1,86 @@
-import assert from 'node:assert'
-
 import { createClient, type RedisClientOptions } from 'redis'
 
-import { BaseTransport } from '../base-transport'
+import type { ITransport, TransportData, TransportMessageHandler } from '../types'
 
-import type { MessageHandler } from '../transport'
-
-/** Redis transport configuration */
-export type RedisTransportConfig = RedisClientOptions 
+export type RedisTransportConfig = RedisClientOptions
 
 /**
  * Redis Pub/Sub transport
- *
- * Requires `redis` package (optional peer dependency).
- *
- * @example
- * ```ts
- * import { RedisTransport } from '@lokiverse/bus'
- *
- * const transport = new RedisTransport({
- *   socket: { host: 'localhost', port: 6379 }
- * })
- * ```
  */
-export class RedisTransport extends BaseTransport {
-  #publisher: ReturnType<typeof createClient> | undefined
-  #subscriber: ReturnType<typeof createClient> | undefined
+export class RedisTransport implements ITransport {
+  readonly name = 'redis'
+
+  #publisher?: ReturnType<typeof createClient>
+  #subscriber?: ReturnType<typeof createClient>
   #config: RedisTransportConfig
+  #subscriptions = new Map<string, Set<TransportMessageHandler>>()
 
   constructor(config: RedisTransportConfig = {}) {
-    super('redis')
     this.#config = config
   }
 
-  protected async doConnect(): Promise<void> {
+  async connect(): Promise<void> {
     this.#publisher = createClient(this.#config)
     this.#subscriber = this.#publisher.duplicate()
 
-    await Promise.all([this.#publisher.connect(), this.#subscriber.connect()])
+    await Promise.all([
+      this.#publisher.connect(),
+      this.#subscriber.connect(),
+    ])
   }
 
-  protected async doDisconnect(): Promise<void> {
-    if (this.#publisher) {
-      await this.#publisher.quit()
-      this.#publisher = undefined
-    }
+  async disconnect(): Promise<void> {
+    await Promise.all([
+      this.#publisher?.quit(),
+      this.#subscriber?.quit(),
+    ])
 
-    if (this.#subscriber) {
-      await this.#subscriber.quit()
-      this.#subscriber = undefined
-    }
+    this.#publisher = undefined
+    this.#subscriber = undefined
+    this.#subscriptions.clear()
   }
 
-  protected async doPublish(channel: string, data: Uint8Array): Promise<void> {
-    assert(this.#publisher, 'Publisher not connected')
+  async publish(channel: string, data: TransportData): Promise<void> {
+    if (!this.#publisher?.isReady) {
+      throw new Error('Redis publisher not connected')
+    }
 
     await this.#publisher.publish(channel, Buffer.from(data))
   }
 
-  protected async doSubscribe(channel: string, handler: MessageHandler): Promise<void> {
-    assert(this.#subscriber, 'Subscriber not connected')
+  async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
+    if (!this.#subscriber?.isReady) {
+      throw new Error('Redis subscriber not connected')
+    }
 
-    const handlers = this.getHandlers(channel)
-    if (!handlers || handlers.size === 0) {
-      await this.#subscriber.subscribe(channel, (message: string) => {
-        void handler(new Uint8Array(Buffer.from(message)))
+    if (!this.#subscriptions.has(channel)) {
+      this.#subscriptions.set(channel, new Set())
+
+      await this.#subscriber.subscribe(channel, (message) => {
+        const data = new Uint8Array(Buffer.from(message))
+        const handlers = this.#subscriptions.get(channel)
+
+        if (handlers) {
+          for (const h of handlers) {
+            Promise.resolve(h(data)).catch(() => {})
+          }
+        }
       })
     }
+
+    this.#subscriptions.get(channel)?.add(handler)
   }
 
-  protected async doUnsubscribe(channel: string): Promise<void> {
-    assert(this.#subscriber, 'Subscriber not connected')
+  async unsubscribe(channel: string): Promise<void> {
+    if (!this.#subscriber?.isReady) {
+      throw new Error('Redis subscriber not connected')
+    }
 
     await this.#subscriber.unsubscribe(channel)
+    this.#subscriptions.delete(channel)
   }
 }
 
 export function redis(config?: RedisTransportConfig): RedisTransport {
-  return new RedisTransport(config)
-}
-
-export function createRedisTransport(config?: RedisTransportConfig): RedisTransport {
   return new RedisTransport(config)
 }

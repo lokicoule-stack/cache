@@ -1,92 +1,45 @@
-import { BaseTransport } from '../base-transport'
 
-import type { MessageHandler } from '../transport'
+import type { ITransport, TransportData, TransportMessageHandler } from '../types'
 
 /**
- * In-memory transport for testing
- *
- * Shares channels across all instances.
+ * In-memory transport with instance-based isolation
  */
-export class MemoryTransport extends BaseTransport {
-  static #channels = new Map<string, Set<MessageHandler>>()
+export class MemoryTransport implements ITransport {
+  readonly name = 'memory'
 
-  constructor() {
-    super('memory')
+  #channels = new Map<string, Set<TransportMessageHandler>>()
+
+  async connect(): Promise<void> {}
+
+  async disconnect(): Promise<void> {
+    this.#channels.clear()
   }
 
-  protected doConnect(): Promise<void> {
-    // Nothing to do for memory transport
-    return Promise.resolve()
-  }
-
-  protected doDisconnect(): Promise<void> {
-    for (const [channel, handlers] of MemoryTransport.#channels.entries()) {
-      const channelHandlers = this.getHandlers(channel)
-      if (channelHandlers) {
-        for (const handler of channelHandlers) {
-          handlers.delete(handler)
-        }
-      }
-      if (handlers.size === 0) {
-        MemoryTransport.#channels.delete(channel)
-      }
-    }
-
-    return Promise.resolve()
-  }
-
-  protected doPublish(channel: string, data: Uint8Array): Promise<void> {
-    const handlers = MemoryTransport.#channels.get(channel)
-
-    if (handlers && handlers.size > 0) {
-      // Async dispatch (non-blocking)
-      setImmediate(() => {
-        void Promise.allSettled(
-          Array.from(handlers).map((handler) => Promise.resolve(handler(data))),
-        )
-      })
-    }
-
-    return Promise.resolve()
-  }
-
-  protected doSubscribe(channel: string, handler: MessageHandler): Promise<void> {
-    let handlers = MemoryTransport.#channels.get(channel)
-
-    if (!handlers) {
-      handlers = new Set()
-      MemoryTransport.#channels.set(channel, handlers)
-    }
-
-    handlers.add(handler)
-
-    return Promise.resolve()
-  }
-
-  protected doUnsubscribe(channel: string): Promise<void> {
-    const handlers = MemoryTransport.#channels.get(channel)
-
+  async publish(channel: string, data: TransportData): Promise<void> {
+    const handlers = this.#channels.get(channel)
     if (handlers) {
-      const channelHandlers = this.getHandlers(channel)
-      if (channelHandlers) {
-        for (const handler of channelHandlers) {
-          handlers.delete(handler)
-        }
-      }
-
-      if (handlers.size === 0) {
-        MemoryTransport.#channels.delete(channel)
+      for (const handler of handlers) {
+        setImmediate(() => handler(data))
       }
     }
+  }
 
-    return Promise.resolve()
+  async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
+    if (!this.#channels.has(channel)) {
+      this.#channels.set(channel, new Set())
+    }
+
+    const handlers = this.#channels.get(channel)
+    if (handlers) {
+      handlers.add(handler)
+    }
+  }
+
+  async unsubscribe(channel: string): Promise<void> {
+    this.#channels.delete(channel)
   }
 }
 
 export function memory(): MemoryTransport {
-  return new MemoryTransport()
-}
-
-export function createMemoryTransport(): MemoryTransport {
   return new MemoryTransport()
 }
