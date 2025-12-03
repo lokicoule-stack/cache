@@ -1,4 +1,3 @@
-
 import type { ITransport, TransportData, TransportMessageHandler } from '../types'
 
 /**

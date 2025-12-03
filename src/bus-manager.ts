@@ -28,11 +28,11 @@ export class BusManager<T extends Record<string, BusOptions>> {
       throw new Error('No bus name specified and no default configured')
     }
 
-    // Return cached
     const cached = this.#buses.get(busName)
-    if (cached) {return cached}
+    if (cached) {
+      return cached
+    }
 
-    // Create new
     const config = this.#config.transports[busName]
     if (!config) {
       throw new Error(`Transport '${String(busName)}' not found`)
@@ -51,9 +51,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
       await this.use(name).connect()
     } else {
       // Start all cached buses
-      await Promise.all(
-        Array.from(this.#buses.values()).map((b) => b.connect()),
-      )
+      await Promise.all(Array.from(this.#buses.values()).map((b) => b.connect()))
     }
   }
 
@@ -64,9 +62,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     if (name) {
       await this.use(name).disconnect()
     } else {
-      await Promise.all(
-        Array.from(this.#buses.values()).map((b) => b.disconnect()),
-      )
+      await Promise.all(Array.from(this.#buses.values()).map((b) => b.disconnect()))
       this.#buses.clear()
     }
   }

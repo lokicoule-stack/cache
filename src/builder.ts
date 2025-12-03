@@ -5,9 +5,6 @@ import { RetryMiddleware } from './middlewares/retry'
 import type { QueueProcessor } from './queue'
 import type { ITransport } from './types'
 
-/**
- * Transport builder
- */
 export class TransportBuilder {
   #transport: ITransport
 

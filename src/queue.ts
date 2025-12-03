@@ -19,9 +19,12 @@ export interface QueueProcessorOptions {
   backoff?: 'exponential' | 'fixed'
   removeDuplicates?: boolean
   maxSize?: number
-  onDeadLetter?:
-  (channel: string, data: TransportData, error: Error, attempts: number)
-  => void | Promise<void>
+  onDeadLetter?: (
+    channel: string,
+    data: TransportData,
+    error: Error,
+    attempts: number,
+  ) => void | Promise<void>
   onRetry?: (channel: string, data: TransportData, attempt: number) => void | Promise<void>
 }
 
@@ -53,7 +56,9 @@ export class QueueProcessor {
   }
 
   async start(): Promise<void> {
-    if (this.#isRunning) {return}
+    if (this.#isRunning) {
+      return
+    }
     this.#isRunning = true
     this.#schedule()
   }
@@ -66,18 +71,12 @@ export class QueueProcessor {
     }
   }
 
-  async enqueue(
-    channel: string,
-    data: TransportData,
-    error?: Error,
-  ): Promise<string | undefined> {
+  async enqueue(channel: string, data: TransportData, error?: Error): Promise<string | undefined> {
     if (this.#queue.size >= this.#options.maxSize) {
       return undefined
     }
 
-    const id = this.#options.removeDuplicates
-      ? this.#hash(channel, data)
-      : randomUUID()
+    const id = this.#options.removeDuplicates ? this.#hash(channel, data) : randomUUID()
 
     if (this.#options.removeDuplicates && this.#queue.has(id)) {
       return undefined
@@ -97,15 +96,14 @@ export class QueueProcessor {
   }
 
   #hash(channel: string, data: TransportData): string {
-    return createHash('sha256')
-      .update(channel)
-      .update(data)
-      .digest('hex')
+    return createHash('sha256').update(channel).update(data).digest('hex')
   }
 
   #schedule(): void {
     this.#timer = setTimeout(async () => {
-      if (!this.#isRunning) {return}
+      if (!this.#isRunning) {
+        return
+      }
 
       await this.#process()
       this.#schedule()
@@ -114,12 +112,9 @@ export class QueueProcessor {
 
   async #process(): Promise<void> {
     const now = new Date()
-    const ready = Array.from(this.#queue.values())
-      .filter((msg) => msg.nextRetryAt <= now)
+    const ready = Array.from(this.#queue.values()).filter((msg) => msg.nextRetryAt <= now)
 
-    await Promise.allSettled(
-      ready.map((msg) => this.#processMessage(msg)),
-    )
+    await Promise.allSettled(ready.map((msg) => this.#processMessage(msg)))
   }
 
   async #processMessage(msg: QueuedMessage): Promise<void> {
@@ -128,7 +123,9 @@ export class QueueProcessor {
     if (this.#options.onRetry) {
       try {
         await this.#options.onRetry(msg.channel, msg.data, msg.attempts)
-      } catch { /* empty */ }
+      } catch {
+        /* empty */
+      }
     }
 
     try {
@@ -141,7 +138,9 @@ export class QueueProcessor {
         if (this.#options.onDeadLetter) {
           try {
             await this.#options.onDeadLetter(msg.channel, msg.data, error as Error, msg.attempts)
-          } catch { /* empty */ }
+          } catch {
+            /* empty */
+          }
         }
 
         this.#queue.delete(msg.id)

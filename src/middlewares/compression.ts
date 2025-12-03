@@ -12,10 +12,7 @@ const gunzipAsync = promisify(gunzip)
  * Compression middleware
  */
 export class CompressionMiddleware extends TransportMiddleware {
-  constructor(
-    transport: ITransport,
-    private readonly _minSize: number = 1024,
-  ) {
+  constructor(transport: ITransport, private readonly _minSize: number = 1024) {
     super(transport)
   }
 

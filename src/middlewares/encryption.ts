@@ -1,4 +1,3 @@
-
 import { TransportMiddleware } from './base'
 
 import type { ITransport } from '../types'

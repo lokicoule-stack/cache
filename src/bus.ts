@@ -35,15 +35,27 @@ export class Bus {
       this.#handlers.set(channel, new Set())
 
       await this.#transport.subscribe(channel, (bytes) => {
-        const data = this.#codec.decode<T>(bytes)
-        const handlers = this.#handlers.get(channel)
-        if (handlers) {
-          for (const h of handlers) {
-            Promise.resolve(h(data)).catch((error: Error) => {
-              if (this.#onHandlerError) {
-                this.#onHandlerError(channel, error)
+        try {
+          const data = this.#codec.decode<T>(bytes)
+          const handlers = this.#handlers.get(channel)
+          if (handlers) {
+            for (const h of handlers) {
+              try {
+                Promise.resolve(h(data)).catch((error: Error) => {
+                  if (this.#onHandlerError) {
+                    this.#onHandlerError(channel, error)
+                  }
+                })
+              } catch (error) {
+                if (this.#onHandlerError) {
+                  this.#onHandlerError(channel, error as Error)
+                }
               }
-            })
+            }
+          }
+        } catch (error) {
+          if (this.#onHandlerError) {
+            this.#onHandlerError(channel, error as Error)
           }
         }
       })
@@ -54,7 +66,9 @@ export class Bus {
 
   async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
     const handlers = this.#handlers.get(channel)
-    if (!handlers) {return}
+    if (!handlers) {
+      return
+    }
 
     if (handler) {
       handlers.delete(handler)

@@ -1,4 +1,3 @@
-
 import { TransportMiddleware } from './base'
 
 import type { QueueProcessor } from '../queue'

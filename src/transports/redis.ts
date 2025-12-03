@@ -23,17 +23,11 @@ export class RedisTransport implements ITransport {
     this.#publisher = createClient(this.#config)
     this.#subscriber = this.#publisher.duplicate()
 
-    await Promise.all([
-      this.#publisher.connect(),
-      this.#subscriber.connect(),
-    ])
+    await Promise.all([this.#publisher.connect(), this.#subscriber.connect()])
   }
 
   async disconnect(): Promise<void> {
-    await Promise.all([
-      this.#publisher?.quit(),
-      this.#subscriber?.quit(),
-    ])
+    await Promise.all([this.#publisher?.quit(), this.#subscriber?.quit()])
 
     this.#publisher = undefined
     this.#subscriber = undefined
@@ -58,6 +52,7 @@ export class RedisTransport implements ITransport {
 
       await this.#subscriber.subscribe(channel, (message) => {
         const data = new Uint8Array(Buffer.from(message))
+
         const handlers = this.#subscriptions.get(channel)
 
         if (handlers) {

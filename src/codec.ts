@@ -41,8 +41,14 @@ export class MsgPackCodec implements ICodec {
 }
 
 export const resolveCodec = (codec?: CodecOption): ICodec => {
-  if (!codec || codec === 'json') {return new JsonCodec()}
-  if (codec === 'msgpack') {return new MsgPackCodec()}
-  if (typeof codec === 'string') {return new JsonCodec()}
+  if (!codec || codec === 'json') {
+    return new JsonCodec()
+  }
+  if (codec === 'msgpack') {
+    return new MsgPackCodec()
+  }
+  if (typeof codec === 'string') {
+    return new JsonCodec()
+  }
   return codec
 }
