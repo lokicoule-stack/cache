@@ -1,3 +1,4 @@
+import { BatchProcessor } from './batch-processor'
 import { MessageQueue } from './message-queue'
 import { RetryManager } from './retry-manager'
 import { ExponentialBackoffStrategy, FibonacciBackoffStrategy, LinearBackoffStrategy } from './retry-strategy'
@@ -48,6 +49,7 @@ import type { IRetryStrategy } from './retry-strategy.contract'
  *   maxAttempts: 10,
  *   baseDelayMs: 60000, // 1 minute
  *   backoff: 'exponential',
+ *   concurrency: 5, // Max 5 concurrent retries per cycle
  *   onDeadLetter: (channel, data, error, attempts) => {
  *     console.error(`Message failed after ${attempts} attempts:`, error)
  *   },
@@ -62,6 +64,7 @@ import type { IRetryStrategy } from './retry-strategy.contract'
  *
  * const customQueue = new RetryQueue(redis(), {
  *   backoff: new CustomStrategy(),
+ *   concurrency: 20, // Higher concurrency for high-throughput systems
  * })
  *
  * await queue.start()
@@ -72,6 +75,7 @@ export class RetryQueue {
   #retryManager: RetryManager
   #scheduler: Scheduler
   #baseDelayMs: number
+  #concurrency: number
 
   /**
    * Create a new RetryQueue
@@ -87,8 +91,10 @@ export class RetryQueue {
     const backoff = options.backoff ?? 'exponential'
     const removeDuplicates = options.removeDuplicates ?? true
     const maxSize = options.maxSize ?? 1000
+    const concurrency = options.concurrency ?? 10
 
     this.#baseDelayMs = baseDelayMs
+    this.#concurrency = concurrency
 
     // Resolve strategy (string → instance)
     const strategy = this.#resolveStrategy(backoff)
@@ -203,8 +209,8 @@ export class RetryQueue {
    * Process all ready messages
    *
    * Filters messages whose nextRetryAt has passed and attempts to
-   * process them via RetryManager. Uses allSettled to prevent one
-   * failure from stopping other retries.
+   * process them via RetryManager. Uses BatchProcessor for controlled
+   * concurrency to prevent overwhelming the transport.
    *
    * @private
    */
@@ -212,7 +218,12 @@ export class RetryQueue {
     const now = new Date()
     const ready = this.#messageQueue.getAll().filter((msg) => msg.nextRetryAt <= now)
 
-    await Promise.allSettled(ready.map((msg) => this.#processMessage(msg)))
+    await BatchProcessor.process(
+      ready,
+      (msg) => this.#processMessage(msg),
+      this.#concurrency,
+      () => !this.#scheduler.isRunning(),
+    )
   }
 
   /**

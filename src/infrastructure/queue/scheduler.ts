@@ -57,6 +57,15 @@ export class Scheduler {
   }
 
   /**
+   * Check if scheduler is running
+   *
+   * @returns True if scheduler is active, false otherwise
+   */
+  isRunning(): boolean {
+    return this.#isRunning
+  }
+
+  /**
    * Schedule next task execution
    *
    * Uses recursive setTimeout pattern to ensure tasks complete

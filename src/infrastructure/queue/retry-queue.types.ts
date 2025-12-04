@@ -1,5 +1,5 @@
-import type { IRetryStrategy } from './retry-strategy.contract'
 import type { TransportData } from '../../core/types'
+import type { IRetryStrategy } from './retry-strategy.contract'
 
 /**
  * Retry queue configuration options
@@ -39,6 +39,14 @@ export interface RetryQueueOptions {
    * Maximum queue size (default: 1000)
    */
   maxSize?: number
+
+  /**
+   * Maximum concurrent retry operations (default: 10)
+   *
+   * Controls how many messages are retried in parallel during each
+   * processing cycle. Prevents overwhelming the transport or target system.
+   */
+  concurrency?: number
 
   /**
    * Callback when message is moved to dead letter queue
