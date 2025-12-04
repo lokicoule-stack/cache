@@ -42,11 +42,13 @@ export class HMACEncryption implements IEncryption {
 
   encrypt(data: TransportData): Uint8Array {
     const hmac = createHmac('sha256', this.#key)
+
     hmac.update(data)
     const signature = hmac.digest()
 
     // Format: [signature(32) || data]
     const combined = new Uint8Array(signature.length + data.length)
+
     combined.set(signature, 0)
     combined.set(data, signature.length)
 
@@ -64,6 +66,7 @@ export class HMACEncryption implements IEncryption {
 
     // Verify HMAC
     const hmac = createHmac('sha256', this.#key)
+
     hmac.update(payload)
     const expectedSignature = hmac.digest()
 
@@ -86,9 +89,11 @@ export class HMACEncryption implements IEncryption {
       return false
     }
     let result = 0
+
     for (let i = 0; i < a.length; i++) {
       result |= a[i] ^ b[i]
     }
+
     return result === 0
   }
 }

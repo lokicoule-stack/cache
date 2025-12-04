@@ -124,7 +124,7 @@ export class GzipCompression implements ICompression {
         return payload
 
       default:
-        throw new Error(`Unknown compression marker: ${marker}`)
+        throw new Error(`Unknown compression marker: ${marker as number}`)
     }
   }
 
@@ -163,6 +163,7 @@ export class GzipCompression implements ICompression {
    */
   async #decompressGzip(payload: Uint8Array): Promise<Uint8Array> {
     const decompressed = await gunzipAsync(payload)
+
     return new Uint8Array(decompressed)
   }
 
@@ -171,8 +172,10 @@ export class GzipCompression implements ICompression {
    */
   #prependMarker(marker: CompressionMarkerType, payload: Buffer | Uint8Array): Uint8Array {
     const result = new Uint8Array(GzipCompression.MARKER_SIZE + payload.length)
+
     result[0] = marker
     result.set(payload, GzipCompression.MARKER_SIZE)
+
     return result
   }
 }

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
-import { createCodec, type ICodec } from '@/core/codec'
 import { setupTestEnvironment } from '../utils/test-helpers'
+
+import { createCodec, type ICodec } from '@/core/codec'
+import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
 
 setupTestEnvironment()
 

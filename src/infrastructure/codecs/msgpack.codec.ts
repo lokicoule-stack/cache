@@ -1,9 +1,9 @@
 import { decode, encode } from '@msgpack/msgpack'
 
-import { DecodeError, EncodeError } from '@/shared/errors'
-
 import type { ICodec } from '@/core/codec'
 import type { Serializable, TransportData } from '@/core/types'
+
+import { DecodeError, EncodeError } from '@/shared/errors'
 
 /**
  * MessagePack codec implementation

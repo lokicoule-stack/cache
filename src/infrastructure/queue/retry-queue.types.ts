@@ -1,5 +1,5 @@
-import type { TransportData } from '@/core/types'
 import type { IRetryStrategy } from './retry-strategy.contract'
+import type { TransportData } from '@/core/types'
 
 /**
  * Retry queue configuration options

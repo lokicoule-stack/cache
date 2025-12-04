@@ -4,11 +4,11 @@ import { RetryManager } from './retry-manager'
 import { ExponentialBackoffStrategy, FibonacciBackoffStrategy, LinearBackoffStrategy } from './retry-strategy'
 import { Scheduler } from './scheduler'
 
-import type { ITransport } from '@/core/transport'
-import type { TransportData } from '@/core/types'
 import type { QueuedMessage } from './retry-queue.contract'
 import type { RetryQueueOptions } from './retry-queue.types'
 import type { IRetryStrategy } from './retry-strategy.contract'
+import type { ITransport } from '@/core/transport'
+import type { TransportData } from '@/core/types'
 
 /**
  * Retry queue for handling failed message retries
@@ -202,6 +202,7 @@ export class RetryQueue {
           return new FibonacciBackoffStrategy()
       }
     }
+
     return backoff
   }
 

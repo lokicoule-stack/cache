@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { QueueFullError } from '@/shared/errors'
-
-import type { TransportData } from '@/core/types'
 import type { QueuedMessage } from './retry-queue.contract'
+import type { TransportData } from '@/core/types'
+
+import { QueueFullError } from '@/shared/errors'
 
 /**
  * Internal message storage component
@@ -113,13 +113,6 @@ export class MessageQueue {
    */
   clear(): void {
     this.#queue.clear()
-  }
-
-  /**
-   * Get current queue size
-   */
-  get size(): number {
-    return this.#queue.size
   }
 
   /**

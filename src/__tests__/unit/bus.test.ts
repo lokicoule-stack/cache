@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Bus } from '@/core/bus'
 import {
   MockTransport,
   createDeferred,
@@ -8,6 +7,8 @@ import {
   setupTestEnvironment,
   waitFor,
 } from '../utils/test-helpers'
+
+import { Bus } from '@/core/bus'
 
 setupTestEnvironment()
 

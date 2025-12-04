@@ -1,15 +1,15 @@
 import { createClient } from 'redis'
 
+import type { RedisTransportConfig } from './redis-transport.config'
+import type { ITransport } from '@/core/transport'
+import type { TransportData, TransportMessageHandler } from '@/core/types'
+
 import {
   TransportConnectionError,
   TransportNotReadyError,
   TransportPublishError,
   TransportSubscribeError,
 } from '@/shared/errors'
-
-import type { RedisTransportConfig } from './redis-transport.config'
-import type { ITransport } from '@/core/transport'
-import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 /**
  * Redis Pub/Sub transport implementation

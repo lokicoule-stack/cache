@@ -1,2 +1,2 @@
-export * from './compression.config'
+export type * from './compression.config'
 export * from './compression-middleware'

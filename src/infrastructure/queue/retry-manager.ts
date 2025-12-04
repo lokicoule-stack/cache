@@ -1,9 +1,9 @@
-import { DeadLetterError } from '@/shared/errors'
-
 import type { QueuedMessage } from './retry-queue.contract'
 import type { IRetryStrategy } from './retry-strategy.contract'
 import type { ITransport } from '@/core/transport'
 import type { TransportData } from '@/core/types'
+
+import { DeadLetterError } from '@/shared/errors'
 
 /**
  * Result of retry attempt processing

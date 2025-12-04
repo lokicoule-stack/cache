@@ -5,13 +5,13 @@ export * from './bus'
 export * from './codec'
 
 // Compression
-export * from './compression'
+export type * from './compression'
 
 // Encryption
-export * from './encryption'
+export type * from './encryption'
 
 // Transport
-export * from './transport'
+export type * from './transport'
 
 // Types
-export * from './types'
+export type * from './types'

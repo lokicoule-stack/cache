@@ -1,10 +1,11 @@
 import { RedisContainer, type StartedRedisContainer } from '@testcontainers/redis'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { delay, setupTestEnvironment, waitFor } from '../utils/test-helpers'
+
 import { Bus } from '@/core/bus'
 import { BusManager } from '@/core/bus/bus-manager'
 import { RedisTransport } from '@/infrastructure/transports/redis'
-import { delay, setupTestEnvironment, waitFor } from '../utils/test-helpers'
 
 setupTestEnvironment()
 

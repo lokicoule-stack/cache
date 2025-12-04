@@ -1,7 +1,8 @@
+import type { CodecOption, ICodec } from './codec.contract'
+
 import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
 import { InvalidCodecError } from '@/shared/errors'
 
-import type { CodecOption, ICodec } from './codec.contract'
 
 /**
  * Factory function to resolve codec from option

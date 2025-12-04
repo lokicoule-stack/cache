@@ -38,6 +38,7 @@ export class BatchProcessor {
       }
 
       const batch = items.slice(i, i + concurrency)
+
       await Promise.allSettled(batch.map(processor))
     }
   }

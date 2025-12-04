@@ -1,10 +1,11 @@
 
+import type { EncryptionConfig } from './encryption.config'
 import type { IEncryption } from '@/core/encryption'
 import type { ITransport } from '@/core/transport'
 import type { TransportData, TransportMessageHandler } from '@/core/types'
+
 import { TransportMiddleware } from '@/features/middleware/base'
 
-import type { EncryptionConfig } from './encryption.config'
 
 /**
  * Encryption middleware with pluggable encryption implementations

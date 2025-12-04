@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Bus } from '@/core/bus'
-import { MemoryTransport } from '@/infrastructure/transports/memory'
 import {
   FlakyTransport,
   MockTransport,
@@ -11,6 +9,9 @@ import {
   setupTestEnvironment,
   waitFor,
 } from '../utils/test-helpers'
+
+import { Bus } from '@/core/bus'
+import { MemoryTransport } from '@/infrastructure/transports/memory'
 
 setupTestEnvironment()
 

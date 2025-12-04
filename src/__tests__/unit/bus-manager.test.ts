@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { BusManager } from '@/core/bus/bus-manager'
 import { MockTransport, setupTestEnvironment, waitFor } from '../utils/test-helpers'
+
+import { BusManager } from '@/core/bus/bus-manager'
 
 setupTestEnvironment()
 

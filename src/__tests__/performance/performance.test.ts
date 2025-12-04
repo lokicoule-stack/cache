@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { delay, setupTestEnvironment, waitFor } from '../utils/test-helpers'
+
 import { Bus } from '@/core/bus'
 import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
 import { MemoryTransport } from '@/infrastructure/transports/memory'
-import { delay, setupTestEnvironment, waitFor } from '../utils/test-helpers'
 
 setupTestEnvironment()
 

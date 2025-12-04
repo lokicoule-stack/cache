@@ -1,2 +1,2 @@
-export * from './encryption.config'
+export type * from './encryption.config'
 export * from './encryption-middleware'
