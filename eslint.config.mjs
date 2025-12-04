@@ -58,7 +58,7 @@ export default [
         'error',
         {
           prefer: 'type-imports',
-          fixStyle: 'inline-type-imports',
+          fixStyle: 'separate-type-imports',
           disallowTypeAnnotations: true,
         },
       ],
