@@ -72,18 +72,21 @@ export default [
       // Naming convention - désactivé (trop strict)
       '@typescript-eslint/naming-convention': 'off',
 
+      // Member ordering in classes/interfaces
+      '@typescript-eslint/member-ordering': 'error',
+
       // Import sorting and organization
       'import/order': [
         'error',
         {
           'groups': [
-            'builtin',   // node:crypto, node:fs
-            'external',  // npm packages
-            'internal',  // @/alias
-            'parent',    // ../
-            'sibling',   // ./
-            'index',     // ./index
-            'type',      // import type
+            'builtin', // node:crypto, node:fs
+            'external', // npm packages
+            'internal', // @/alias
+            'parent', // ../
+            'sibling', // ./
+            'index', // ./index
+            'type', // import type
           ],
           'newlines-between': 'always',
           'alphabetize': {
@@ -111,38 +114,20 @@ export default [
       'eqeqeq': ['error', 'always', { null: 'ignore' }],
       'curly': ['error', 'all'],
 
-      // Stylistic rules
-      '@stylistic/semi': ['error', 'never'],
-      '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
-      '@stylistic/comma-dangle': ['error', 'always-multiline'],
-      '@stylistic/indent': ['error', 2, { SwitchCase: 1 }],
-      '@stylistic/max-len': ['error', { code: 100, ignoreUrls: true, ignoreStrings: true, ignoreTemplateLiterals: true }],
-      '@stylistic/object-curly-spacing': ['error', 'always'],
-      '@stylistic/array-bracket-spacing': ['error', 'never'],
-      '@stylistic/arrow-parens': ['error', 'always'],
-      '@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: true }],
-      '@stylistic/comma-spacing': ['error', { before: false, after: true }],
-      '@stylistic/key-spacing': ['error', { beforeColon: false, afterColon: true }],
-      '@stylistic/keyword-spacing': ['error', { before: true, after: true }],
-      '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0 }],
-      '@stylistic/no-trailing-spaces': 'error',
-      '@stylistic/space-before-blocks': 'error',
-      '@stylistic/space-before-function-paren': [
+      // Stylistic rules - Prettier handles most of these, keep only non-conflicting
+      '@stylistic/ts/member-delimiter-style': [
         'error',
         {
-          anonymous: 'always',
-          named: 'never',
-          asyncArrow: 'always',
+          multiline: { delimiter: 'none' },
+          singleline: { delimiter: 'semi' },
         },
       ],
-      '@stylistic/space-in-parens': ['error', 'never'],
-      '@stylistic/space-infix-ops': 'error',
-      '@stylistic/spaced-comment': ['error', 'always', { markers: ['/'] }],
-      '@stylistic/member-delimiter-style': ['error', {
-        multiline: { delimiter: 'none' },
-        singleline: { delimiter: 'semi' }
-      }],
-      '@stylistic/type-annotation-spacing': 'error',
+      '@stylistic/ts/object-curly-spacing': ['error', 'always'],
+      '@stylistic/ts/lines-between-class-members': [
+        'error',
+        'always',
+        { exceptAfterSingleLine: true },
+      ],
     },
   },
 
@@ -159,6 +144,13 @@ export default [
 
   // Ignore files
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '*.config.js', '*.config.ts'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      '*.config.js',
+      '*.config.ts',
+      '*.config.mjs',
+    ],
   },
 ]

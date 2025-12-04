@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Format staged files with Prettier
+npx prettier --write --list-different $(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|js|json|md)$') || true
+
+# Re-add formatted files
+git add $(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|js|json|md)$') 2>/dev/null || true
+
+# Run linter
+npm run lint
+
+# Run tests
+npm test
