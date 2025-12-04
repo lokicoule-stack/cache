@@ -3,7 +3,7 @@ import { type EncryptionConfig, EncryptionMiddleware } from '../middleware/encry
 import { type RetryConfig, RetryMiddleware } from '../middleware/retry'
 
 import type { ITransport } from '@/core/transport'
-import type { RetryQueue } from '@/infrastructure/queue'
+import type { RetryQueue } from '@/features/middleware/retry/queue'
 
 /**
  * Fluent builder for composing transport with middlewares
@@ -69,6 +69,7 @@ export class TransportBuilder {
    */
   withRetry(retryQueue: RetryQueue, config?: RetryConfig): this {
     this.#transport = new RetryMiddleware(this.#transport, retryQueue, config)
+
     return this
   }
 
@@ -99,6 +100,7 @@ export class TransportBuilder {
    */
   withCompression(config: CompressionConfig): this {
     this.#transport = new CompressionMiddleware(this.#transport, config)
+
     return this
   }
 
@@ -132,6 +134,7 @@ export class TransportBuilder {
    */
   withEncryption(config: EncryptionConfig): this {
     this.#transport = new EncryptionMiddleware(this.#transport, config)
+
     return this
   }
 

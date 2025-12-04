@@ -8,7 +8,7 @@ export * from './compression'
 export * from './encryption'
 
 // Queue
-export * from './queue'
+export * from '../features/middleware/retry/queue'
 
 // Transports
 export * from './transports'

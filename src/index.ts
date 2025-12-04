@@ -49,7 +49,7 @@ export * from './infrastructure/transports'
 export * from './infrastructure/codecs'
 export * from './infrastructure/compression'
 export * from './infrastructure/encryption'
-export * from './infrastructure/queue'
+export * from './features/middleware/retry/queue'
 
 /**
  * Features Layer
