@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { delay, setupTestEnvironment, waitFor } from '../utils/test-helpers'
 
 import { Bus } from '@/core/bus'
-import { BusManager } from '@/core/bus/bus-manager'
+import { BusManager } from '@/features/bus/bus-manager'
 import { RedisTransport } from '@/infrastructure/transports/redis'
 
 setupTestEnvironment()
@@ -57,6 +57,7 @@ describe('Redis Integration Tests', () => {
 
     it('should throw when publishing without connection', async () => {
       const data = new Uint8Array(Buffer.from('test'))
+
       await expect(transport.publish('test', data)).rejects.toThrow('Redis publisher not connected')
     })
 
@@ -89,6 +90,7 @@ describe('Redis Integration Tests', () => {
 
     it('should publish and receive messages between buses', async () => {
       const handler = vi.fn()
+
       await bus2.subscribe('test-channel', handler)
 
       await bus1.publish('test-channel', { message: 'hello from bus1' })
@@ -141,6 +143,7 @@ describe('Redis Integration Tests', () => {
       }
 
       const handler = vi.fn()
+
       await bus2.subscribe('complex-data', handler)
 
       await bus1.publish('complex-data', complexData)
@@ -151,9 +154,11 @@ describe('Redis Integration Tests', () => {
 
     it('should handle rapid message bursts', async () => {
       const handler = vi.fn()
+
       await bus2.subscribe('burst-test', handler)
 
       const messageCount = 100
+
       await Promise.all(
         Array.from({ length: messageCount }, (_, i) => bus1.publish('burst-test', { id: i })),
       )
@@ -164,6 +169,7 @@ describe('Redis Integration Tests', () => {
 
     it('should support unsubscribe', async () => {
       const handler = vi.fn()
+
       await bus1.subscribe('unsub-test', handler)
 
       await bus1.publish('unsub-test', { message: 'first' })
@@ -209,6 +215,7 @@ describe('Redis Integration Tests', () => {
 
     it('should work with MessagePack codec', async () => {
       const handler = vi.fn()
+
       await bus2.subscribe('msgpack-test', handler)
       await delay(300)
 
@@ -228,6 +235,7 @@ describe('Redis Integration Tests', () => {
 
     it('should handle binary data efficiently', async () => {
       const handler = vi.fn()
+
       await bus2.subscribe('binary-test', handler)
       await delay(300)
 
@@ -305,6 +313,7 @@ describe('Redis Integration Tests', () => {
       await delay(300) // Give time for connections to stabilize
 
       const handler = vi.fn()
+
       await manager.subscribe('proxy-test', handler)
       await delay(200)
 
@@ -431,11 +440,13 @@ describe('Redis Integration Tests', () => {
       // Set up responder
       await subscriber1.subscribe('requests', async (req: { id: string; data: number }) => {
         const result = req.data * 2
+
         await subscriber1.publish(replyChannel, { requestId: req.id, result })
       })
 
       // Set up reply handler
       const replyHandler = vi.fn()
+
       await publisher.subscribe(replyChannel, replyHandler)
 
       // Send request
@@ -468,6 +479,7 @@ describe('Redis Integration Tests', () => {
       // This is expected behavior - create new transport for reconnection
       const newTransport = new RedisTransport({ url: redisUrl })
       const newBus = new Bus({ transport: newTransport, codec: 'json' })
+
       await expect(newBus.connect()).resolves.not.toThrow()
       await newBus.disconnect()
     })
@@ -524,6 +536,7 @@ describe('Redis Integration Tests', () => {
 
     it('should handle high throughput', async () => {
       const handler = vi.fn()
+
       await bus2.subscribe('perf-test', handler)
 
       const messageCount = 1000
@@ -550,6 +563,7 @@ describe('Redis Integration Tests', () => {
           resolve: null as unknown as () => void,
           promise: null as unknown as Promise<void>,
         }
+
         deferred.promise = new Promise<void>((resolve) => {
           deferred.resolve = resolve
         })
@@ -557,6 +571,7 @@ describe('Redis Integration Tests', () => {
         const start = performance.now()
         const handler = vi.fn(() => {
           const elapsed = performance.now() - start
+
           latencies.push(elapsed)
           deferred.resolve()
         })

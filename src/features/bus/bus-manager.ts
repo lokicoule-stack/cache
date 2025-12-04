@@ -1,6 +1,7 @@
-import { Bus, type BusOptions } from './bus'
+import { MessageBus, type  BusOptions } from './message-bus'
 
-import type { MessageHandler, Serializable } from '../types'
+import type { MessageHandler, Serializable } from '../../types'
+import type { Bus } from '@/contracts/bus'
 
 /**
  * Bus manager configuration
@@ -94,7 +95,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
       throw new Error(`Transport '${String(busName)}' not found`)
     }
 
-    const bus = new Bus(config)
+    const bus = new MessageBus(config)
 
     this.#buses.set(busName, bus)
 

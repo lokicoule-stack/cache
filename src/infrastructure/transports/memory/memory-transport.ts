@@ -1,5 +1,5 @@
-import type { Transport } from '@/core/transport'
-import type { TransportData, TransportMessageHandler } from '@/core/types'
+import type { Transport } from '@/contracts/transport'
+import type { TransportData, TransportMessageHandler } from '@/types'
 
 /**
  * In-memory transport for local/testing use

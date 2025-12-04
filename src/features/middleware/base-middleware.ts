@@ -1,6 +1,6 @@
-import type { Middleware } from './middleware.contract'
-import type { Transport } from '@/core/transport'
-import type { TransportData, TransportMessageHandler } from '@/core/types'
+import type { Middleware } from '@/contracts/middleware'
+import type { Transport } from '@/contracts/transport'
+import type { TransportData, TransportMessageHandler } from '@/types'
 
 export abstract class TransportMiddleware implements Middleware {
   constructor(readonly transport: Transport) {}

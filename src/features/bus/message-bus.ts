@@ -1,8 +1,8 @@
-import { createCodec, type CodecOption, type Codec } from '../codec'
+import { resolveCodec } from './codec-resolver'
 
-import type { Transport } from '../transport'
-import type { MessageHandler, Serializable } from '../types'
-import type { Bus as IBus } from './bus.contract'
+import type { Bus } from '@/contracts/bus'
+import type { CodecOption, Codec } from '@/contracts/codec'
+import type { Transport, MessageHandler, Serializable } from '@/types'
 
 import { BusOperationError, HandlerError } from '@/shared/errors'
 
@@ -107,42 +107,15 @@ export interface BusOptions {
   onHandlerError?: (channel: string, error: Error) => void
 }
 
-/**
- * Type-safe message bus implementation
- *
- * Implements pub/sub messaging with automatic codec-based serialization,
- * transport abstraction, and error isolation between handlers.
- *
- * @example
- * ```typescript
- * const transport = memory()
- * const bus = new Bus({ transport, codec: 'json' })
- *
- * await bus.connect()
- *
- * await bus.subscribe<UserEvent>('users.created', (data) => {
- *   console.log('User created:', data.name)
- * })
- *
- * await bus.publish('users.created', { id: 123, name: 'Alice' })
- *
- * await bus.disconnect()
- * ```
- */
-export class Bus implements IBus {
+export class MessageBus implements Bus {
   #transport: Transport
   #codec: Codec
   #handlers = new Map<string, Set<MessageHandler>>()
   #onHandlerError?: (channel: string, error: Error) => void
 
-  /**
-   * Create a new Bus instance
-   *
-   * @param options - Bus configuration options
-   */
   constructor(options: BusOptions) {
     this.#transport = options.transport
-    this.#codec = createCodec(options.codec)
+    this.#codec = resolveCodec(options.codec)
     this.#onHandlerError = options.onHandlerError
   }
 

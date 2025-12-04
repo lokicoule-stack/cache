@@ -1,7 +1,7 @@
 import { beforeEach, vi } from 'vitest'
 
-import type { Transport } from '@/core/transport'
-import type { TransportData, TransportMessageHandler } from '@/core/types'
+import type { Transport } from '@/contracts/transport'
+import type { TransportData, TransportMessageHandler } from '@/types'
 
 /**
  * Mock transport for testing
@@ -46,6 +46,7 @@ export class MockTransport implements Transport {
     this.publishedMessages.push({ channel, data })
 
     const handlers = this.subscribers.get(channel)
+
     if (handlers) {
       for (const handler of handlers) {
         setImmediate(() => handler(data))
@@ -109,6 +110,7 @@ export class FlakyTransport implements Transport {
     if (this.shouldFail()) {
       throw new Error('Flaky connect failed')
     }
+
     return this.transport.connect()
   }
 
@@ -116,6 +118,7 @@ export class FlakyTransport implements Transport {
     if (this.shouldFail()) {
       throw new Error('Flaky disconnect failed')
     }
+
     return this.transport.disconnect()
   }
 
@@ -123,6 +126,7 @@ export class FlakyTransport implements Transport {
     if (this.shouldFail()) {
       throw new Error('Flaky publish failed')
     }
+
     return this.transport.publish(channel, data)
   }
 
@@ -130,6 +134,7 @@ export class FlakyTransport implements Transport {
     if (this.shouldFail()) {
       throw new Error('Flaky subscribe failed')
     }
+
     return this.transport.subscribe(channel, handler)
   }
 
@@ -137,6 +142,7 @@ export class FlakyTransport implements Transport {
     if (this.shouldFail()) {
       throw new Error('Flaky unsubscribe failed')
     }
+
     return this.transport.unsubscribe(channel)
   }
 }
@@ -161,26 +167,31 @@ export class SlowTransport implements Transport {
 
   async connect(): Promise<void> {
     await this.delay()
+
     return this.transport.connect()
   }
 
   async disconnect(): Promise<void> {
     await this.delay()
+
     return this.transport.disconnect()
   }
 
   async publish(channel: string, data: TransportData): Promise<void> {
     await this.delay()
+
     return this.transport.publish(channel, data)
   }
 
   async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
     await this.delay()
+
     return this.transport.subscribe(channel, handler)
   }
 
   async unsubscribe(channel: string): Promise<void> {
     await this.delay()
+
     return this.transport.unsubscribe(channel)
   }
 }
@@ -194,6 +205,7 @@ export async function waitFor(
   interval = 10,
 ): Promise<void> {
   const start = Date.now()
+
   while (!condition()) {
     if (Date.now() - start > timeout) {
       throw new Error('Timeout waiting for condition')
@@ -223,6 +235,7 @@ export function createDeferred<T>(): {
     resolve = res
     reject = rej
   })
+
   return { promise, resolve, reject }
 }
 

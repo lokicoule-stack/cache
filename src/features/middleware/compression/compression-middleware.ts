@@ -1,29 +1,9 @@
-import { TransportMiddleware } from '../base'
+import { TransportMiddleware } from '../base-middleware'
 
 import type { CompressionConfig } from './compression.config'
-import type { Compression } from '@/core/compression'
-import type { Transport } from '@/core/transport'
-import type { TransportData, TransportMessageHandler } from '@/core/types'
+import type { Compression } from '@/contracts/compression'
+import type { Transport, TransportData, TransportMessageHandler } from '@/types'
 
-/**
- * Compression middleware with pluggable compression implementations
- *
- * Provides a decorator for Transport that applies compression/decompression
- * transformations to all published and subscribed messages.
- *
- * The middleware delegates to an Compression implementation,
- * allowing flexible choice of compression algorithms.
- *
- * @example
- * ```typescript
- * import { GzipCompression } from '../../../infrastructure/compression'
- *
- * // Gzip compression
- * const middleware = new CompressionMiddleware(transport, {
- *   compression: new GzipCompression({ level: 6, threshold: 1024 })
- * })
- * ```
- */
 export class CompressionMiddleware extends TransportMiddleware {
   readonly #compression: Compression
 

@@ -1,7 +1,7 @@
 import type { QueuedMessage } from './retry-queue.contract'
 import type { IRetryStrategy } from './retry-strategy.contract'
-import type { Transport } from '@/core/transport'
-import type { TransportData } from '@/core/types'
+import type { Transport } from '@/contracts/transport'
+import type { TransportData } from '@/types'
 
 import { DeadLetterError } from '@/shared/errors'
 

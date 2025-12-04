@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 
-import type { Encryption } from '@/core/encryption'
-import type { TransportData } from '@/core/types'
+import type { Encryption } from '@/contracts/encryption'
+import type { TransportData } from '@/types'
 
 /**
  * HMAC-SHA256 authentication (integrity verification)

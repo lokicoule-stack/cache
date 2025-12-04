@@ -1,5 +1,5 @@
-import type { Codec } from '@/core/codec'
-import type { Serializable, TransportData } from '@/core/types'
+import type { Codec } from '@/contracts/codec'
+import type { Serializable, TransportData } from '@/types'
 
 import { DecodeError, EncodeError } from '@/shared/errors'
 

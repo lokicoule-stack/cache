@@ -1,9 +1,9 @@
-import type { CodecOption, Codec } from './codec.contract'
+import type { Codec, CodecOption } from '@/contracts/codec'
 
 import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
 import { InvalidCodecError } from '@/shared/errors'
 
-export function createCodec(option?: CodecOption): Codec {
+export function resolveCodec(option?: CodecOption): Codec {
   if (!option || option === 'json') {
     return new JsonCodec()
   }
@@ -12,6 +12,7 @@ export function createCodec(option?: CodecOption): Codec {
     return new MsgPackCodec()
   }
 
+  // Direct injection (duck typing check)
   if (typeof option === 'object' && 'encode' in option && 'decode' in option) {
     return option
   }

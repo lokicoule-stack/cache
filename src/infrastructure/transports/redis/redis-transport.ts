@@ -1,8 +1,8 @@
 import { createClient } from 'redis'
 
 import type { RedisTransportConfig } from './redis-transport.config'
-import type { Transport } from '@/core/transport'
-import type { TransportData, TransportMessageHandler } from '@/core/types'
+import type { Transport } from '@/contracts/transport'
+import type { TransportData, TransportMessageHandler } from '@/types'
 
 import {
   TransportConnectionError,

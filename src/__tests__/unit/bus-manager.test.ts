@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { MockTransport, setupTestEnvironment, waitFor } from '../utils/test-helpers'
 
-import { BusManager } from '@/core/bus/bus-manager'
+import { BusManager } from '@/features/bus/bus-manager'
 
 setupTestEnvironment()
 
@@ -39,6 +39,7 @@ describe('BusManager', () => {
           primary: { transport: transport1, codec: 'json' },
         },
       })
+
       expect(noDefaultManager).toBeInstanceOf(BusManager)
     })
   })
@@ -46,17 +47,20 @@ describe('BusManager', () => {
   describe('use', () => {
     it('should return default bus when no name specified', () => {
       const bus = manager.use()
+
       expect(bus).toBeDefined()
     })
 
     it('should return named bus', () => {
       const bus = manager.use('primary')
+
       expect(bus).toBeDefined()
     })
 
     it('should cache bus instances', () => {
       const bus1 = manager.use('primary')
       const bus2 = manager.use('primary')
+
       expect(bus1).toBe(bus2)
     })
 
@@ -66,6 +70,7 @@ describe('BusManager', () => {
           primary: { transport: transport1, codec: 'json' },
         },
       })
+
       expect(() => noDefaultManager.use()).toThrow(
         'No bus name specified and no default configured',
       )
@@ -78,6 +83,7 @@ describe('BusManager', () => {
     it('should create separate instances for different transports', () => {
       const bus1 = manager.use('primary')
       const bus2 = manager.use('secondary')
+
       expect(bus1).not.toBe(bus2)
     })
   })
@@ -86,6 +92,7 @@ describe('BusManager', () => {
     it('should start default bus', async () => {
       await manager.start()
       const bus = manager.use('primary')
+
       await expect(bus.connect()).resolves.not.toThrow()
     })
 
@@ -159,6 +166,7 @@ describe('BusManager', () => {
 
     it('should proxy subscribe to default bus', async () => {
       const handler = vi.fn()
+
       await manager.subscribe('test', handler)
       await manager.publish('test', 'hello')
       await waitFor(() => handler.mock.calls.length > 0)
@@ -167,9 +175,11 @@ describe('BusManager', () => {
 
     it('should proxy unsubscribe to default bus', async () => {
       const handler = vi.fn()
+
       await manager.subscribe('test', handler)
       await manager.unsubscribe('test', handler)
       const bus = manager.use('primary')
+
       expect(bus.channels).toEqual([])
     })
 
@@ -189,6 +199,7 @@ describe('BusManager', () => {
 
     it('should be type-safe', () => {
       const transports: ('primary' | 'secondary')[] = manager.transports
+
       expect(transports).toBeDefined()
     })
   })
@@ -298,6 +309,7 @@ describe('BusManager', () => {
 
       // Re-create the bus after stop (which clears the cache)
       const bus2 = manager.use('primary')
+
       await bus2.subscribe('test', handler)
       await manager.start('primary')
       await bus2.publish('test', 'hello')
@@ -356,6 +368,7 @@ describe('BusManager', () => {
     it('should handle rapid bus switching', async () => {
       for (let i = 0; i < 100; i++) {
         const bus = i % 2 === 0 ? manager.use('primary') : manager.use('secondary')
+
         expect(bus).toBeDefined()
       }
     })
@@ -364,6 +377,7 @@ describe('BusManager', () => {
       const emptyManager = new BusManager({
         transports: {},
       })
+
       expect(emptyManager.transports).toEqual([])
     })
 
@@ -374,6 +388,7 @@ describe('BusManager', () => {
           only: { transport: transport1, codec: 'json' },
         },
       })
+
       expect(singleManager.transports).toEqual(['only'])
     })
 
@@ -385,6 +400,7 @@ describe('BusManager', () => {
         ]),
       )
       const manyManager = new BusManager({ transports: manyTransports })
+
       expect(manyManager.transports).toHaveLength(10)
     })
   })

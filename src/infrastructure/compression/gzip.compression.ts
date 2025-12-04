@@ -1,8 +1,8 @@
 import { promisify } from 'node:util'
 import { gunzip, gzip } from 'node:zlib'
 
-import type { Compression } from '@/core/compression'
-import type { TransportData } from '@/core/types'
+import type { Compression } from '@/contracts/compression'
+import type { TransportData } from '@/types'
 
 const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
@@ -20,14 +20,14 @@ export type CompressionMarkerType = (typeof CompressionMarker)[keyof typeof Comp
 /**
  * Gzip compression options
  */
-export interface GzipCompressionOptions {
+export interface GzipCompressionConfig {
   /** Compression level 0-9 (default: 6) */
   level?: number
   /** Minimum size in bytes to trigger compression (default: 1024) */
   threshold?: number
 }
 
-const DEFAULT_OPTIONS: Required<GzipCompressionOptions> = {
+const DEFAULT_OPTIONS: Required<GzipCompressionConfig> = {
   level: 6,
   threshold: 1024,
 }
@@ -56,9 +56,9 @@ const DEFAULT_OPTIONS: Required<GzipCompressionOptions> = {
 export class GzipCompression implements Compression {
   private static readonly MARKER_SIZE = 1
 
-  readonly #options: Required<GzipCompressionOptions>
+  readonly #options: Required<GzipCompressionConfig>
 
-  constructor(options: GzipCompressionOptions = {}) {
+  constructor(options: GzipCompressionConfig = {}) {
     this.#options = { ...DEFAULT_OPTIONS, ...options }
   }
 

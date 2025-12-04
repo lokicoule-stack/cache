@@ -1,5 +1,5 @@
-import type { Encryption } from '@/core/encryption'
-import type { TransportData } from '@/core/types'
+import type { Encryption } from '@/contracts/encryption'
+import type { TransportData } from '@/types'
 
 /**
  * Base64 encoding (obfuscation only, NOT secure)
