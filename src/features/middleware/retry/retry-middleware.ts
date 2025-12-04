@@ -2,7 +2,7 @@ import { TransportMiddleware } from '../base'
 
 import { type RetryConfig, DEFAULT_RETRY_CONFIG } from './retry.config'
 
-import type { ITransport } from '@/core/transport'
+import type { Transport } from '@/core/transport'
 import type { TransportData } from '@/core/types'
 import type { RetryQueue } from '@/features/middleware/retry/queue'
 
@@ -13,7 +13,7 @@ export class RetryMiddleware extends TransportMiddleware {
   #retryQueue?: RetryQueue
   #config: Required<RetryConfig>
 
-  constructor(transport: ITransport, retryQueue?: RetryQueue, config: RetryConfig = {}) {
+  constructor(transport: Transport, retryQueue?: RetryQueue, config: RetryConfig = {}) {
     super(transport)
     this.#retryQueue = retryQueue
     this.#config = { ...DEFAULT_RETRY_CONFIG, ...config }

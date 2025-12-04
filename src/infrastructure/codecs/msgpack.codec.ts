@@ -1,6 +1,6 @@
 import { decode, encode } from '@msgpack/msgpack'
 
-import type { ICodec } from '@/core/codec'
+import type { Codec } from '@/core/codec'
 import type { Serializable, TransportData } from '@/core/types'
 
 import { DecodeError, EncodeError } from '@/shared/errors'
@@ -21,7 +21,7 @@ import { DecodeError, EncodeError } from '@/shared/errors'
  * const data = codec.decode<User>(bytes)
  * ```
  */
-export class MsgPackCodec implements ICodec {
+export class MsgPackCodec implements Codec {
   readonly name = 'msgpack'
 
   /**

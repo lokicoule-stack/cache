@@ -1,4 +1,5 @@
-export * from './bus'
+export { Bus } from './bus'
+export type { BusOptions } from './bus'
 export * from './bus-manager'
+export type { Bus as BusInterface } from './bus.contract'
 export type * from './bus.contract'
-

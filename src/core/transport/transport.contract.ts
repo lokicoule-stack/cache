@@ -6,7 +6,7 @@ import type { TransportData, TransportMessageHandler } from '../types'
  * Provides a unified interface for different messaging backends (memory, Redis, etc.).
  * Transports handle the low-level pub/sub mechanics and connection lifecycle.
  */
-export interface ITransport {
+export interface Transport {
   /**
    * Transport name identifier
    *

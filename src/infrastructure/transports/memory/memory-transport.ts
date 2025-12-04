@@ -1,4 +1,4 @@
-import type { ITransport } from '@/core/transport'
+import type { Transport } from '@/core/transport'
 import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 /**
@@ -33,7 +33,7 @@ import type { TransportData, TransportMessageHandler } from '@/core/types'
  * await bus.publish('events', { type: 'test' })
  * ```
  */
-export class MemoryTransport implements ITransport {
+export class MemoryTransport implements Transport {
   readonly name = 'memory'
 
   #channels = new Map<string, Set<TransportMessageHandler>>()
@@ -42,7 +42,7 @@ export class MemoryTransport implements ITransport {
    * Connect the memory transport
    *
    * No-op for memory transport as it's always ready. Included for
-   * ITransport interface compliance.
+   * Transport interface compliance.
    *
    * @returns Promise that resolves immediately
    */

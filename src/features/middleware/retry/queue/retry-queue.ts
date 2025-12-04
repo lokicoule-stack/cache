@@ -7,7 +7,7 @@ import { Scheduler } from './scheduler'
 import type { QueuedMessage } from './retry-queue.contract'
 import type { RetryQueueOptions } from './retry-queue.types'
 import type { IRetryStrategy } from './retry-strategy.contract'
-import type { ITransport } from '@/core/transport'
+import type { Transport } from '@/core/transport'
 import type { TransportData } from '@/core/types'
 
 /**
@@ -83,7 +83,7 @@ export class RetryQueue {
    * @param transport - The transport to use for retry attempts
    * @param options - Queue configuration (optional, uses defaults if omitted)
    */
-  constructor(transport: ITransport, options: RetryQueueOptions = {}) {
+  constructor(transport: Transport, options: RetryQueueOptions = {}) {
     // Resolve defaults
     const baseDelayMs = options.baseDelayMs ?? 60000
     const intervalMs = options.intervalMs ?? 5000

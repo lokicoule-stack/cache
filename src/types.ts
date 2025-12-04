@@ -27,7 +27,7 @@ export type TransportMessageHandler = (data: TransportData) => void | Promise<vo
 /**
  * Transport interface
  */
-export interface ITransport {
+export interface Transport {
   readonly name: string
   connect(): Promise<void>
   disconnect(): Promise<void>

@@ -7,7 +7,7 @@ import type { MessageHandler, Serializable } from '../types'
  * and transport independence. Messages are fire-and-forget with
  * automatic serialization/deserialization.
  */
-export interface IBus {
+export interface Bus {
   /**
    * Connect the bus transport
    *
@@ -95,17 +95,4 @@ export interface IBus {
    * ```
    */
   unsubscribe(channel: string, handler?: MessageHandler): Promise<void>
-
-  /**
-   * Get list of subscribed channels
-   *
-   * Returns an array of channel names that have active subscriptions.
-   * Useful for debugging and monitoring.
-   *
-   * @example
-   * ```typescript
-   * console.log('Active channels:', bus.channels) // ['users.created', 'orders.paid']
-   * ```
-   */
-  readonly channels: string[]
 }

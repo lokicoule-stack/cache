@@ -1,4 +1,4 @@
-import type { IEncryption } from '@/core/encryption'
+import type { Encryption } from '@/core/encryption'
 import type { TransportData } from '@/core/types'
 
 /**
@@ -15,7 +15,7 @@ import type { TransportData } from '@/core/types'
  * const decrypted = encryption.decrypt(encrypted)
  * ```
  */
-export class Base64Encryption implements IEncryption {
+export class Base64Encryption implements Encryption {
   encrypt(data: TransportData): Uint8Array {
     const base64 = Buffer.from(data).toString('base64')
 

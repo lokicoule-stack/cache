@@ -9,7 +9,7 @@ import type { TransportData } from '../types'
  *
  * @example
  * ```typescript
- * class MyEncryption implements IEncryption {
+ * class MyEncryption implements Encryption {
  *   encrypt(data: TransportData): Uint8Array {
  *     // Transform data
  *     return transformed
@@ -22,7 +22,7 @@ import type { TransportData } from '../types'
  * }
  * ```
  */
-export interface IEncryption {
+export interface Encryption {
   /**
    * Encrypt/transform data before publishing
    *

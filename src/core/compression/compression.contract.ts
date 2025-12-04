@@ -8,7 +8,7 @@ import type { TransportData } from '../types'
  *
  * @example
  * ```typescript
- * class MyCompression implements ICompression {
+ * class MyCompression implements Compression {
  *   async compress(data: TransportData): Promise<Uint8Array> {
  *     // Compress data
  *     return compressed
@@ -21,7 +21,7 @@ import type { TransportData } from '../types'
  * }
  * ```
  */
-export interface ICompression {
+export interface Compression {
   /**
    * Compress data before publishing
    *

@@ -1,12 +1,9 @@
-import type { IMiddleware } from './middleware.contract'
-import type { ITransport } from '@/core/transport'
+import type { Middleware } from './middleware.contract'
+import type { Transport } from '@/core/transport'
 import type { TransportData, TransportMessageHandler } from '@/core/types'
 
-/**
- * Base transport middleware - provides pass-through implementation
- */
-export abstract class TransportMiddleware implements IMiddleware {
-  constructor(readonly transport: ITransport) {}
+export abstract class TransportMiddleware implements Middleware {
+  constructor(readonly transport: Transport) {}
 
   get name(): string {
     return this.transport.name

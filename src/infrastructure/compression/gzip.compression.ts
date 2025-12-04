@@ -1,7 +1,7 @@
 import { promisify } from 'node:util'
 import { gunzip, gzip } from 'node:zlib'
 
-import type { ICompression } from '@/core/compression'
+import type { Compression } from '@/core/compression'
 import type { TransportData } from '@/core/types'
 
 const gzipAsync = promisify(gzip)
@@ -53,7 +53,7 @@ const DEFAULT_OPTIONS: Required<GzipCompressionOptions> = {
  * const original = await compression.decompress(compressed)
  * ```
  */
-export class GzipCompression implements ICompression {
+export class GzipCompression implements Compression {
   private static readonly MARKER_SIZE = 1
 
   readonly #options: Required<GzipCompressionOptions>

@@ -1,12 +1,12 @@
 import { beforeEach, vi } from 'vitest'
 
-import type { ITransport } from '@/core/transport'
+import type { Transport } from '@/core/transport'
 import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 /**
  * Mock transport for testing
  */
-export class MockTransport implements ITransport {
+export class MockTransport implements Transport {
   readonly name = 'mock'
 
   connected = false
@@ -90,13 +90,13 @@ export class MockTransport implements ITransport {
 /**
  * Flaky transport that randomly fails operations
  */
-export class FlakyTransport implements ITransport {
+export class FlakyTransport implements Transport {
   readonly name = 'flaky'
 
-  private transport: ITransport
+  private transport: Transport
   private failureRate: number
 
-  constructor(transport: ITransport, failureRate = 0.3) {
+  constructor(transport: Transport, failureRate = 0.3) {
     this.transport = transport
     this.failureRate = failureRate
   }
@@ -144,13 +144,13 @@ export class FlakyTransport implements ITransport {
 /**
  * Slow transport for performance testing
  */
-export class SlowTransport implements ITransport {
+export class SlowTransport implements Transport {
   readonly name = 'slow'
 
-  private transport: ITransport
+  private transport: Transport
   private latency: number
 
-  constructor(transport: ITransport, latency = 100) {
+  constructor(transport: Transport, latency = 100) {
     this.transport = transport
     this.latency = latency
   }

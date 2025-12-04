@@ -1,35 +1,9 @@
-import type { CodecOption, ICodec } from './codec.contract'
+import type { CodecOption, Codec } from './codec.contract'
 
 import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
 import { InvalidCodecError } from '@/shared/errors'
 
-
-/**
- * Factory function to resolve codec from option
- *
- * Accepts either a predefined codec type string or a custom ICodec
- * implementation. Returns a ready-to-use codec instance.
- *
- * @param option - Codec type or custom codec implementation (default: 'json')
- * @returns Resolved codec instance
- * @throws {InvalidCodecError} If codec type is not recognized
- *
- * @example
- * ```typescript
- * // Using predefined codecs
- * const jsonCodec = createCodec('json')
- * const msgpackCodec = createCodec('msgpack')
- * const defaultCodec = createCodec() // defaults to 'json'
- *
- * // Using custom codec
- * const customCodec = createCodec({
- *   name: 'custom',
- *   encode: (data) => ...,
- *   decode: (data) => ...
- * })
- * ```
- */
-export function createCodec(option?: CodecOption): ICodec {
+export function createCodec(option?: CodecOption): Codec {
   if (!option || option === 'json') {
     return new JsonCodec()
   }

@@ -1,4 +1,4 @@
-import type { ICodec } from '@/core/codec'
+import type { Codec } from '@/core/codec'
 import type { Serializable, TransportData } from '@/core/types'
 
 import { DecodeError, EncodeError } from '@/shared/errors'
@@ -17,7 +17,7 @@ import { DecodeError, EncodeError } from '@/shared/errors'
  * const data = codec.decode<User>(bytes)
  * ```
  */
-export class JsonCodec implements ICodec {
+export class JsonCodec implements Codec {
   readonly name = 'json'
 
   /**

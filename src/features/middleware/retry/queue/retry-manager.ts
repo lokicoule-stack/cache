@@ -1,6 +1,6 @@
 import type { QueuedMessage } from './retry-queue.contract'
 import type { IRetryStrategy } from './retry-strategy.contract'
-import type { ITransport } from '@/core/transport'
+import type { Transport } from '@/core/transport'
 import type { TransportData } from '@/core/types'
 
 import { DeadLetterError } from '@/shared/errors'
@@ -35,7 +35,7 @@ interface RetryResult {
  * @internal
  */
 export class RetryManager {
-  #transport: ITransport
+  #transport: Transport
   #strategy: IRetryStrategy
   #maxAttempts: number
   #baseDelayMs: number
@@ -53,7 +53,7 @@ export class RetryManager {
    * @param onDeadLetter - Optional dead letter callback
    */
   constructor(
-    transport: ITransport,
+    transport: Transport,
     strategy: IRetryStrategy,
     maxAttempts: number,
     baseDelayMs: number,

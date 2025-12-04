@@ -2,7 +2,7 @@ import { type CompressionConfig, CompressionMiddleware } from '../middleware/com
 import { type EncryptionConfig, EncryptionMiddleware } from '../middleware/encryption'
 import { type RetryConfig, RetryMiddleware } from '../middleware/retry'
 
-import type { ITransport } from '@/core/transport'
+import type { Transport } from '@/core/transport'
 import type { RetryQueue } from '@/features/middleware/retry/queue'
 
 /**
@@ -36,14 +36,14 @@ import type { RetryQueue } from '@/features/middleware/retry/queue'
  * ```
  */
 export class TransportBuilder {
-  #transport: ITransport
+  #transport: Transport
 
   /**
    * Create a new TransportBuilder
    *
    * @param transport - Base transport to wrap with middlewares
    */
-  constructor(transport: ITransport) {
+  constructor(transport: Transport) {
     this.#transport = transport
   }
 
@@ -78,10 +78,10 @@ export class TransportBuilder {
    *
    * BREAKING CHANGE: Configuration format has changed.
    * Old: { minSize?: number }
-   * New: { compression: ICompression }
+   * New: { compression: Compression }
    *
    * Wraps the transport to compress message payloads before publishing.
-   * Pass an instance of GzipCompression or a custom ICompression implementation.
+   * Pass an instance of GzipCompression or a custom Compression implementation.
    *
    * If you don't need compression, simply don't call this method.
    *
@@ -109,7 +109,7 @@ export class TransportBuilder {
    *
    * BREAKING CHANGE: Configuration format has changed.
    * Old: { key: Buffer, algorithm?: 'aes-256-gcm' }
-   * New: { encryption: IEncryption }
+   * New: { encryption: Encryption }
    *
    * Wraps the transport to provide message obfuscation or integrity verification.
    * Pass an instance of Base64Encryption or HMACEncryption.
@@ -142,7 +142,7 @@ export class TransportBuilder {
    * Build and return the composed transport
    *
    * Finalizes the middleware chain and returns the wrapped transport.
-   * The returned transport implements ITransport and can be used directly
+   * The returned transport implements Transport and can be used directly
    * with Bus or BusManager.
    *
    * @returns The fully composed transport with all middlewares applied
@@ -157,7 +157,7 @@ export class TransportBuilder {
    * const bus = new Bus({ transport })
    * ```
    */
-  build(): ITransport {
+  build(): Transport {
     return this.#transport
   }
 }

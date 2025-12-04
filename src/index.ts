@@ -23,49 +23,120 @@
  * @packageDocumentation
  */
 
-/**
- * Core Layer
- *
- * Essential building blocks for message bus functionality.
- * Includes bus interface, codec abstraction, transport contracts, and type definitions.
- */
-export * from './core/bus'
-export * from './core/codec'
-export type * from './core/transport'
-export type * from './core/types'
+// ============================================================================
+// PUBLIC API - Core Abstractions
+// ============================================================================
 
 /**
- * Infrastructure Layer
- *
- * Concrete implementations of transports, codecs, compression, encryption, and queuing systems.
- * - MemoryTransport: In-process messaging for testing and development
- * - RedisTransport: Distributed messaging via Redis Pub/Sub
- * - JsonCodec, MsgPackCodec: Data serialization implementations
- * - GzipCompression: Gzip compression implementation
- * - Base64Encryption, HMACEncryption: Encryption/authentication implementations
- * - RetryQueue: Retry queue for failed message delivery with pluggable strategies
+ * Bus - Main message bus class and manager
  */
-export * from './infrastructure/transports'
-export * from './infrastructure/codecs'
-export * from './infrastructure/compression'
-export * from './infrastructure/encryption'
-export * from './features/middleware/retry/queue'
+export { Bus, BusManager } from './core/bus'
+export type { BusOptions } from './core/bus'
 
 /**
- * Features Layer
+ * Contracts - Type definitions for extensibility
  *
- * Optional enhancements and middleware for advanced use cases.
- * - TransportBuilder: Fluent API for composing transport middleware
- * - RetryMiddleware: Automatic retry with exponential backoff
- * - CompressionMiddleware: Payload compression for bandwidth optimization
- * - EncryptionMiddleware: End-to-end encryption for secure messaging
+ * Use these to implement custom transports, codecs, compression, or encryption.
  */
-export * from './features/middleware'
-export * from './features/builder'
+export type { Transport } from './core/transport'
+export type { Codec, CodecType, CodecOption } from './core/codec'
+export type { Compression } from './core/compression'
+export type { Encryption } from './core/encryption'
 
 /**
- * Shared Layer
- *
- * Common utilities and error classes used throughout the library.
+ * Types - Core type definitions
  */
-export * from './shared/errors'
+export type {
+  Serializable,
+  TransportData,
+  MessageHandler,
+  TransportMessageHandler,
+} from './core/types'
+
+// ============================================================================
+// PUBLIC API - Transport Factories
+// ============================================================================
+
+/**
+ * Transport Factories
+ *
+ * Use these functions to create transport instances:
+ * - `memory()` - In-process messaging for testing/development
+ * - `redis()` - Distributed messaging via Redis Pub/Sub
+ */
+export { memory } from './infrastructure/transports/memory'
+export { redis } from './infrastructure/transports/redis'
+export type { RedisTransportConfig } from './infrastructure/transports/redis'
+
+// ============================================================================
+// PUBLIC API - Transport Builder
+// ============================================================================
+
+/**
+ * Transport Builder - Fluent API for middleware composition
+ *
+ * @example
+ * ```typescript
+ * const transport = new TransportBuilder(memory())
+ *   .withRetry(retryQueue)
+ *   .withCompression({ level: 6 })
+ *   .withEncryption({ strategy: new HMACEncryption(key) })
+ *   .build()
+ * ```
+ */
+export { TransportBuilder } from './features/builder'
+
+// ============================================================================
+// PUBLIC API - Errors
+// ============================================================================
+
+/**
+ * Error Classes - Structured errors for error handling
+ */
+export {
+  BusError,
+  BusNotConnectedError,
+  BusOperationError,
+  HandlerError,
+  CodecError,
+  EncodeError,
+  DecodeError,
+  InvalidCodecError,
+  TransportError,
+  TransportConnectionError,
+  TransportPublishError,
+  TransportSubscribeError,
+} from './shared/errors'
+
+// ============================================================================
+// ADVANCED API - Available via subpath imports
+// ============================================================================
+
+/**
+ * Advanced features available via subpath imports:
+ *
+ * ## Codec Implementations
+ * ```typescript
+ * import { JsonCodec, MsgPackCodec } from '@lokiverse/bus/infrastructure/codecs'
+ * ```
+ *
+ * ## Compression Implementations
+ * ```typescript
+ * import { GzipCompression } from '@lokiverse/bus/infrastructure/compression'
+ * ```
+ *
+ * ## Encryption Implementations
+ * ```typescript
+ * import { Base64Encryption, HMACEncryption } from '@lokiverse/bus/infrastructure/encryption'
+ * ```
+ *
+ * ## Retry Queue (Advanced)
+ * ```typescript
+ * import { RetryQueue } from '@lokiverse/bus/features/middleware/retry/queue'
+ * ```
+ *
+ * ## Middleware (Advanced)
+ * ```typescript
+ * import { RetryMiddleware, CompressionMiddleware, EncryptionMiddleware } from '@lokiverse/bus/features/middleware'
+ * ```
+ */

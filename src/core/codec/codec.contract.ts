@@ -7,7 +7,7 @@ import type { Serializable, TransportData } from '../types'
  * Codecs transform between user-facing Serializable types and binary
  * TransportData for efficient network transmission.
  */
-export interface ICodec {
+export interface Codec {
   /**
    * Codec identifier name
    *
@@ -74,7 +74,7 @@ export type CodecType = 'json' | 'msgpack'
  * const bus = new Bus({ transport, codec: 'msgpack' })
  *
  * // Using custom codec
- * const customCodec: ICodec = {
+ * const customCodec: Codec = {
  *   name: 'protobuf',
  *   encode: (data) => ...,
  *   decode: (data) => ...
@@ -82,4 +82,4 @@ export type CodecType = 'json' | 'msgpack'
  * const bus = new Bus({ transport, codec: customCodec })
  * ```
  */
-export type CodecOption = CodecType | ICodec
+export type CodecOption = CodecType | Codec

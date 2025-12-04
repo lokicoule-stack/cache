@@ -83,17 +83,21 @@ export class BusManager<T extends Record<string, BusOptions>> {
     }
 
     const cached = this.#buses.get(busName)
+
     if (cached) {
       return cached
     }
 
     const config = this.#config.transports[busName]
+
     if (!config) {
       throw new Error(`Transport '${String(busName)}' not found`)
     }
 
     const bus = new Bus(config)
+
     this.#buses.set(busName, bus)
+
     return bus
   }
 
@@ -214,35 +218,5 @@ export class BusManager<T extends Record<string, BusOptions>> {
    */
   async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
     return this.use().unsubscribe(channel, handler)
-  }
-
-  /**
-   * Get list of registered transport names
-   *
-   * Returns all transport names from the configuration,
-   * regardless of whether they have been instantiated.
-   *
-   * @example
-   * ```typescript
-   * console.log(manager.transports) // ['memory', 'redis']
-   * ```
-   */
-  get transports(): (keyof T)[] {
-    return Object.keys(this.#config.transports) as (keyof T)[]
-  }
-
-  /**
-   * Get list of active bus names
-   *
-   * Returns only the transport names that have been instantiated
-   * (via use()). Useful for monitoring which buses are cached.
-   *
-   * @example
-   * ```typescript
-   * console.log(manager.activeBuses) // ['memory'] - only if used
-   * ```
-   */
-  get activeBuses(): (keyof T)[] {
-    return Array.from(this.#buses.keys())
   }
 }

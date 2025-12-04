@@ -1,4 +1,4 @@
-import type { ICompression } from '@/core/compression'
+import type { Compression } from '@/core/compression'
 
 /**
  * Compression middleware configuration
@@ -7,7 +7,7 @@ export interface CompressionConfig {
   /**
    * Compression implementation to use
    */
-  compression: ICompression
+  compression: Compression
 }
 
 /**

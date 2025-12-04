@@ -1,25 +1,109 @@
-import { createCodec, type CodecOption, type ICodec } from '../codec'
+import { createCodec, type CodecOption, type Codec } from '../codec'
 
-import type { ITransport } from '../transport'
+import type { Transport } from '../transport'
 import type { MessageHandler, Serializable } from '../types'
-import type { IBus } from './bus.contract'
+import type { Bus as IBus } from './bus.contract'
 
 import { BusOperationError, HandlerError } from '@/shared/errors'
 
 /**
  * Bus configuration options
  *
- * @property transport - The underlying transport implementation (required)
- * @property codec - Codec for serialization (default: 'json'). Can be 'json',
- *                   'msgpack', or a custom ICodec implementation.
- * @property onHandlerError - Error handler for subscriber execution errors.
- *                            Receives channel name and error. Does not prevent
- *                            other handlers from executing. If not provided,
- *                            errors are swallowed to prevent cascading failures.
+ * @example Basic usage with magic string
+ * ```typescript
+ * const bus = new Bus({
+ *   transport: memory(),
+ *   codec: 'msgpack'  // Magic string - resolved automatically
+ * })
+ * ```
+ *
+ * @example Advanced usage with custom codec (DI)
+ * ```typescript
+ * import { JsonCodec } from '@lokiverse/bus/infrastructure/codecs'
+ *
+ * const bus = new Bus({
+ *   transport: memory(),
+ *   codec: new JsonCodec()  // Direct injection for advanced use cases
+ * })
+ * ```
  */
 export interface BusOptions {
-  transport: ITransport
+  /**
+   * The underlying transport implementation
+   *
+   * Use transport factory functions like `memory()` or `redis()`
+   * or provide a custom implementation of the Transport interface.
+   *
+   * @example
+   * ```typescript
+   * import { memory, redis } from '@lokiverse/bus'
+   *
+   * // Memory transport (testing/development)
+   * const memTransport = memory()
+   *
+   * // Redis transport (production)
+   * const redisTransport = redis({ host: 'localhost', port: 6379 })
+   * ```
+   */
+  transport: Transport
+
+  /**
+   * Codec for message serialization/deserialization
+   *
+   * Supports both magic strings for built-in codecs and direct injection
+   * of custom codec implementations (Dependency Injection pattern).
+   *
+   * **Built-in codecs (magic strings)**:
+   * - `'json'` (default): Standard JSON serialization, human-readable
+   * - `'msgpack'`: Binary MessagePack, more compact and faster
+   *
+   * **Custom codec (DI)**: Provide your own Codec implementation
+   *
+   * @default 'json'
+   *
+   * @example Magic string (simple)
+   * ```typescript
+   * const bus = new Bus({ transport, codec: 'msgpack' })
+   * ```
+   *
+   * @example Custom codec (advanced)
+   * ```typescript
+   * const customCodec: Codec = {
+   *   name: 'protobuf',
+   *   encode: (data) => /* ... *\/,
+   *   decode: (data) => /* ... *\/
+   * }
+   * const bus = new Bus({ transport, codec: customCodec })
+   * ```
+   */
   codec?: CodecOption
+
+  /**
+   * Error handler for subscriber execution errors
+   *
+   * Called when a message handler throws an error. Allows custom error
+   * handling, logging, or monitoring without disrupting other handlers.
+   *
+   * **Important**: Errors are isolated - one handler's failure does not
+   * prevent other handlers from receiving the message.
+   *
+   * @param channel - The channel where the error occurred
+   * @param error - The error thrown by the handler
+   *
+   * @default undefined (errors are swallowed to prevent cascading failures)
+   *
+   * @example Logging errors
+   * ```typescript
+   * const bus = new Bus({
+   *   transport,
+   *   onHandlerError: (channel, error) => {
+   *     console.error(`Handler error on ${channel}:`, error)
+   *     // Send to monitoring service
+   *     monitoring.recordError(error)
+   *   }
+   * })
+   * ```
+   */
   onHandlerError?: (channel: string, error: Error) => void
 }
 
@@ -46,8 +130,8 @@ export interface BusOptions {
  * ```
  */
 export class Bus implements IBus {
-  #transport: ITransport
-  #codec: ICodec
+  #transport: Transport
+  #codec: Codec
   #handlers = new Map<string, Set<MessageHandler>>()
   #onHandlerError?: (channel: string, error: Error) => void
 
@@ -120,6 +204,7 @@ export class Bus implements IBus {
   async publish<T extends Serializable>(channel: string, data: T): Promise<void> {
     try {
       const bytes = this.#codec.encode(data)
+
       await this.#transport.publish(channel, bytes)
     } catch (error) {
       throw new BusOperationError('publish', error as Error)
@@ -159,6 +244,7 @@ export class Bus implements IBus {
           try {
             const data = this.#codec.decode<T>(bytes)
             const handlers = this.#handlers.get(channel)
+
             if (handlers) {
               for (const h of handlers) {
                 try {
@@ -206,6 +292,7 @@ export class Bus implements IBus {
    */
   async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
     const handlers = this.#handlers.get(channel)
+
     if (!handlers) {
       return
     }
@@ -227,16 +314,6 @@ export class Bus implements IBus {
   }
 
   /**
-   * Get list of subscribed channels
-   *
-   * Returns an array of channel names that have active subscriptions.
-   * Useful for debugging and monitoring.
-   */
-  get channels(): string[] {
-    return Array.from(this.#handlers.keys())
-  }
-
-  /**
    * Handle errors from handler execution
    *
    * Wraps handler errors in HandlerError and invokes the onHandlerError
@@ -249,6 +326,7 @@ export class Bus implements IBus {
    */
   #handleError(channel: string, error: Error): void {
     const handlerError = new HandlerError(channel, error)
+
     if (this.#onHandlerError) {
       this.#onHandlerError(channel, handlerError)
     }

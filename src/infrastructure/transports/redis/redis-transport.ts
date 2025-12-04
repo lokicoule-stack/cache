@@ -1,7 +1,7 @@
 import { createClient } from 'redis'
 
 import type { RedisTransportConfig } from './redis-transport.config'
-import type { ITransport } from '@/core/transport'
+import type { Transport } from '@/core/transport'
 import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 import {
@@ -52,7 +52,7 @@ import {
  *
  * @see {@link https://redis.io/docs/interact/pubsub/ | Redis Pub/Sub Documentation}
  */
-export class RedisTransport implements ITransport {
+export class RedisTransport implements Transport {
   readonly name = 'redis'
 
   #publisher?: ReturnType<typeof createClient>

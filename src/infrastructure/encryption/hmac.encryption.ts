@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto'
 
-import type { IEncryption } from '@/core/encryption'
+import type { Encryption } from '@/core/encryption'
 import type { TransportData } from '@/core/types'
 
 /**
@@ -26,7 +26,7 @@ import type { TransportData } from '@/core/types'
  * const decrypted = encryption.decrypt(encrypted) // Throws if HMAC invalid
  * ```
  */
-export class HMACEncryption implements IEncryption {
+export class HMACEncryption implements Encryption {
   private static readonly SIGNATURE_LENGTH = 32 // SHA-256 = 32 bytes
 
   readonly #key: Buffer

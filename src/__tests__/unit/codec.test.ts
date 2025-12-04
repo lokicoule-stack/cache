@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { setupTestEnvironment } from '../utils/test-helpers'
 
-import { createCodec, type ICodec } from '@/core/codec'
+import { createCodec, type Codec } from '@/core/codec'
 import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
 
 setupTestEnvironment()
@@ -391,7 +391,7 @@ describe('createCodec', () => {
   })
 
   it('should return custom codec when provided', () => {
-    const customCodec: ICodec = {
+    const customCodec: Codec = {
       name: 'custom',
       encode: (_data) => new Uint8Array(),
       decode: (_data) => null as any,
