@@ -2,9 +2,9 @@ import { TransportMiddleware } from '../base'
 
 import { type RetryConfig, DEFAULT_RETRY_CONFIG } from './retry.config'
 
-import type { ITransport } from '../../../core/transport'
-import type { TransportData } from '../../../core/types'
-import type { RetryQueue } from '../../../infrastructure/queue'
+import type { ITransport } from '@/core/transport'
+import type { TransportData } from '@/core/types'
+import type { RetryQueue } from '@/infrastructure/queue'
 
 /**
  * Retry middleware - automatically retries failed publishes using a queue

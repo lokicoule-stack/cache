@@ -1,4 +1,4 @@
-import type { ITransport } from '../../../core/transport'
+import type { ITransport } from '@/core/transport'
 
 /**
  * Middleware interface - extends transport to allow chaining

@@ -2,8 +2,8 @@ import { type CompressionConfig, CompressionMiddleware } from '../middleware/com
 import { type EncryptionConfig, EncryptionMiddleware } from '../middleware/encryption'
 import { type RetryConfig, RetryMiddleware } from '../middleware/retry'
 
-import type { ITransport } from '../../core/transport'
-import type { RetryQueue } from '../../infrastructure/queue'
+import type { ITransport } from '@/core/transport'
+import type { RetryQueue } from '@/infrastructure/queue'
 
 /**
  * Fluent builder for composing transport with middlewares

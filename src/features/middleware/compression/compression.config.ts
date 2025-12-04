@@ -1,4 +1,4 @@
-import type { ICompression } from '../../../core/compression'
+import type { ICompression } from '@/core/compression'
 
 /**
  * Compression middleware configuration

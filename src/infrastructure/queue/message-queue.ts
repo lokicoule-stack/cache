@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { QueueFullError } from '../../shared/errors'
+import { QueueFullError } from '@/shared/errors'
 
-import type { TransportData } from '../../core/types'
+import type { TransportData } from '@/core/types'
 import type { QueuedMessage } from './retry-queue.contract'
 
 /**

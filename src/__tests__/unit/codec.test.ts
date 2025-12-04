@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { JsonCodec, MsgPackCodec, resolveCodec, type ICodec } from '../../codec'
+import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
+import { createCodec, type ICodec } from '@/core/codec'
 import { setupTestEnvironment } from '../utils/test-helpers'
 
 setupTestEnvironment()
@@ -372,39 +373,39 @@ describe('MsgPackCodec', () => {
   })
 })
 
-describe('resolveCodec', () => {
+describe('createCodec', () => {
   it('should return JsonCodec for "json"', () => {
-    const codec = resolveCodec('json')
+    const codec = createCodec('json')
     expect(codec).toBeInstanceOf(JsonCodec)
   })
 
   it('should return JsonCodec for undefined', () => {
-    const codec = resolveCodec(undefined)
+    const codec = createCodec(undefined)
     expect(codec).toBeInstanceOf(JsonCodec)
   })
 
   it('should return MsgPackCodec for "msgpack"', () => {
-    const codec = resolveCodec('msgpack')
+    const codec = createCodec('msgpack')
     expect(codec).toBeInstanceOf(MsgPackCodec)
   })
 
   it('should return custom codec when provided', () => {
     const customCodec: ICodec = {
-      encode: (data) => new Uint8Array(),
-      decode: (data) => null,
+      name: 'custom',
+      encode: (_data) => new Uint8Array(),
+      decode: (_data) => null as any,
     }
-    const codec = resolveCodec(customCodec)
+    const codec = createCodec(customCodec)
     expect(codec).toBe(customCodec)
   })
 
-  it('should return JsonCodec for unknown string', () => {
-    const codec = resolveCodec('unknown' as never)
-    expect(codec).toBeInstanceOf(JsonCodec)
+  it('should throw for unknown string', () => {
+    expect(() => createCodec('unknown' as never)).toThrow()
   })
 
-  it('should cache codec instances', () => {
-    const codec1 = resolveCodec('json')
-    const codec2 = resolveCodec('json')
+  it('should create new codec instances', () => {
+    const codec1 = createCodec('json')
+    const codec2 = createCodec('json')
     expect(codec1).not.toBe(codec2)
   })
 })

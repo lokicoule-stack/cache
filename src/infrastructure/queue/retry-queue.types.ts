@@ -1,4 +1,4 @@
-import type { TransportData } from '../../core/types'
+import type { TransportData } from '@/core/types'
 import type { IRetryStrategy } from './retry-strategy.contract'
 
 /**

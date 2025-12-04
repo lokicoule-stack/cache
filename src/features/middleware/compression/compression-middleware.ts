@@ -1,9 +1,9 @@
 import { TransportMiddleware } from '../base'
 
 import type { CompressionConfig } from './compression.config'
-import type { ICompression } from '../../../core/compression'
-import type { ITransport } from '../../../core/transport'
-import type { TransportData, TransportMessageHandler } from '../../../core/types'
+import type { ICompression } from '@/core/compression'
+import type { ITransport } from '@/core/transport'
+import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 /**
  * Compression middleware with pluggable compression implementations

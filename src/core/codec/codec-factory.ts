@@ -1,5 +1,5 @@
-import { JsonCodec, MsgPackCodec } from '../../infrastructure/codecs'
-import { InvalidCodecError } from '../../shared/errors'
+import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
+import { InvalidCodecError } from '@/shared/errors'
 
 import type { CodecOption, ICodec } from './codec.contract'
 
@@ -22,7 +22,7 @@ import type { CodecOption, ICodec } from './codec.contract'
  *
  * // Using custom codec
  * const customCodec = createCodec({
- *   name: 'protobuf',
+ *   name: 'custom',
  *   encode: (data) => ...,
  *   decode: (data) => ...
  * })

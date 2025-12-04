@@ -5,7 +5,13 @@
     "lib": ["ES2022"],
     "module": "ES2022",
     "moduleResolution": "bundler",
-    
+
+    /* Path Mapping */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
     /* Emit */
     "outDir": "./dist",
     "rootDir": "./src",

@@ -1,4 +1,4 @@
-import type { IEncryption } from '../../../core/encryption'
+import type { IEncryption } from '@/core/encryption'
 
 /**
  * Encryption middleware configuration

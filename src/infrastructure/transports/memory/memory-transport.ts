@@ -1,5 +1,5 @@
-import type { ITransport } from '../../../core/transport'
-import type { TransportData, TransportMessageHandler } from '../../../core/types'
+import type { ITransport } from '@/core/transport'
+import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 /**
  * In-memory transport for local/testing use

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Bus } from '../../bus'
+import { Bus } from '@/core/bus'
 import {
   MockTransport,
   createDeferred,
@@ -39,6 +39,7 @@ describe('Bus', () => {
 
     it('should create bus instance with custom codec', () => {
       const customCodec = {
+        name: 'custom',
         encode: (data: unknown) => new Uint8Array(Buffer.from(JSON.stringify(data))),
         decode: (data: Uint8Array) => JSON.parse(Buffer.from(data).toString()),
       }

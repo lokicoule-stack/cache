@@ -1,5 +1,5 @@
-import type { IEncryption } from '../../core/encryption'
-import type { TransportData } from '../../core/types'
+import type { IEncryption } from '@/core/encryption'
+import type { TransportData } from '@/core/types'
 
 /**
  * Base64 encoding (obfuscation only, NOT secure)

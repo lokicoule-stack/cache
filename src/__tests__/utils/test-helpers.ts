@@ -1,6 +1,7 @@
 import { beforeEach, vi } from 'vitest'
 
-import type { ITransport, TransportData, TransportMessageHandler } from '../../types'
+import type { ITransport } from '@/core/transport'
+import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 /**
  * Mock transport for testing

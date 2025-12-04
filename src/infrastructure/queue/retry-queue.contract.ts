@@ -1,4 +1,4 @@
-import type { TransportData } from '../../core/types'
+import type { TransportData } from '@/core/types'
 
 /**
  * Queued message metadata

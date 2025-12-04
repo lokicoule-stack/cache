@@ -1,6 +1,6 @@
 import type { IMiddleware } from './middleware.contract'
-import type { ITransport } from '../../../core/transport'
-import type { TransportData, TransportMessageHandler } from '../../../core/types'
+import type { ITransport } from '@/core/transport'
+import type { TransportData, TransportMessageHandler } from '@/core/types'
 
 /**
  * Base transport middleware - provides pass-through implementation

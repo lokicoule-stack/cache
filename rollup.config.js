@@ -1,8 +1,19 @@
-import typescript from '@rollup/plugin-typescript'
+import alias from '@rollup/plugin-alias'
 import terser from '@rollup/plugin-terser'
+import typescript from '@rollup/plugin-typescript'
+import { dirname, resolve } from 'path'
 import dts from 'rollup-plugin-dts'
+import { fileURLToPath } from 'url'
 
-const external = ['@lokiverse/emitter']
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+
+const aliasConfig = alias({
+  entries: [
+    { find: '@', replacement: resolve(__dirname, 'src') }
+  ]
+})
 
 export default [
   // ESM build
@@ -13,8 +24,8 @@ export default [
       format: 'es',
       sourcemap: true,
     },
-    external,
     plugins: [
+      aliasConfig,
       typescript({
         tsconfig: './tsconfig.json',
         declaration: false,
@@ -30,6 +41,6 @@ export default [
       format: 'es',
     },
     external,
-    plugins: [dts()],
+    plugins: [aliasConfig, dts()],
   },
 ]

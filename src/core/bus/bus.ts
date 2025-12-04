@@ -1,4 +1,4 @@
-import { BusOperationError, HandlerError } from '../../shared/errors'
+import { BusOperationError, HandlerError } from '@/shared/errors'
 import { createCodec, type CodecOption, type ICodec } from '../codec'
 
 import type { ITransport } from '../transport'

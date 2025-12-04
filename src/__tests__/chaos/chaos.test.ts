@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Bus } from '../../bus'
-import { MemoryTransport } from '../../transports/memory'
+import { Bus } from '@/core/bus'
+import { MemoryTransport } from '@/infrastructure/transports/memory'
 import {
   FlakyTransport,
   MockTransport,
@@ -476,6 +476,7 @@ describe('Chaos Engineering Tests', () => {
   describe('codec failures under stress', () => {
     it('should handle codec errors gracefully', async () => {
       const faultyCodec = {
+        name: 'faulty',
         encode: () => {
           throw new Error('Encode failed')
         },
