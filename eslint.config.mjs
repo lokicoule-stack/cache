@@ -115,18 +115,25 @@ export default [
       'curly': ['error', 'all'],
 
       // Stylistic rules - Prettier handles most of these, keep only non-conflicting
-      '@stylistic/ts/member-delimiter-style': [
+      '@stylistic/member-delimiter-style': [
         'error',
         {
           multiline: { delimiter: 'none' },
           singleline: { delimiter: 'semi' },
         },
       ],
-      '@stylistic/ts/object-curly-spacing': ['error', 'always'],
-      '@stylistic/ts/lines-between-class-members': [
+      '@stylistic/object-curly-spacing': ['error', 'always'],
+      '@stylistic/lines-between-class-members': [
         'error',
         'always',
         { exceptAfterSingleLine: true },
+      ],
+      '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }],
+      '@stylistic/padding-line-between-statements': [
+        'error',
+        { blankLine: 'always', prev: '*', next: 'return' },
+        { blankLine: 'always', prev: ['const', 'let', 'var'], next: '*' },
+        { blankLine: 'any', prev: ['const', 'let', 'var'], next: ['const', 'let', 'var'] },
       ],
     },
   },
