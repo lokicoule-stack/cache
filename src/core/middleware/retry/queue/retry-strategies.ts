@@ -1,4 +1,6 @@
-import type { IRetryStrategy } from './retry-strategy.contract'
+export interface IRetryStrategy {
+  calculateDelay(attempt: number, baseDelayMs: number): number
+}
 
 export class ExponentialBackoffStrategy implements IRetryStrategy {
   calculateDelay(attempt: number, baseDelayMs: number): number {
@@ -13,15 +15,13 @@ export class LinearBackoffStrategy implements IRetryStrategy {
 }
 
 /**
- * Increases delay following Fibonacci sequence: baseDelay * fib(attempt)
  * Grows slower than exponential but faster than linear.
- * Good balance between aggressive and conservative backoff.
  */
 export class FibonacciBackoffStrategy implements IRetryStrategy {
   calculateDelay(attempt: number, baseDelayMs: number): number {
     return baseDelayMs * this.#fibonacci(attempt)
   }
- 
+
   #fibonacci(n: number): number {
     if (n <= 1) {return 1}
     let prev = 1

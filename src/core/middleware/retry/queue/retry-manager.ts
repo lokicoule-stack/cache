@@ -1,5 +1,5 @@
-import type { QueuedMessage } from './retry-queue.contract'
-import type { IRetryStrategy } from './retry-strategy.contract'
+import type { QueuedMessage } from './retry-queue'
+import type { IRetryStrategy } from './retry-strategies'
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
 

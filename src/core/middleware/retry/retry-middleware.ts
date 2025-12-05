@@ -6,9 +6,6 @@ import type { RetryQueue } from './queue/retry-queue'
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
 
-/**
- * Retry middleware - automatically retries failed publishes using a queue
- */
 export class RetryMiddleware extends TransportMiddleware {
   #retryQueue?: RetryQueue
   #config: Required<RetryConfig>
