@@ -1,11 +1,14 @@
+import {
+  exponentialBackoff,
+  fibonacciBackoff,
+  linearBackoff,
+  type OnDeadLetterCallback,
+  type OnRetryCallback,
+  type RetryBackoff,
+} from '../retry-backoff'
+
 import { MessageQueue } from './message-queue'
 import { RetryManager } from './retry-manager'
-import {
-  ExponentialBackoffStrategy,
-  FibonacciBackoffStrategy,
-  LinearBackoffStrategy,
-  type IRetryStrategy,
-} from './retry-strategies'
 
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
@@ -62,9 +65,9 @@ export interface RetryQueueOptions {
    * - 'exponential': Doubles delay each attempt (2^n)
    * - 'linear': Fixed delay (constant)
    * - 'fibonacci': Fibonacci sequence growth
-   * - Custom: Provide IRetryStrategy instance
+   * - Custom: Provide RetryBackoff function
    */
-  backoff?: 'exponential' | 'linear' | 'fibonacci' | IRetryStrategy
+  backoff?: 'exponential' | 'linear' | 'fibonacci' | RetryBackoff
 
   /**
    * Remove duplicate messages (default: true)
@@ -87,21 +90,12 @@ export interface RetryQueueOptions {
   /**
    * Callback when message is moved to dead letter queue
    */
-  onDeadLetter?: (
-    channel: string,
-    data: TransportData,
-    error: Error,
-    attempts: number,
-  ) => void | Promise<void>
+  onDeadLetter?: OnDeadLetterCallback
 
   /**
    * Callback on retry attempt
    */
-  onRetry?: (
-    channel: string,
-    data: TransportData,
-    attempt: number,
-  ) => void | Promise<void>
+  onRetry?: OnRetryCallback
 }
 
 /**
@@ -129,12 +123,12 @@ export class RetryQueue {
     this.#baseDelayMs = baseDelayMs
     this.#concurrency = concurrency
 
-    const strategy = this.#resolveStrategy(backoff)
+    const backoffFn = this.#resolveBackoff(backoff)
 
     this.#messageQueue = new MessageQueue(maxSize, removeDuplicates)
     this.#retryManager = new RetryManager(
       transport,
-      strategy,
+      backoffFn,
       maxAttempts,
       baseDelayMs,
       options.onRetry,
@@ -183,20 +177,20 @@ export class RetryQueue {
     }
   }
 
-  #resolveStrategy(
-    backoff: 'exponential' | 'linear' | 'fibonacci' | IRetryStrategy,
-  ): IRetryStrategy {
-    if (typeof backoff === 'string') {
-      switch (backoff) {
-        case 'exponential':
-          return new ExponentialBackoffStrategy()
-        case 'linear':
-          return new LinearBackoffStrategy()
-        case 'fibonacci':
-          return new FibonacciBackoffStrategy()
-      }
+  #resolveBackoff(
+    backoff: 'exponential' | 'linear' | 'fibonacci' | RetryBackoff,
+  ): RetryBackoff {
+    if (typeof backoff === 'function') {
+      return backoff
     }
 
-    return backoff
+    switch (backoff) {
+      case 'exponential':
+        return exponentialBackoff
+      case 'linear':
+        return linearBackoff
+      case 'fibonacci':
+        return fibonacciBackoff
+    }
   }
 }

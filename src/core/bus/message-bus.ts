@@ -5,8 +5,9 @@ import type { CodecOption, Codec } from '@/contracts/codec'
 import type { Transport, MessageHandler, Serializable } from '@/types'
 
 import { type MiddlewareConfig , composeMiddleware } from '@/core/middleware/middleware'
-import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
 import { InvalidCodecError } from '@/infrastructure/codecs/codec-errors'
+import { JsonCodec } from '@/infrastructure/codecs/json-codec'
+import { MsgPackCodec } from '@/infrastructure/codecs/msgpack-codec'
 
 /**
  * Bus configuration options

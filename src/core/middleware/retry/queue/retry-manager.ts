@@ -1,9 +1,12 @@
 import { DeadLetterError } from '../retry-errors'
 
+import type {
+  OnDeadLetterCallback,
+  OnRetryCallback,
+  RetryBackoff,
+} from '../retry-backoff'
 import type { QueuedMessage } from './retry-queue'
-import type { IRetryStrategy } from './retry-strategies'
 import type { Transport } from '@/contracts/transport'
-import type { TransportData } from '@/types'
 
 /**
  * Result of retry attempt processing
@@ -36,51 +39,32 @@ interface RetryResult {
  */
 export class RetryManager {
   #transport: Transport
-  #strategy: IRetryStrategy
+  #backoff: RetryBackoff
   #maxAttempts: number
   #baseDelayMs: number
-  #onRetry?: (
-    channel: string,
-    data: TransportData,
-    attempt: number,
-  ) => void | Promise<void>
-
-  #onDeadLetter?: (
-    channel: string,
-    data: TransportData,
-    error: Error,
-    attempts: number,
-  ) => void | Promise<void>
+  #onRetry?: OnRetryCallback
+  #onDeadLetter?: OnDeadLetterCallback
 
   /**
    * Create retry manager
    *
    * @param transport - Transport for publish attempts
-   * @param strategy - Backoff strategy implementation
+   * @param backoff - Backoff function for delay calculation
    * @param maxAttempts - Max retry attempts before dead letter
-   * @param baseDelayMs - Base delay for strategy calculation
+   * @param baseDelayMs - Base delay for backoff calculation
    * @param onRetry - Optional retry callback
    * @param onDeadLetter - Optional dead letter callback
    */
   constructor(
     transport: Transport,
-    strategy: IRetryStrategy,
+    backoff: RetryBackoff,
     maxAttempts: number,
     baseDelayMs: number,
-    onRetry?: (
-      channel: string,
-      data: TransportData,
-      attempt: number,
-    ) => void | Promise<void>,
-    onDeadLetter?: (
-      channel: string,
-      data: TransportData,
-      error: Error,
-      attempts: number,
-    ) => void | Promise<void>,
+    onRetry?: OnRetryCallback,
+    onDeadLetter?: OnDeadLetterCallback,
   ) {
     this.#transport = transport
-    this.#strategy = strategy
+    this.#backoff = backoff
     this.#maxAttempts = maxAttempts
     this.#baseDelayMs = baseDelayMs
     this.#onRetry = onRetry
@@ -147,8 +131,8 @@ export class RetryManager {
         return { shouldRemove: true }
       }
 
-      // Calculate next retry delay using strategy
-      const delayMs = this.#strategy.calculateDelay(message.attempts, this.#baseDelayMs)
+      // Calculate next retry delay using backoff function
+      const delayMs = this.#backoff(message.attempts, this.#baseDelayMs)
       const nextRetryAt = new Date(Date.now() + delayMs)
 
       // Reschedule
