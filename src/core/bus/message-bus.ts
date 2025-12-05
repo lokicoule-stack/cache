@@ -1,9 +1,12 @@
 import { BusOperationError, HandlerError } from './bus-errors'
-import { resolveCodec } from './codec-resolver'
 
 import type { Bus } from '@/contracts/bus'
 import type { CodecOption, Codec } from '@/contracts/codec'
 import type { Transport, MessageHandler, Serializable } from '@/types'
+
+import { type MiddlewareConfig , composeMiddleware } from '@/core/middleware/middleware'
+import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
+import { InvalidCodecError } from '@/infrastructure/codecs/codec-errors'
 
 /**
  * Bus configuration options
@@ -78,6 +81,38 @@ export interface BusOptions {
   codec?: CodecOption
 
   /**
+   * Middleware configuration
+   *
+   * Configure optional middleware layers for compression, encryption, and retry.
+   * Each middleware can be enabled using magic strings, config objects, or custom implementations.
+   *
+   * @example Basic middleware with magic strings
+   * ```typescript
+   * const bus = new Bus({
+   *   transport: memory(),
+   *   middleware: {
+   *     compression: 'gzip',
+   *     encryption: 'base64',
+   *     retry: { enabled: true }
+   *   }
+   * })
+   * ```
+   *
+   * @example Advanced middleware with custom config
+   * ```typescript
+   * const bus = new Bus({
+   *   transport: memory(),
+   *   middleware: {
+   *     compression: { type: 'gzip', level: 9, threshold: 2048 },
+   *     encryption: { type: 'hmac', key: mySecretKey },
+   *     retry: { enabled: true }
+   *   }
+   * })
+   * ```
+   */
+  middleware?: MiddlewareConfig
+
+  /**
    * Error handler for subscriber execution errors
    *
    * Called when a message handler throws an error. Allows custom error
@@ -113,8 +148,8 @@ export class MessageBus implements Bus {
   #onHandlerError?: (channel: string, error: Error) => void
 
   constructor(options: BusOptions) {
-    this.#transport = options.transport
-    this.#codec = resolveCodec(options.codec)
+    this.#transport = composeMiddleware(options.transport, options.middleware)
+    this.#codec = this.#resolveCodec(options.codec)
     this.#onHandlerError = options.onHandlerError
   }
 
@@ -283,6 +318,31 @@ export class MessageBus implements Bus {
     } catch (error) {
       throw new BusOperationError('unsubscribe', error as Error)
     }
+  }
+
+  /**
+   * Resolve codec option to concrete implementation
+   *
+   * @param option - Codec option (magic string or implementation)
+   * @returns Resolved codec implementation
+   * @private
+   */
+  #resolveCodec(option?: CodecOption): Codec {
+    // Handle magic strings
+    if (!option || option === 'json') {
+      return new JsonCodec()
+    }
+
+    if (option === 'msgpack') {
+      return new MsgPackCodec()
+    }
+
+    // Direct Codec interface injection (duck typing check)
+    if (typeof option === 'object' && 'encode' in option && 'decode' in option) {
+      return option
+    }
+
+    throw new InvalidCodecError(String(option))
   }
 
   /**
