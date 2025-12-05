@@ -1,3 +1,3 @@
-export { processBatch } from './batch-processor'
+export { processBatch } from './batch'
 export { createScheduler } from './scheduler'
 export type { Scheduler } from './scheduler'

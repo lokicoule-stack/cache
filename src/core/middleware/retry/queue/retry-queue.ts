@@ -10,7 +10,7 @@ import {
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
 
-import { processBatch } from '@/shared/utils/batch-processor'
+import { processBatch } from '@/shared/utils/batch'
 import { createScheduler, type Scheduler } from '@/shared/utils/scheduler'
 
 /**

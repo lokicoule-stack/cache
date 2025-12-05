@@ -1,10 +1,9 @@
+import { BusOperationError, HandlerError } from './bus-errors'
 import { resolveCodec } from './codec-resolver'
 
 import type { Bus } from '@/contracts/bus'
 import type { CodecOption, Codec } from '@/contracts/codec'
 import type { Transport, MessageHandler, Serializable } from '@/types'
-
-import { BusOperationError, HandlerError } from '@/shared/errors'
 
 /**
  * Bus configuration options

@@ -1,7 +1,7 @@
 import type { Codec, CodecOption } from '@/contracts/codec'
 
 import { JsonCodec, MsgPackCodec } from '@/infrastructure/codecs'
-import { InvalidCodecError } from '@/shared/errors'
+import { InvalidCodecError } from '@/infrastructure/codecs/codec-errors'
 
 export function resolveCodec(option?: CodecOption): Codec {
   if (!option || option === 'json') {

@@ -1,6 +1,6 @@
-import { TransportMiddleware } from '../base-middleware'
+import { TransportMiddleware } from '../base'
 
-import { type RetryConfig, DEFAULT_RETRY_CONFIG } from './retry.config'
+import { type RetryConfig, DEFAULT_RETRY_CONFIG } from './retry-config'
 
 import type { RetryQueue } from './queue/retry-queue'
 import type { Transport } from '@/contracts/transport'

@@ -1,4 +1,4 @@
-import { MessageBus, type  BusOptions } from './message-bus'
+import { MessageBus, type BusOptions } from './message-bus'
 
 import type { MessageHandler, Serializable } from '../../types'
 import type { Bus } from '@/contracts/bus'

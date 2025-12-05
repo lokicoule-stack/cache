@@ -1,1 +1,1 @@
-export * from './gzip.compression'
+export * from './gzip-compression'

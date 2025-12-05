@@ -1,6 +1,6 @@
-import { TransportMiddleware } from '../base-middleware'
+import { TransportMiddleware } from '../base'
 
-import type { CompressionConfig } from './compression.config'
+import type { CompressionConfig } from './compression-config'
 import type { Compression } from '@/contracts/compression'
 import type { Transport, TransportData, TransportMessageHandler } from '@/types'
 

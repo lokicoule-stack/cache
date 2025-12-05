@@ -1,2 +1,2 @@
-export * from './json.codec'
-export * from './msgpack.codec'
+export * from './json-codec'
+export * from './msgpack-codec'

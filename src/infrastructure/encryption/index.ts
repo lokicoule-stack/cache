@@ -1,2 +1,2 @@
-export * from './base64.encryption'
-export * from './hmac.encryption'
+export * from './base64-encryption'
+export * from './hmac-encryption'

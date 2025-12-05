@@ -75,6 +75,7 @@ export class MemoryTransport implements Transport {
    */
   async publish(channel: string, data: TransportData): Promise<void> {
     const handlers = this.#channels.get(channel)
+
     if (handlers) {
       for (const handler of handlers) {
         Promise.resolve(handler(data)).catch(() => {})
