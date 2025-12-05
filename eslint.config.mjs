@@ -135,6 +135,18 @@ export default [
         { blankLine: 'always', prev: ['const', 'let', 'var'], next: '*' },
         { blankLine: 'any', prev: ['const', 'let', 'var'], next: ['const', 'let', 'var'] },
       ],
+      '@stylistic/max-len': [
+        'error',
+        {
+          code: 100,
+          tabWidth: 2,
+          ignoreUrls: true,
+          ignoreStrings: false,
+          ignoreTemplateLiterals: false,
+          ignoreRegExpLiterals: true,
+          ignoreComments: false,
+        },
+      ],
     },
   },
 
