@@ -3,7 +3,8 @@ import { TransportMiddleware } from '../base'
 import { isGzipConfig, type CompressionConfig, type CompressionOption } from './compression-config'
 
 import type { Compression } from '@/contracts/compression'
-import type { Transport, TransportData, TransportMessageHandler } from '@/types'
+import type { Transport } from '@/contracts/transport'
+import type { TransportData, TransportMessageHandler } from '@/types'
 
 import { GzipCompression } from '@/infrastructure/compression/gzip-compression'
 

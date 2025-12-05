@@ -2,7 +2,8 @@ import { BusOperationError, HandlerError } from './bus-errors'
 
 import type { Bus } from '@/contracts/bus'
 import type { CodecOption, Codec } from '@/contracts/codec'
-import type { Transport, MessageHandler, Serializable } from '@/types'
+import type { Transport } from '@/contracts/transport'
+import type { MessageHandler, Serializable } from '@/types'
 
 import { type MiddlewareConfig , composeMiddleware } from '@/core/middleware/middleware'
 import { InvalidCodecError } from '@/infrastructure/codecs/codec-errors'
