@@ -46,7 +46,12 @@ export class MessageQueue {
    * @returns Message ID if enqueued, undefined if duplicate
    * @throws {QueueFullError} If queue at capacity
    */
-  enqueue(channel: string, data: TransportData, baseDelayMs: number, error?: string): string | undefined {
+  enqueue(
+    channel: string,
+    data: TransportData,
+    baseDelayMs: number,
+    error?: string,
+  ): string | undefined {
     if (this.#queue.size >= this.#maxSize) {
       throw new QueueFullError(this.#maxSize, channel)
     }

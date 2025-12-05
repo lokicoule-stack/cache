@@ -1,5 +1,7 @@
 import { createHmac } from 'node:crypto'
 
+import { HMACVerificationError, InvalidEncryptionDataError } from './encryption-errors'
+
 import type { Encryption } from '@/contracts/encryption'
 import type { TransportData } from '@/types'
 
@@ -57,7 +59,7 @@ export class HMACEncryption implements Encryption {
 
   decrypt(data: Uint8Array): Uint8Array {
     if (data.length < HMACEncryption.SIGNATURE_LENGTH) {
-      throw new Error('Invalid HMAC data: too short')
+      throw new InvalidEncryptionDataError('Invalid HMAC data: too short')
     }
 
     // Extract signature and payload
@@ -71,7 +73,7 @@ export class HMACEncryption implements Encryption {
     const expectedSignature = hmac.digest()
 
     if (!this.#constantTimeCompare(receivedSignature, expectedSignature)) {
-      throw new Error('HMAC verification failed')
+      throw new HMACVerificationError()
     }
 
     return payload

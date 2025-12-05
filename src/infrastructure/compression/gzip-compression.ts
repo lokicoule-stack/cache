@@ -1,6 +1,8 @@
 import { promisify } from 'node:util'
 import { gunzip, gzip } from 'node:zlib'
 
+import { InvalidCompressionDataError, UnknownCompressionMarkerError } from './compression-errors'
+
 import type { Compression } from '@/contracts/compression'
 import type { TransportData } from '@/types'
 
@@ -108,7 +110,8 @@ export class GzipCompression implements Compression {
    *
    * @param data - Compressed data with marker
    * @returns Original uncompressed data
-   * @throws {Error} If data is invalid or marker is unknown
+   * @throws {InvalidCompressionDataError} If data is invalid
+   * @throws {UnknownCompressionMarkerError} If marker is unknown
    */
   async decompress(data: Uint8Array): Promise<Uint8Array> {
     this.#validateData(data)
@@ -124,7 +127,7 @@ export class GzipCompression implements Compression {
         return payload
 
       default:
-        throw new Error(`Unknown compression marker: ${marker as number}`)
+        throw new UnknownCompressionMarkerError(marker as number)
     }
   }
 
@@ -140,7 +143,7 @@ export class GzipCompression implements Compression {
    */
   #validateData(data: Uint8Array): void {
     if (data.length < GzipCompression.MARKER_SIZE) {
-      throw new Error('Invalid compressed data: too short')
+      throw new InvalidCompressionDataError('Invalid compressed data: too short')
     }
   }
 

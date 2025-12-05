@@ -1,3 +1,4 @@
+import { BusConfigurationError } from './bus-errors'
 import { MessageBus, type BusOptions } from './message-bus'
 
 import type { MessageHandler, Serializable } from '../../types'
@@ -67,8 +68,8 @@ export class BusManager<T extends Record<string, BusOptions>> {
    * @template K - Transport name key
    * @param name - Transport name (optional, uses default if omitted)
    * @returns Bus instance for the specified transport
-   * @throws {Error} If no name specified and no default configured
-   * @throws {Error} If transport name not found in configuration
+   * @throws {BusConfigurationError} If no name specified and no default configured
+   * @throws {BusConfigurationError} If transport name not found in configuration
    *
    * @example
    * ```typescript
@@ -80,7 +81,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     const busName = (name ?? this.#config.default) as keyof T
 
     if (!busName) {
-      throw new Error('No bus name specified and no default configured')
+      throw new BusConfigurationError('No bus name specified and no default configured')
     }
 
     const cached = this.#buses.get(busName)
@@ -92,7 +93,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     const config = this.#config.transports[busName]
 
     if (!config) {
-      throw new Error(`Transport '${String(busName)}' not found`)
+      throw new BusConfigurationError(`Transport '${String(busName)}' not found`)
     }
 
     const bus = new MessageBus(config)
@@ -162,7 +163,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
    * @param channel - The channel name to publish to
    * @param data - The message data to publish
    * @returns Promise that resolves when message is published
-   * @throws {Error} If no default bus configured
+   * @throws {BusConfigurationError} If no default bus configured
    * @throws {BusOperationError} If publish operation fails
    *
    * @example
@@ -183,7 +184,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
    * @param channel - The channel name to subscribe to
    * @param handler - Function to handle incoming messages
    * @returns Promise that resolves when subscription is active
-   * @throws {Error} If no default bus configured
+   * @throws {BusConfigurationError} If no default bus configured
    * @throws {BusOperationError} If subscription fails
    *
    * @example
@@ -208,7 +209,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
    * @param channel - The channel name to unsubscribe from
    * @param handler - Specific handler to remove (optional, removes all if omitted)
    * @returns Promise that resolves when unsubscription is complete
-   * @throws {Error} If no default bus configured
+   * @throws {BusConfigurationError} If no default bus configured
    * @throws {BusOperationError} If unsubscription fails
    *
    * @example

@@ -38,7 +38,8 @@ export class DeadLetterError extends QueueError {
     cause: Error,
   ) {
     super(
-      `Message for channel '${channel}' moved to dead letter queue after ${attempts} attempts: ${cause.message}`,
+      `Message for channel '${channel}' moved to dead letter queue ` +
+        `after ${attempts} attempts: ${cause.message}`,
       'DEAD_LETTER',
     )
     this.name = 'DeadLetterError'

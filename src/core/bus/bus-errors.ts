@@ -17,7 +17,10 @@ export class BusError extends Error {
  */
 export class BusNotConnectedError extends BusError {
   constructor(operation: string) {
-    super(`Cannot ${operation}: bus is not connected. Call connect() first.`, 'BUS_NOT_CONNECTED')
+    super(
+      `Cannot ${operation}: bus is not connected. Call connect() first.`,
+      'BUS_NOT_CONNECTED',
+    )
     this.name = 'BusNotConnectedError'
   }
 }
@@ -47,5 +50,15 @@ export class HandlerError extends BusError {
     super(`Handler failed for channel '${channel}': ${cause.message}`, 'HANDLER_ERROR')
     this.name = 'HandlerError'
     this.cause = cause
+  }
+}
+
+/**
+ * Error thrown when bus configuration is invalid
+ */
+export class BusConfigurationError extends BusError {
+  constructor(message: string) {
+    super(message, 'BUS_CONFIGURATION_ERROR')
+    this.name = 'BusConfigurationError'
   }
 }

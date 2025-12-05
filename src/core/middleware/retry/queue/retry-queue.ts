@@ -87,12 +87,21 @@ export interface RetryQueueOptions {
   /**
    * Callback when message is moved to dead letter queue
    */
-  onDeadLetter?: (channel: string, data: TransportData, error: Error, attempts: number) => void | Promise<void>
+  onDeadLetter?: (
+    channel: string,
+    data: TransportData,
+    error: Error,
+    attempts: number,
+  ) => void | Promise<void>
 
   /**
    * Callback on retry attempt
    */
-  onRetry?: (channel: string, data: TransportData, attempt: number) => void | Promise<void>
+  onRetry?: (
+    channel: string,
+    data: TransportData,
+    attempt: number,
+  ) => void | Promise<void>
 }
 
 /**
@@ -174,7 +183,9 @@ export class RetryQueue {
     }
   }
 
-  #resolveStrategy(backoff: 'exponential' | 'linear' | 'fibonacci' | IRetryStrategy): IRetryStrategy {
+  #resolveStrategy(
+    backoff: 'exponential' | 'linear' | 'fibonacci' | IRetryStrategy,
+  ): IRetryStrategy {
     if (typeof backoff === 'string') {
       switch (backoff) {
         case 'exponential':

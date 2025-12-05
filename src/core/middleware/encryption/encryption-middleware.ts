@@ -7,6 +7,7 @@ import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'
 
 import { Base64Encryption } from '@/infrastructure/encryption/base64-encryption'
+import { InvalidEncryptionConfigError } from '@/infrastructure/encryption/encryption-errors'
 import { HMACEncryption } from '@/infrastructure/encryption/hmac-encryption'
 
 export class EncryptionMiddleware extends TransportMiddleware {
@@ -36,6 +37,7 @@ export class EncryptionMiddleware extends TransportMiddleware {
    *
    * @param option - Encryption option (magic string, config, or implementation)
    * @returns Resolved encryption implementation
+   * @throws {InvalidEncryptionConfigError} If HMAC encryption is used without a key
    */
   #resolveEncryption(option: EncryptionOption): Encryption {
     // Handle magic strings
@@ -44,7 +46,9 @@ export class EncryptionMiddleware extends TransportMiddleware {
         case 'base64':
           return new Base64Encryption()
         case 'hmac':
-          throw new Error('HMAC encryption requires a key. Use { type: "hmac", key: "..." } instead.')
+          throw new InvalidEncryptionConfigError(
+            'HMAC encryption requires a key. Use { type: "hmac", key: "..." } instead.',
+          )
       }
     }
 

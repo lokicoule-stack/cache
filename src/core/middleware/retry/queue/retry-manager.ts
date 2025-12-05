@@ -39,8 +39,18 @@ export class RetryManager {
   #strategy: IRetryStrategy
   #maxAttempts: number
   #baseDelayMs: number
-  #onRetry?: (channel: string, data: TransportData, attempt: number) => void | Promise<void>
-  #onDeadLetter?: (channel: string, data: TransportData, error: Error, attempts: number) => void | Promise<void>
+  #onRetry?: (
+    channel: string,
+    data: TransportData,
+    attempt: number,
+  ) => void | Promise<void>
+
+  #onDeadLetter?: (
+    channel: string,
+    data: TransportData,
+    error: Error,
+    attempts: number,
+  ) => void | Promise<void>
 
   /**
    * Create retry manager
@@ -57,8 +67,17 @@ export class RetryManager {
     strategy: IRetryStrategy,
     maxAttempts: number,
     baseDelayMs: number,
-    onRetry?: (channel: string, data: TransportData, attempt: number) => void | Promise<void>,
-    onDeadLetter?: (channel: string, data: TransportData, error: Error, attempts: number) => void | Promise<void>,
+    onRetry?: (
+      channel: string,
+      data: TransportData,
+      attempt: number,
+    ) => void | Promise<void>,
+    onDeadLetter?: (
+      channel: string,
+      data: TransportData,
+      error: Error,
+      attempts: number,
+    ) => void | Promise<void>,
   ) {
     this.#transport = transport
     this.#strategy = strategy
@@ -83,7 +102,11 @@ export class RetryManager {
     // Invoke onRetry callback (swallow errors to prevent disruption)
     if (this.#onRetry) {
       try {
-        await this.#onRetry(message.channel, message.data, message.attempts)
+        await this.#onRetry(
+          message.channel,
+          message.data,
+          message.attempts,
+        )
       } catch {
         // Swallow callback errors
       }
@@ -100,12 +123,21 @@ export class RetryManager {
 
       // Check if max attempts reached
       if (message.attempts >= this.#maxAttempts) {
-        const deadLetterError = new DeadLetterError(message.channel, message.attempts, error as Error)
+        const deadLetterError = new DeadLetterError(
+          message.channel,
+          message.attempts,
+          error as Error,
+        )
 
         // Invoke onDeadLetter callback (swallow errors)
         if (this.#onDeadLetter) {
           try {
-            await this.#onDeadLetter(message.channel, message.data, deadLetterError, message.attempts)
+            await this.#onDeadLetter(
+              message.channel,
+              message.data,
+              deadLetterError,
+              message.attempts,
+            )
           } catch {
             // Swallow callback errors
           }
