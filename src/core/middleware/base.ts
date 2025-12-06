@@ -2,6 +2,7 @@ import type { Middleware } from '@/contracts/middleware'
 import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'
 
+/** @public */
 export abstract class TransportMiddleware implements Middleware {
   constructor(readonly transport: Transport) {}
 

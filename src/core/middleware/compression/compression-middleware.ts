@@ -8,6 +8,9 @@ import type { TransportData, TransportMessageHandler } from '@/types'
 
 import { GzipCompression } from '@/infrastructure/compression/gzip-compression'
 
+/**
+ * @internal
+ */
 export class CompressionMiddleware extends TransportMiddleware {
   readonly #compression: Compression
 
@@ -30,19 +33,11 @@ export class CompressionMiddleware extends TransportMiddleware {
     })
   }
 
-  /**
-   * Resolve compression option to concrete implementation
-   *
-   * @param option - Compression option (magic string, config, or implementation)
-   * @returns Resolved compression implementation
-   */
   #resolveCompression(option: CompressionOption): Compression {
-    // Handle boolean
     if (typeof option === 'boolean') {
       return new GzipCompression()
     }
 
-    // Handle magic string
     if (typeof option === 'string') {
       switch (option) {
         case 'gzip':
@@ -50,7 +45,6 @@ export class CompressionMiddleware extends TransportMiddleware {
       }
     }
 
-    // Handle Gzip config object (discriminated union)
     if (isGzipConfig(option)) {
       return new GzipCompression({
         level: option.level,
@@ -58,7 +52,6 @@ export class CompressionMiddleware extends TransportMiddleware {
       })
     }
 
-    // Handle simplified config (object without 'type' field)
     if (typeof option === 'object' && option !== null && !('compress' in option)) {
       const config = option as { level?: number; threshold?: number }
 
@@ -68,7 +61,6 @@ export class CompressionMiddleware extends TransportMiddleware {
       })
     }
 
-    // Direct Compression interface injection
     return option
   }
 }

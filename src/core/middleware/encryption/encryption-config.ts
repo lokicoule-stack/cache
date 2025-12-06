@@ -1,33 +1,23 @@
 import type { Encryption } from '@/contracts/encryption'
 
-/**
- * Built-in encryption types
- */
+/** @public */
 export type EncryptionType = 'base64' | 'hmac'
 
-/**
- * HMAC encryption configuration
- */
+/** @public */
 export interface HMACConfig {
   type: 'hmac'
   key: Buffer | string
 }
 
-/**
- * Encryption option: magic string, config object, or custom implementation
- */
+/** @public */
 export type EncryptionOption = EncryptionType | HMACConfig | Encryption
 
-/**
- * Encryption middleware configuration
- */
+/** @public */
 export interface EncryptionConfig {
   encryption: EncryptionOption
 }
 
-/**
- * Type guard to check if option is HMACConfig
- */
+/** @public */
 export function isHMACConfig(option: unknown): option is HMACConfig {
   return (
     typeof option === 'object' &&

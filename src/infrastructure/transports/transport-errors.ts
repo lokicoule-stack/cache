@@ -1,96 +1,91 @@
 /**
- * Base error class for all transport-related errors
+ * Error codes for transport operations.
+ * @public
+ */
+export const TransportErrorCode = {
+  /** Generic transport error */
+  TRANSPORT_ERROR: 'TRANSPORT_ERROR',
+
+  /** Transport connection failed */
+  CONNECTION_FAILED: 'CONNECTION_FAILED',
+
+  /** Transport not ready for operation */
+  NOT_READY: 'NOT_READY',
+
+  /** Publish operation failed */
+  PUBLISH_FAILED: 'PUBLISH_FAILED',
+
+  /** Subscribe operation failed */
+  SUBSCRIBE_FAILED: 'SUBSCRIBE_FAILED',
+
+  /** Unsubscribe operation failed */
+  UNSUBSCRIBE_FAILED: 'UNSUBSCRIBE_FAILED',
+} as const
+
+/**
+ * @public
+ */
+export type TransportErrorCode = (typeof TransportErrorCode)[keyof typeof TransportErrorCode]
+
+/**
+ * Context for transport errors.
+ * @public
+ */
+export interface TransportErrorContext {
+  /** Additional non-sensitive metadata */
+  [key: string]: unknown
+
+  /** Transport name */
+  transport?: string
+
+  /** Channel name where error occurred */
+  channel?: string
+
+  /** Operation being performed */
+  operation?: 'connect' | 'disconnect' | 'publish' | 'subscribe' | 'unsubscribe'
+
+  /** Whether the operation is retryable */
+  retryable?: boolean
+}
+
+/**
+ * Base error for all transport operations.
+ *
+ * @remarks
+ * Extends native Error with structured error codes and optional context.
+ * Use the `code` property for programmatic error handling.
+ *
+ * @public
  */
 export class TransportError extends Error {
+  /** Machine-readable error code */
+  readonly code: TransportErrorCode
+
+  /** Additional error context */
+  readonly context?: TransportErrorContext
+
   constructor(
     message: string,
-    public readonly transport: string,
-    public readonly operation: 'connect' | 'disconnect' | 'publish' | 'subscribe' | 'unsubscribe',
-    public readonly retryable: boolean = true,
-    public readonly code: string = 'TRANSPORT_ERROR',
+    code: TransportErrorCode = TransportErrorCode.TRANSPORT_ERROR,
+    options?: ErrorOptions & { context?: TransportErrorContext },
   ) {
-    super(message)
+    super(message, options)
+
     this.name = 'TransportError'
+    this.code = code
+    this.context = options?.context
+
     Error.captureStackTrace?.(this, this.constructor)
   }
-}
 
-/**
- * Error thrown when transport connection fails
- */
-export class TransportConnectionError extends TransportError {
-  constructor(
-    transport: string,
-    cause: Error,
-    retryable: boolean = true,
-  ) {
-    super(
-      `Failed to connect to ${transport}: ${cause.message}`,
-      transport,
-      'connect',
-      retryable,
-      'TRANSPORT_CONNECTION_FAILED',
-    )
-    this.name = 'TransportConnectionError'
-    this.cause = cause
-  }
-}
-
-/**
- * Error thrown when transport is not ready
- */
-export class TransportNotReadyError extends TransportError {
-  constructor(transport: string, operation: 'publish' | 'subscribe' | 'unsubscribe') {
-    super(
-      `${transport} transport is not ready for ${operation}`,
-      transport,
-      operation,
-      false,
-      'TRANSPORT_NOT_READY',
-    )
-    this.name = 'TransportNotReadyError'
-  }
-}
-
-/**
- * Error thrown when transport publish fails
- */
-export class TransportPublishError extends TransportError {
-  constructor(
-    transport: string,
-    public readonly channel: string,
-    cause: Error,
-    retryable: boolean = true,
-  ) {
-    super(
-      `Failed to publish to channel '${channel}' on ${transport}: ${cause.message}`,
-      transport,
-      'publish',
-      retryable,
-      'TRANSPORT_PUBLISH_FAILED',
-    )
-    this.name = 'TransportPublishError'
-    this.cause = cause
-  }
-}
-
-/**
- * Error thrown when transport subscribe fails
- */
-export class TransportSubscribeError extends TransportError {
-  constructor(
-    transport: string,
-    public readonly channel: string,
-    cause: Error,
-  ) {
-    super(
-      `Failed to subscribe to channel '${channel}' on ${transport}: ${cause.message}`,
-      transport,
-      'subscribe',
-      true,
-      'TRANSPORT_SUBSCRIBE_FAILED',
-    )
-    this.name = 'TransportSubscribeError'
-    this.cause = cause
+  /** @internal */
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      code: this.code,
+      context: this.context,
+      stack: this.stack,
+    }
   }
 }

@@ -23,6 +23,7 @@ export interface Scheduler {
   isRunning(): boolean
 }
 
+/** @internal */
 export function createScheduler(
   task: () => void | Promise<void>,
   intervalMs: number,

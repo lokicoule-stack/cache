@@ -23,12 +23,7 @@ export {
 // TYPES
 // ============================================================================
 
-export type {
-  Serializable,
-  MessageHandler,
-  TransportData,
-  TransportMessageHandler,
-} from './types'
+export type { Serializable, MessageHandler, TransportData, TransportMessageHandler } from './types'
 
 // ============================================================================
 // CONTRACTS (Interfaces)
@@ -60,11 +55,7 @@ export {
 
 // Retry Configuration & Errors
 export type { RetryConfig } from './core/middleware/retry/retry-config'
-export {
-  QueueError,
-  QueueFullError,
-  DeadLetterError,
-} from './core/middleware/retry/retry-errors'
+export { QueueError, QueueFullError, DeadLetterError } from './core/middleware/retry/retry-errors'
 
 // Retry Backoff Functions & Types
 export type {
@@ -88,10 +79,7 @@ export type {
 } from './core/middleware/compression/compression-config'
 
 // Encryption Configuration
-export type {
-  EncryptionOption,
-  HMACConfig,
-} from './core/middleware/encryption/encryption-config'
+export type { EncryptionOption, HMACConfig } from './core/middleware/encryption/encryption-config'
 
 // ============================================================================
 // TRANSPORTS
@@ -105,13 +93,8 @@ export { RedisTransport, redis } from './infrastructure/transports/redis/redis-t
 export type { RedisTransportConfig } from './infrastructure/transports/redis/redis-transport-config'
 
 // Transport Errors
-export {
-  TransportError,
-  TransportConnectionError,
-  TransportNotReadyError,
-  TransportPublishError,
-  TransportSubscribeError,
-} from './infrastructure/transports/transport-errors'
+export { TransportError, TransportErrorCode } from './infrastructure/transports/transport-errors'
+export type { TransportErrorContext } from './infrastructure/transports/transport-errors'
 
 // ============================================================================
 // CODECS

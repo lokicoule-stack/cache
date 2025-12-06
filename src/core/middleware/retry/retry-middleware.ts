@@ -10,36 +10,7 @@ import {
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
 
-/**
- * Middleware that adds retry capabilities to a transport layer.
- * 
- * Automatically retries failed publish operations using a configurable
- * retry queue with support for exponential backoff, dead letter handling,
- * and duplicate detection.
- * 
- * @example
- * ```ts
- * // Basic usage with defaults
- * const transport = new RetryMiddleware(baseTransport)
- * 
- * // Custom retry attempts
- * const transport = new RetryMiddleware(baseTransport, 5)
- * 
- * // Full configuration
- * const transport = new RetryMiddleware(baseTransport, {
- *   maxAttempts: 3,
- *   backoff: 'exponential',
- *   delay: 1000,
- *   queue: {
- *     maxSize: 1000,
- *     concurrency: 5
- *   }
- * })
- * 
- * // Disabled retries
- * const transport = new RetryMiddleware(baseTransport, false)
- * ```
- */
+/** @internal */
 export class RetryMiddleware extends TransportMiddleware {
   readonly #retryQueue: RetryQueue | null
 
@@ -86,21 +57,11 @@ export class RetryMiddleware extends TransportMiddleware {
     }
   }
 
-  /**
-   * Normalizes the retry configuration into a standard object format.
-   * Supports multiple input formats for developer convenience:
-   * - `undefined` or `true`: Uses default configuration
-   * - `false`: Disables retries completely
-   * - `number`: Sets maxAttempts, uses defaults for other options
-   * - `object`: Deep merges with defaults
-   */
   #normalizeConfig(config?: RetryConfig): RetryConfigObject {
-    // Early return for disabled state
     if (config === false) {
       return { ...DEFAULT_RETRY_CONFIG, maxAttempts: 0 }
     }
 
-    // Handle primitive types
     if (config === undefined || config === true) {
       return DEFAULT_RETRY_CONFIG
     }
@@ -109,7 +70,6 @@ export class RetryMiddleware extends TransportMiddleware {
       return { ...DEFAULT_RETRY_CONFIG, maxAttempts: config }
     }
 
-    // Deep merge for object config
     return {
       ...DEFAULT_RETRY_CONFIG,
       ...config,
@@ -120,10 +80,6 @@ export class RetryMiddleware extends TransportMiddleware {
     }
   }
 
-  /**
-   * Initializes the retry queue based on configuration.
-   * Returns null if retries are disabled (maxAttempts === 0).
-   */
   #initializeQueue(config: RetryConfigObject): RetryQueue | null {
     if (config.maxAttempts === 0) {
       return null

@@ -1,27 +1,19 @@
-import { BusOperationError, HandlerError } from './bus-errors'
+import { BusError, BusErrorCode } from './bus-errors'
 
 import type { Bus } from '@/contracts/bus'
 import type { CodecOption, Codec } from '@/contracts/codec'
 import type { Transport } from '@/contracts/transport'
 import type { MessageHandler, Serializable } from '@/types'
 
-import { type MiddlewareConfig , composeMiddleware } from '@/core/middleware/middleware'
+import { type MiddlewareConfig, composeMiddleware } from '@/core/middleware/middleware'
 import { InvalidCodecError } from '@/infrastructure/codecs/codec-errors'
 import { JsonCodec } from '@/infrastructure/codecs/json-codec'
 import { MsgPackCodec } from '@/infrastructure/codecs/msgpack-codec'
 
 /**
- * Bus configuration options
+ * Bus configuration options.
  *
- * @example Basic usage with magic string
- * ```typescript
- * const bus = new Bus({
- *   transport: memory(),
- *   codec: 'msgpack'  // Magic string - resolved automatically
- * })
- * ```
- *
- * @example Advanced usage with custom codec (DI)
+ * @example Custom codec (DI pattern)
  * ```typescript
  * import { JsonCodec } from '@lokiverse/bus/infrastructure/codecs'
  *
@@ -30,119 +22,26 @@ import { MsgPackCodec } from '@/infrastructure/codecs/msgpack-codec'
  *   codec: new JsonCodec()  // Direct injection for advanced use cases
  * })
  * ```
+ *
+ * @public
  */
 export interface BusOptions {
-  /**
-   * The underlying transport implementation
-   *
-   * Use transport factory functions like `memory()` or `redis()`
-   * or provide a custom implementation of the Transport interface.
-   *
-   * @example
-   * ```typescript
-   * import { memory, redis } from '@lokiverse/bus'
-   *
-   * // Memory transport (testing/development)
-   * const memTransport = memory()
-   *
-   * // Redis transport (production)
-   * const redisTransport = redis({ host: 'localhost', port: 6379 })
-   * ```
-   */
+  /** Transport implementation */
   transport: Transport
 
-  /**
-   * Codec for message serialization/deserialization
-   *
-   * Supports both magic strings for built-in codecs and direct injection
-   * of custom codec implementations (Dependency Injection pattern).
-   *
-   * **Built-in codecs (magic strings)**:
-   * - `'json'` (default): Standard JSON serialization, human-readable
-   * - `'msgpack'`: Binary MessagePack, more compact and faster
-   *
-   * **Custom codec (DI)**: Provide your own Codec implementation
-   *
-   * @default 'json'
-   *
-   * @example Magic string (simple)
-   * ```typescript
-   * const bus = new Bus({ transport, codec: 'msgpack' })
-   * ```
-   *
-   * @example Custom codec (advanced)
-   * ```typescript
-   * const customCodec: Codec = {
-   *   name: 'protobuf',
-   *   encode: (data) => /* ... *\/,
-   *   decode: (data) => /* ... *\/
-   * }
-   * const bus = new Bus({ transport, codec: customCodec })
-   * ```
-   */
+  /** Codec for serialization (default: 'json') */
   codec?: CodecOption
 
-  /**
-   * Middleware configuration
-   *
-   * Configure optional middleware layers for compression, encryption, and retry.
-   * Each middleware can be enabled using magic strings, config objects, or custom implementations.
-   *
-   * @example Basic middleware with magic strings
-   * ```typescript
-   * const bus = new Bus({
-   *   transport: memory(),
-   *   middleware: {
-   *     compression: 'gzip',
-   *     encryption: 'base64',
-   *     retry: { enabled: true }
-   *   }
-   * })
-   * ```
-   *
-   * @example Advanced middleware with custom config
-   * ```typescript
-   * const bus = new Bus({
-   *   transport: memory(),
-   *   middleware: {
-   *     compression: { type: 'gzip', level: 9, threshold: 2048 },
-   *     encryption: { type: 'hmac', key: mySecretKey },
-   *     retry: { enabled: true }
-   *   }
-   * })
-   * ```
-   */
+  /** Middleware configuration */
   middleware?: MiddlewareConfig
 
-  /**
-   * Error handler for subscriber execution errors
-   *
-   * Called when a message handler throws an error. Allows custom error
-   * handling, logging, or monitoring without disrupting other handlers.
-   *
-   * **Important**: Errors are isolated - one handler's failure does not
-   * prevent other handlers from receiving the message.
-   *
-   * @param channel - The channel where the error occurred
-   * @param error - The error thrown by the handler
-   *
-   * @default undefined (errors are swallowed to prevent cascading failures)
-   *
-   * @example Logging errors
-   * ```typescript
-   * const bus = new Bus({
-   *   transport,
-   *   onHandlerError: (channel, error) => {
-   *     console.error(`Handler error on ${channel}:`, error)
-   *     // Send to monitoring service
-   *     monitoring.recordError(error)
-   *   }
-   * })
-   * ```
-   */
+  /** Handler error callback */
   onHandlerError?: (channel: string, error: Error) => void
 }
 
+/**
+ * @public
+ */
 export class MessageBus implements Bus {
   #transport: Transport
   #codec: Codec
@@ -155,32 +54,23 @@ export class MessageBus implements Bus {
     this.#onHandlerError = options.onHandlerError
   }
 
-  /**
-   * Connect the bus transport
-   *
-   * Initializes the underlying transport connection. Must be called before
-   * publishing or subscribing to messages.
-   *
-   * @returns Promise that resolves when connection is established
-   * @throws {BusOperationError} If connection fails
-   */
+  /** Connect the bus transport. @throws {BusError} */
   async connect(): Promise<void> {
     try {
       await this.#transport.connect()
     } catch (error) {
-      throw new BusOperationError('connect', error as Error)
+      throw new BusError(
+        `Failed to connect bus: ${(error as Error).message}`,
+        BusErrorCode.TRANSPORT_FAILED,
+        {
+          context: { operation: 'connect', transport: this.#transport.name },
+          cause: error as Error,
+        },
+      )
     }
   }
 
-  /**
-   * Disconnect the bus transport
-   *
-   * Automatically unsubscribes from all channels before closing the
-   * transport connection. Any pending messages may be lost.
-   *
-   * @returns Promise that resolves when disconnection is complete
-   * @throws {BusOperationError} If disconnection fails
-   */
+  /** Disconnect the bus transport. @throws {BusError} */
   async disconnect(): Promise<void> {
     try {
       for (const channel of this.#handlers.keys()) {
@@ -188,59 +78,36 @@ export class MessageBus implements Bus {
       }
       await this.#transport.disconnect()
     } catch (error) {
-      throw new BusOperationError('disconnect', error as Error)
+      throw new BusError(
+        `Failed to disconnect bus: ${(error as Error).message}`,
+        BusErrorCode.TRANSPORT_FAILED,
+        {
+          context: { operation: 'disconnect', transport: this.#transport.name },
+          cause: error as Error,
+        },
+      )
     }
   }
 
-  /**
-   * Publish a message to a channel
-   *
-   * Serializes the data using the configured codec and sends it through
-   * the underlying transport. This is a fire-and-forget operation.
-   *
-   * @template T - The message data type (must extend Serializable)
-   * @param channel - The channel name to publish to
-   * @param data - The message data to publish
-   * @returns Promise that resolves when the message is published
-   * @throws {BusOperationError} If the publish operation fails
-   * @throws {CodecError} If data serialization fails
-   *
-   * @example
-   * ```typescript
-   * await bus.publish('users.created', { id: 123, name: 'Alice' })
-   * ```
-   */
+  /** Publish a message. @throws {BusError} */
   async publish<T extends Serializable>(channel: string, data: T): Promise<void> {
     try {
       const bytes = this.#codec.encode(data)
 
       await this.#transport.publish(channel, bytes)
     } catch (error) {
-      throw new BusOperationError('publish', error as Error)
+      throw new BusError(
+        `Failed to publish message to channel '${channel}': ${(error as Error).message}`,
+        BusErrorCode.TRANSPORT_FAILED,
+        {
+          context: { operation: 'publish', channel, transport: this.#transport.name },
+          cause: error as Error,
+        },
+      )
     }
   }
 
-  /**
-   * Subscribe to a channel
-   *
-   * Registers a handler to receive messages from the specified channel.
-   * Multiple handlers can subscribe to the same channel - all will receive
-   * each message independently. Handler errors are isolated and don't affect
-   * other handlers or the bus itself.
-   *
-   * @template T - The expected message data type (must extend Serializable)
-   * @param channel - The channel name to subscribe to
-   * @param handler - Function to handle incoming messages
-   * @returns Promise that resolves when subscription is active
-   * @throws {BusOperationError} If subscription fails
-   *
-   * @example
-   * ```typescript
-   * await bus.subscribe<UserEvent>('users.created', (data) => {
-   *   console.log('User created:', data.name)
-   * })
-   * ```
-   */
+  /** Subscribe to a channel. @throws {BusError} */
   async subscribe<T extends Serializable>(
     channel: string,
     handler: MessageHandler<T>,
@@ -271,34 +138,21 @@ export class MessageBus implements Bus {
         })
       } catch (error) {
         this.#handlers.delete(channel)
-        throw new BusOperationError('subscribe', error as Error)
+        throw new BusError(
+          `Failed to subscribe to channel '${channel}': ${(error as Error).message}`,
+          BusErrorCode.CHANNEL_ERROR,
+          {
+            context: { operation: 'subscribe', channel, transport: this.#transport.name },
+            cause: error as Error,
+          },
+        )
       }
     }
 
     this.#handlers.get(channel)?.add(handler as MessageHandler)
   }
 
-  /**
-   * Unsubscribe from a channel
-   *
-   * Removes a specific handler or all handlers from the channel.
-   * If no handler is specified, all handlers are removed and the
-   * transport subscription is closed.
-   *
-   * @param channel - The channel name to unsubscribe from
-   * @param handler - Specific handler to remove (optional, removes all if omitted)
-   * @returns Promise that resolves when unsubscription is complete
-   * @throws {BusOperationError} If unsubscription fails
-   *
-   * @example
-   * ```typescript
-   * // Remove specific handler
-   * await bus.unsubscribe('users.created', myHandler)
-   *
-   * // Remove all handlers from channel
-   * await bus.unsubscribe('users.created')
-   * ```
-   */
+  /** Unsubscribe from a channel. @throws {BusError} */
   async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
     const handlers = this.#handlers.get(channel)
 
@@ -318,19 +172,18 @@ export class MessageBus implements Bus {
         this.#handlers.delete(channel)
       }
     } catch (error) {
-      throw new BusOperationError('unsubscribe', error as Error)
+      throw new BusError(
+        `Failed to unsubscribe from channel '${channel}': ${(error as Error).message}`,
+        BusErrorCode.CHANNEL_ERROR,
+        {
+          context: { operation: 'unsubscribe', channel, transport: this.#transport.name },
+          cause: error as Error,
+        },
+      )
     }
   }
 
-  /**
-   * Resolve codec option to concrete implementation
-   *
-   * @param option - Codec option (magic string or implementation)
-   * @returns Resolved codec implementation
-   * @private
-   */
   #resolveCodec(option?: CodecOption): Codec {
-    // Handle magic strings
     if (!option || option === 'json') {
       return new JsonCodec()
     }
@@ -339,7 +192,6 @@ export class MessageBus implements Bus {
       return new MsgPackCodec()
     }
 
-    // Direct Codec interface injection (duck typing check)
     if (typeof option === 'object' && 'encode' in option && 'decode' in option) {
       return option
     }
@@ -347,19 +199,16 @@ export class MessageBus implements Bus {
     throw new InvalidCodecError(String(option))
   }
 
-  /**
-   * Handle errors from handler execution
-   *
-   * Wraps handler errors in HandlerError and invokes the onHandlerError
-   * callback if configured. Errors are swallowed to prevent cascading
-   * failures - one handler's error should not affect other handlers.
-   *
-   * @param channel - The channel where the error occurred
-   * @param error - The error that was thrown
-   * @private
-   */
+  // Errors are swallowed to prevent cascading failures
   #handleError(channel: string, error: Error): void {
-    const handlerError = new HandlerError(channel, error)
+    const handlerError = new BusError(
+      `Handler failed for channel '${channel}': ${error.message}`,
+      BusErrorCode.HANDLER_FAILED,
+      {
+        context: { operation: 'handle', channel },
+        cause: error,
+      },
+    )
 
     if (this.#onHandlerError) {
       this.#onHandlerError(channel, handlerError)

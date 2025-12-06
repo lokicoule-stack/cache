@@ -1,42 +1,27 @@
 import type { TransportData } from '../types'
 
 /**
- * Compression interface for transforming transport data
+ * Data compression abstraction.
  *
- * Defines the contract for compressing/decompressing transport data.
- * Implementations can provide various compression algorithms (gzip, brotli, etc.).
+ * @remarks
+ * Transforms binary data using compression algorithms (gzip, brotli, etc.).
+ * Operations must be reversible: decompress(compress(x)) === x.
  *
- * @example
- * ```typescript
- * class MyCompression implements Compression {
- *   async compress(data: TransportData): Promise<Uint8Array> {
- *     // Compress data
- *     return compressed
- *   }
- *
- *   async decompress(data: Uint8Array): Promise<Uint8Array> {
- *     // Decompress data
- *     return original
- *   }
- * }
- * ```
+ * @public
  */
 export interface Compression {
+  /** Compression identifier */
+  readonly name: string
+
   /**
-   * Compress data before publishing
-   *
-   * @param data - Original transport data
-   * @returns Compressed data
-   * @throws {Error} If compression fails
+   * Compress data
+   * @throws {CompressionError} on failure
    */
   compress(data: TransportData): Promise<Uint8Array>
 
   /**
-   * Decompress data after receiving
-   *
-   * @param data - Compressed data
-   * @returns Original transport data
-   * @throws {Error} If decompression fails
+   * Decompress data
+   * @throws {CompressionError} on failure or corruption
    */
   decompress(data: Uint8Array): Promise<Uint8Array>
 }

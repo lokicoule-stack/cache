@@ -1,2 +1,2 @@
-export type * from './serializable.types'
-export type * from './message.types'
+export type * from './serializable'
+export type * from './message'

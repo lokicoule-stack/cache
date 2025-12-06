@@ -1,7 +1,7 @@
 import { promisify } from 'node:util'
 import { gunzip, gzip } from 'node:zlib'
 
-import { InvalidCompressionDataError, UnknownCompressionMarkerError } from './compression-errors'
+import { CompressionError, CompressionErrorCode } from './compression-errors'
 
 import type { Compression } from '@/contracts/compression'
 import type { TransportData } from '@/types'
@@ -9,19 +9,16 @@ import type { TransportData } from '@/types'
 const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
 
-/**
- * Compression format markers
- */
+/** @internal */
 export const CompressionMarker = {
   UNCOMPRESSED: 0,
   GZIP: 1,
 } as const
 
+/** @internal */
 export type CompressionMarkerType = (typeof CompressionMarker)[keyof typeof CompressionMarker]
 
-/**
- * Gzip compression options
- */
+/** @internal */
 export interface GzipCompressionConfig {
   /** Compression level 0-9 (default: 6) */
   level?: number
@@ -34,60 +31,17 @@ const DEFAULT_OPTIONS: Required<GzipCompressionConfig> = {
   threshold: 1024,
 }
 
-/**
- * Gzip compression implementation
- *
- * Handles gzip compression with automatic threshold detection.
- * Only compresses data if it exceeds the threshold and results in size reduction.
- *
- * Message format: [marker(1 byte) || payload(?)]
- * - marker=0: uncompressed
- * - marker=1: gzip compressed
- *
- * @example
- * ```typescript
- * const compression = new GzipCompression({ level: 9, threshold: 2048 })
- *
- * // Compress
- * const compressed = await compression.compress(data)
- *
- * // Decompress
- * const original = await compression.decompress(compressed)
- * ```
- */
+/** @internal */
 export class GzipCompression implements Compression {
-  private static readonly MARKER_SIZE = 1
+  static readonly #MARKER_SIZE = 1
 
+  readonly name = 'gzip'
   readonly #options: Required<GzipCompressionConfig>
 
   constructor(options: GzipCompressionConfig = {}) {
     this.#options = { ...DEFAULT_OPTIONS, ...options }
   }
 
-  /**
-   * Returns the compression threshold in bytes
-   */
-  get threshold(): number {
-    return this.#options.threshold
-  }
-
-  /**
-   * Returns the compression level (0-9)
-   */
-  get level(): number {
-    return this.#options.level
-  }
-
-  /**
-   * Compresses data if it exceeds threshold
-   *
-   * Format: [marker(1) || payload(?)]
-   * - marker=0: uncompressed
-   * - marker=1: gzip compressed
-   *
-   * @param data - Data to compress
-   * @returns Compressed data with marker
-   */
   async compress(data: TransportData): Promise<Uint8Array> {
     const shouldCompress = this.#shouldCompress(data)
 
@@ -97,7 +51,6 @@ export class GzipCompression implements Compression {
 
     const compressed = await gzipAsync(data, { level: this.#options.level })
 
-    // Only use compressed version if it's actually smaller (at least 10% reduction)
     if (compressed.length >= data.length * 0.9) {
       return this.#prependMarker(CompressionMarker.UNCOMPRESSED, data)
     }
@@ -105,14 +58,6 @@ export class GzipCompression implements Compression {
     return this.#prependMarker(CompressionMarker.GZIP, compressed)
   }
 
-  /**
-   * Decompresses data based on marker
-   *
-   * @param data - Compressed data with marker
-   * @returns Original uncompressed data
-   * @throws {InvalidCompressionDataError} If data is invalid
-   * @throws {UnknownCompressionMarkerError} If marker is unknown
-   */
   async decompress(data: Uint8Array): Promise<Uint8Array> {
     this.#validateData(data)
 
@@ -121,63 +66,63 @@ export class GzipCompression implements Compression {
 
     switch (marker) {
       case CompressionMarker.GZIP:
-        return this.#decompressGzip(payload)
+        return await this.#decompressGzip(payload)
 
       case CompressionMarker.UNCOMPRESSED:
         return payload
 
-      default:
-        throw new UnknownCompressionMarkerError(marker as number)
+      default: {
+        const unknownMarker = marker as number
+
+        throw new CompressionError(
+          `Unknown compression marker: ${unknownMarker}`,
+          CompressionErrorCode.UNKNOWN_FORMAT,
+          {
+            context: {
+              operation: 'detect',
+              algorithm: 'gzip',
+              expectedFormat: `${CompressionMarker.GZIP} or ${CompressionMarker.UNCOMPRESSED}`,
+              actualFormat: unknownMarker
+            }
+          }
+        )
+      }
     }
   }
 
-  /**
-   * Checks if data should be compressed
-   */
   #shouldCompress(data: TransportData): boolean {
     return data.length >= this.#options.threshold
   }
 
-  /**
-   * Validates compressed data structure
-   */
   #validateData(data: Uint8Array): void {
-    if (data.length < GzipCompression.MARKER_SIZE) {
-      throw new InvalidCompressionDataError('Invalid compressed data: too short')
+    if (data.length < GzipCompression.#MARKER_SIZE) {
+      throw new CompressionError(
+        'Invalid compressed data: too short',
+        CompressionErrorCode.INVALID_DATA,
+        { context: { operation: 'decompress', algorithm: 'gzip' } }
+      )
     }
   }
 
-  /**
-   * Extracts compression marker from data
-   */
   #extractMarker(data: Uint8Array): CompressionMarkerType {
     return data[0] as CompressionMarkerType
   }
 
-  /**
-   * Extracts payload from data (removes marker)
-   */
   #extractPayload(data: Uint8Array): Uint8Array {
-    return data.slice(GzipCompression.MARKER_SIZE)
+    return data.slice(GzipCompression.#MARKER_SIZE)
   }
 
-  /**
-   * Decompresses gzip data
-   */
   async #decompressGzip(payload: Uint8Array): Promise<Uint8Array> {
     const decompressed = await gunzipAsync(payload)
 
     return new Uint8Array(decompressed)
   }
 
-  /**
-   * Prepends a marker byte to the payload
-   */
   #prependMarker(marker: CompressionMarkerType, payload: Buffer | Uint8Array): Uint8Array {
-    const result = new Uint8Array(GzipCompression.MARKER_SIZE + payload.length)
+    const result = new Uint8Array(GzipCompression.#MARKER_SIZE + payload.length)
 
     result[0] = marker
-    result.set(payload, GzipCompression.MARKER_SIZE)
+    result.set(payload, GzipCompression.#MARKER_SIZE)
 
     return result
   }

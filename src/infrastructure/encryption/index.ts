@@ -5,7 +5,8 @@ export { HMACEncryption } from './hmac-encryption'
 // Encryption Errors
 export {
   EncryptionError,
-  HMACVerificationError,
-  InvalidEncryptionDataError,
-  InvalidEncryptionConfigError,
+  EncryptionErrorCode,
+  EncryptionConfigError,
+  EncryptionSecurityError,
 } from './encryption-errors'
+export type { EncryptionErrorContext } from './encryption-errors'

@@ -1,87 +1,38 @@
-import { BusConfigurationError } from './bus-errors'
+import { BusConfigError } from './bus-errors'
 import { MessageBus, type BusOptions } from './message-bus'
 
 import type { MessageHandler, Serializable } from '../../types'
 import type { Bus } from '@/contracts/bus'
 
 /**
- * Bus manager configuration
- *
- * @template T - Record of transport configurations keyed by name
- * @property default - Default transport name to use when none is specified
- * @property transports - Map of transport names to their bus configurations
+ * Bus manager configuration.
+ * @public
  */
 export interface BusManagerConfig<T extends Record<string, BusOptions>> {
+  /** Default transport name */
   default?: keyof T
+  /** Transport configurations */
   transports: T
 }
 
 /**
- * Bus manager - orchestrates multiple buses with type-safe transport names
- *
- * Manages multiple bus instances with lazy instantiation and automatic lifecycle.
- * Provides type-safe access to configured transports and proxy methods for
- * working with the default bus.
- *
- * @template T - Record of transport configurations keyed by name
- *
- * @example
- * ```typescript
- * const manager = new BusManager({
- *   default: 'memory',
- *   transports: {
- *     memory: { transport: memory(), codec: 'json' },
- *     redis: { transport: redis({ url: 'redis://localhost' }), codec: 'msgpack' }
- *   }
- * })
- *
- * await manager.start() // Connect all cached buses
- *
- * // Use specific bus
- * await manager.use('redis').publish('events', { type: 'user.created' })
- *
- * // Use default bus
- * await manager.publish('events', { type: 'user.created' })
- *
- * await manager.stop() // Disconnect all buses
- * ```
+ * Orchestrates multiple buses with type-safe transport names.
+ * @public
  */
 export class BusManager<T extends Record<string, BusOptions>> {
   #config: BusManagerConfig<T>
   #buses = new Map<keyof T, Bus>()
 
-  /**
-   * Create a new BusManager instance
-   *
-   * @param config - Bus manager configuration with transport definitions
-   */
   constructor(config: BusManagerConfig<T>) {
     this.#config = config
   }
 
-  /**
-   * Get or create a bus instance (type-safe)
-   *
-   * Lazy instantiation - buses are only created when first accessed.
-   * Subsequent calls return the cached instance.
-   *
-   * @template K - Transport name key
-   * @param name - Transport name (optional, uses default if omitted)
-   * @returns Bus instance for the specified transport
-   * @throws {BusConfigurationError} If no name specified and no default configured
-   * @throws {BusConfigurationError} If transport name not found in configuration
-   *
-   * @example
-   * ```typescript
-   * const redisBus = manager.use('redis')
-   * const defaultBus = manager.use() // Uses configured default
-   * ```
-   */
+  /** Get or create a bus instance (lazy). @throws {BusConfigError} */
   use<K extends keyof T>(name?: K): Bus {
     const busName = (name ?? this.#config.default) as keyof T
 
     if (!busName) {
-      throw new BusConfigurationError('No bus name specified and no default configured')
+      throw new BusConfigError('No bus name specified and no default configured')
     }
 
     const cached = this.#buses.get(busName)
@@ -93,7 +44,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     const config = this.#config.transports[busName]
 
     if (!config) {
-      throw new BusConfigurationError(`Transport '${String(busName)}' not found`)
+      throw new BusConfigError(`Transport '${String(busName)}' not found`)
     }
 
     const bus = new MessageBus(config)
@@ -103,23 +54,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     return bus
   }
 
-  /**
-   * Start all buses (or specific one)
-   *
-   * Connects the transport(s). Only affects buses that have been instantiated
-   * via use(). If a name is provided, only that bus is started.
-   *
-   * @template K - Transport name key
-   * @param name - Transport name (optional, starts all if omitted)
-   * @returns Promise that resolves when all buses are connected
-   * @throws {BusOperationError} If connection fails
-   *
-   * @example
-   * ```typescript
-   * await manager.start() // Start all cached buses
-   * await manager.start('redis') // Start only redis bus
-   * ```
-   */
+  /** Start all buses (or specific one). @throws {BusOperationError} */
   async start<K extends keyof T>(name?: K): Promise<void> {
     if (name) {
       await this.use(name).connect()
@@ -128,23 +63,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     }
   }
 
-  /**
-   * Stop all buses (or specific one)
-   *
-   * Disconnects the transport(s) and clears the cache. If a name is provided,
-   * only that bus is stopped.
-   *
-   * @template K - Transport name key
-   * @param name - Transport name (optional, stops all if omitted)
-   * @returns Promise that resolves when all buses are disconnected
-   * @throws {BusOperationError} If disconnection fails
-   *
-   * @example
-   * ```typescript
-   * await manager.stop() // Stop all buses
-   * await manager.stop('redis') // Stop only redis bus
-   * ```
-   */
+  /** Stop all buses (or specific one). @throws {BusOperationError} */
   async stop<K extends keyof T>(name?: K): Promise<void> {
     if (name) {
       await this.use(name).disconnect()
@@ -154,46 +73,12 @@ export class BusManager<T extends Record<string, BusOptions>> {
     }
   }
 
-  /**
-   * Publish a message to the default bus
-   *
-   * Convenience method that proxies to the default bus instance.
-   *
-   * @template D - Message data type (must extend Serializable)
-   * @param channel - The channel name to publish to
-   * @param data - The message data to publish
-   * @returns Promise that resolves when message is published
-   * @throws {BusConfigurationError} If no default bus configured
-   * @throws {BusOperationError} If publish operation fails
-   *
-   * @example
-   * ```typescript
-   * await manager.publish('events', { type: 'user.created' })
-   * ```
-   */
+  /** Publish to default bus. @throws {BusConfigError} @throws {BusOperationError} */
   async publish<D extends Serializable>(channel: string, data: D): Promise<void> {
     return this.use().publish(channel, data)
   }
 
-  /**
-   * Subscribe to a channel on the default bus
-   *
-   * Convenience method that proxies to the default bus instance.
-   *
-   * @template D - Expected message data type (must extend Serializable)
-   * @param channel - The channel name to subscribe to
-   * @param handler - Function to handle incoming messages
-   * @returns Promise that resolves when subscription is active
-   * @throws {BusConfigurationError} If no default bus configured
-   * @throws {BusOperationError} If subscription fails
-   *
-   * @example
-   * ```typescript
-   * await manager.subscribe<UserEvent>('events', (data) => {
-   *   console.log('Event:', data)
-   * })
-   * ```
-   */
+  /** Subscribe to default bus. @throws {BusConfigError} @throws {BusOperationError} */
   async subscribe<D extends Serializable>(
     channel: string,
     handler: MessageHandler<D>,
@@ -201,23 +86,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     return this.use().subscribe(channel, handler)
   }
 
-  /**
-   * Unsubscribe from a channel on the default bus
-   *
-   * Convenience method that proxies to the default bus instance.
-   *
-   * @param channel - The channel name to unsubscribe from
-   * @param handler - Specific handler to remove (optional, removes all if omitted)
-   * @returns Promise that resolves when unsubscription is complete
-   * @throws {BusConfigurationError} If no default bus configured
-   * @throws {BusOperationError} If unsubscription fails
-   *
-   * @example
-   * ```typescript
-   * await manager.unsubscribe('events', myHandler)
-   * await manager.unsubscribe('events') // Remove all handlers
-   * ```
-   */
+  /** Unsubscribe from default bus. @throws {BusConfigError} @throws {BusOperationError} */
   async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
     return this.use().unsubscribe(channel, handler)
   }

@@ -6,6 +6,8 @@ import type { TransportData } from '@/types'
  * @param attempt - Current retry attempt (1-indexed)
  * @param baseDelayMs - Base delay in milliseconds
  * @returns Calculated delay in milliseconds
+ *
+ * @public
  */
 export type RetryBackoff = (attempt: number, baseDelayMs: number) => number
 
@@ -15,6 +17,8 @@ export type RetryBackoff = (attempt: number, baseDelayMs: number) => number
  * @param channel - The channel name
  * @param data - The message data
  * @param attempt - Current attempt number (1-indexed)
+ *
+ * @public
  */
 export type OnRetryCallback = (
   channel: string,
@@ -29,6 +33,8 @@ export type OnRetryCallback = (
  * @param data - The message data
  * @param error - The error that caused the message to be dead lettered
  * @param attempts - Total number of attempts made
+ *
+ * @public
  */
 export type OnDeadLetterCallback = (
   channel: string,
@@ -50,6 +56,8 @@ export type OnDeadLetterCallback = (
  * exponentialBackoff(3, 100) // 400ms
  * exponentialBackoff(4, 100) // 800ms
  * ```
+ *
+ * @public
  */
 export const exponentialBackoff: RetryBackoff = (attempt, baseDelayMs) =>
   baseDelayMs * Math.pow(2, attempt - 1)
@@ -66,6 +74,8 @@ export const exponentialBackoff: RetryBackoff = (attempt, baseDelayMs) =>
  * linearBackoff(2, 100) // 100ms
  * linearBackoff(3, 100) // 100ms
  * ```
+ *
+ * @public
  */
 export const linearBackoff: RetryBackoff = (_attempt, baseDelayMs) =>
   baseDelayMs
@@ -84,6 +94,8 @@ export const linearBackoff: RetryBackoff = (_attempt, baseDelayMs) =>
  * fibonacciBackoff(4, 100) // 300ms
  * fibonacciBackoff(5, 100) // 500ms
  * ```
+ *
+ * @public
  */
 export const fibonacciBackoff: RetryBackoff = (attempt, baseDelayMs) =>
   baseDelayMs * fibonacci(attempt)
@@ -128,6 +140,8 @@ const fibonacci = (n: number): number => {
  * capped(1, 100) // 100ms
  * capped(10, 100) // 5000ms (would be 51200ms without cap)
  * ```
+ *
+ * @public
  */
 export const withMaxDelay = (
   backoff: RetryBackoff,
@@ -157,6 +171,8 @@ export const withMaxDelay = (
  *   0.2
  * )
  * ```
+ *
+ * @public
  */
 export const withJitter = (
   backoff: RetryBackoff,

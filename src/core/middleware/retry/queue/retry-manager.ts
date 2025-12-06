@@ -8,35 +8,14 @@ import type {
 import type { QueuedMessage } from './retry-queue'
 import type { Transport } from '@/contracts/transport'
 
-/**
- * Result of retry attempt processing
- *
- * @internal
- */
+/** @internal */
 interface RetryResult {
-  /** Whether message should be removed from queue */
   shouldRemove: boolean
-  /** Next retry timestamp (if not removing) */
   nextRetryAt?: Date
-  /** Error message (if failed) */
   error?: string
 }
 
-/**
- * Internal retry orchestration component
- *
- * Manages retry logic, strategy application, and callback invocation.
- * Coordinates between transport, strategy, and queue lifecycle.
- * Used internally by RetryQueue - not exposed as public API.
- *
- * Responsibilities:
- * - Execute retry attempts via transport
- * - Apply backoff strategy for delay calculation
- * - Invoke onRetry and onDeadLetter callbacks
- * - Determine when messages should be removed (success or max attempts)
- *
- * @internal
- */
+/** @internal */
 export class RetryManager {
   #transport: Transport
   #backoff: RetryBackoff
@@ -45,16 +24,6 @@ export class RetryManager {
   #onRetry?: OnRetryCallback
   #onDeadLetter?: OnDeadLetterCallback
 
-  /**
-   * Create retry manager
-   *
-   * @param transport - Transport for publish attempts
-   * @param backoff - Backoff function for delay calculation
-   * @param maxAttempts - Max retry attempts before dead letter
-   * @param baseDelayMs - Base delay for backoff calculation
-   * @param onRetry - Optional retry callback
-   * @param onDeadLetter - Optional dead letter callback
-   */
   constructor(
     transport: Transport,
     backoff: RetryBackoff,
@@ -71,19 +40,9 @@ export class RetryManager {
     this.#onDeadLetter = onDeadLetter
   }
 
-  /**
-   * Process a retry attempt for a message
-   *
-   * Increments attempt counter, invokes callbacks, attempts publish.
-   * Returns result indicating whether to remove message and next retry time.
-   *
-   * @param message - Message to retry
-   * @returns Retry result with removal flag and next retry time
-   */
   async retry(message: QueuedMessage): Promise<RetryResult> {
     message.attempts++
 
-    // Invoke onRetry callback (swallow errors to prevent disruption)
     if (this.#onRetry) {
       try {
         await this.#onRetry(
@@ -92,28 +51,31 @@ export class RetryManager {
           message.attempts,
         )
       } catch {
-        // Swallow callback errors
+        // Swallow callback errors to prevent disruption
       }
     }
 
     try {
-      // Attempt to publish
       await this.#transport.publish(message.channel, message.data)
 
-      // Success - remove from queue
       return { shouldRemove: true }
     } catch (error) {
       const errorMessage = (error as Error).message
 
-      // Check if max attempts reached
       if (message.attempts >= this.#maxAttempts) {
         const deadLetterError = new DeadLetterError(
-          message.channel,
-          message.attempts,
-          error as Error,
+          `Message exhausted all retry attempts: ${errorMessage}`,
+          {
+            context: {
+              channel: message.channel,
+              attempts: message.attempts,
+              maxAttempts: this.#maxAttempts,
+              operation: 'retry',
+            },
+            cause: error as Error,
+          },
         )
 
-        // Invoke onDeadLetter callback (swallow errors)
         if (this.#onDeadLetter) {
           try {
             await this.#onDeadLetter(
@@ -123,19 +85,16 @@ export class RetryManager {
               message.attempts,
             )
           } catch {
-            // Swallow callback errors
+            // Swallow callback errors to prevent disruption
           }
         }
 
-        // Dead letter - remove from queue
         return { shouldRemove: true }
       }
 
-      // Calculate next retry delay using backoff function
       const delayMs = this.#backoff(message.attempts, this.#baseDelayMs)
       const nextRetryAt = new Date(Date.now() + delayMs)
 
-      // Reschedule
       return {
         shouldRemove: false,
         nextRetryAt,

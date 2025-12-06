@@ -1,6 +1,4 @@
-/**
- * Base error class for all codec-related errors
- */
+/** @public */
 export class CodecError extends Error {
   constructor(
     message: string,
@@ -14,9 +12,7 @@ export class CodecError extends Error {
   }
 }
 
-/**
- * Error thrown when encoding fails
- */
+/** @public */
 export class EncodeError extends CodecError {
   constructor(
     codec: string,
@@ -28,9 +24,7 @@ export class EncodeError extends CodecError {
   }
 }
 
-/**
- * Error thrown when decoding fails
- */
+/** @public */
 export class DecodeError extends CodecError {
   constructor(
     codec: string,
@@ -42,9 +36,7 @@ export class DecodeError extends CodecError {
   }
 }
 
-/**
- * Error thrown when codec type is invalid
- */
+/** @public */
 export class InvalidCodecError extends CodecError {
   constructor(codecType: string) {
     super(`Invalid codec type: ${codecType}`, codecType, 'encode', 'INVALID_CODEC')

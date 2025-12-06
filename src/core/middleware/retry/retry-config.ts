@@ -5,7 +5,8 @@ import type {
 } from './retry-backoff'
 
 /**
- * Advanced queue configuration (rarement modifié)
+ * Advanced queue configuration.
+ * @public
  */
 export interface RetryQueueConfig {
   /** Maximum queue size (default: 1000) */
@@ -17,12 +18,13 @@ export interface RetryQueueConfig {
 }
 
 /**
- * Retry configuration object
+ * Retry configuration object.
+ * @public
  */
 export interface RetryConfigObject {
   /** Maximum retry attempts (default: 10) */
   maxAttempts?: number
-  /** Initial delay in ms before first retry (default: 60000 = 1min) */
+  /** Initial delay in ms (default: 60000 = 1min) */
   delay?: number
   /** Backoff strategy (default: 'exponential') */
   backoff?: 'exponential' | 'linear' | 'fibonacci' | RetryBackoff
@@ -34,35 +36,10 @@ export interface RetryConfigObject {
   onDeadLetter?: OnDeadLetterCallback
 }
 
-/**
- * Retry configuration - KISS approach with union types
- *
- * Supports multiple formats:
- * - `false`: Completely disabled
- * - `true` or `undefined`: Enabled with defaults (10 retries, exponential backoff)
- * - `number`: Max attempts (e.g., `5` = 5 retries with default backoff)
- * - `RetryConfigObject`: Full control over all retry options
- *
- * @example
- * ```typescript
- * // Disabled
- * retry: false
- *
- * // 5 retries
- * retry: 5
- *
- * // Full control
- * retry: {
- *   maxAttempts: 10,
- *   delay: 30000,
- *   backoff: 'fibonacci',
- *   queue: { concurrency: 5 },
- *   onDeadLetter: (ch, data, err) => console.error(err)
- * }
- * ```
- */
+/** @public */
 export type RetryConfig = false | true | number | RetryConfigObject
 
+/** @internal */
 export const DEFAULT_RETRY_CONFIG: Required<Omit<RetryConfigObject, 'onRetry' | 'onDeadLetter'>> = {
   maxAttempts: 10,
   delay: 60000,

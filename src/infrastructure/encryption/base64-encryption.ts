@@ -1,21 +1,10 @@
 import type { Encryption } from '@/contracts/encryption'
 import type { TransportData } from '@/types'
 
-/**
- * Base64 encoding (obfuscation only, NOT secure)
- *
- * Provides basic Base64 encoding/decoding for transport data.
- * This is NOT encryption - it only provides obfuscation.
- * Do not use for security-sensitive data.
- *
- * @example
- * ```typescript
- * const encryption = new Base64Encryption()
- * const encrypted = encryption.encrypt(data)
- * const decrypted = encryption.decrypt(encrypted)
- * ```
- */
+/** @internal */
 export class Base64Encryption implements Encryption {
+  readonly name = 'base64'
+
   encrypt(data: TransportData): Uint8Array {
     const base64 = Buffer.from(data).toString('base64')
 

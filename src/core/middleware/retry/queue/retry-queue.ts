@@ -16,94 +16,47 @@ import type { TransportData } from '@/types'
 import { processBatch } from '@/shared/utils/batch'
 import { createScheduler, type Scheduler } from '@/shared/utils/scheduler'
 
-/**
- * Queued message metadata
- *
- * Represents a failed message awaiting retry. Tracks all state needed
- * for exponential backoff, dead letter handling, and debugging.
- *
- * @property id - Unique message identifier (hash or UUID)
- * @property channel - The channel the message was published to
- * @property data - The binary message payload
- * @property attempts - Number of retry attempts made so far
- * @property nextRetryAt - Timestamp when next retry should occur
- * @property createdAt - Timestamp when message was first enqueued
- * @property error - Last error message (optional, for debugging)
- */
+/** @internal */
 export interface QueuedMessage {
+  /** Unique identifier (hash or UUID) */
   id: string
+  /** Target channel */
   channel: string
+  /** Binary payload */
   data: TransportData
+  /** Retry attempts made */
   attempts: number
+  /** Next retry timestamp */
   nextRetryAt: Date
+  /** Creation timestamp */
   createdAt: Date
+  /** Last error message */
   error?: string
 }
 
-/**
- * Retry queue configuration options
- */
+/** @internal */
 export interface RetryQueueOptions {
-  /**
-   * Base delay in milliseconds before first retry (default: 60000 = 1 minute)
-   */
+  /** Base delay in ms (default: 60000) */
   baseDelayMs?: number
-
-  /**
-   * Processing interval in milliseconds (default: 5000 = 5 seconds)
-   */
+  /** Processing interval in ms (default: 5000) */
   intervalMs?: number
-
-  /**
-   * Maximum retry attempts before dead letter (default: 10)
-   */
+  /** Max attempts before dead letter (default: 10) */
   maxAttempts?: number
-
-  /**
-   * Backoff strategy (default: 'exponential')
-   *
-   * - 'exponential': Doubles delay each attempt (2^n)
-   * - 'linear': Fixed delay (constant)
-   * - 'fibonacci': Fibonacci sequence growth
-   * - Custom: Provide RetryBackoff function
-   */
+  /** Backoff strategy (default: 'exponential') */
   backoff?: 'exponential' | 'linear' | 'fibonacci' | RetryBackoff
-
-  /**
-   * Remove duplicate messages (default: true)
-   */
+  /** Remove duplicates (default: true) */
   removeDuplicates?: boolean
-
-  /**
-   * Maximum queue size (default: 1000)
-   */
+  /** Max queue size (default: 1000) */
   maxSize?: number
-
-  /**
-   * Maximum concurrent retry operations (default: 10)
-   *
-   * Controls how many messages are retried in parallel during each
-   * processing cycle. Prevents overwhelming the transport or target system.
-   */
+  /** Max concurrent retries (default: 10) */
   concurrency?: number
-
-  /**
-   * Callback when message is moved to dead letter queue
-   */
+  /** Dead letter callback */
   onDeadLetter?: OnDeadLetterCallback
-
-  /**
-   * Callback on retry attempt
-   */
+  /** Retry callback */
   onRetry?: OnRetryCallback
 }
 
-/**
- * Retry queue for handling failed message retries
- *
- * Provides configurable backoff strategies, dead letter handling,
- * and duplicate detection.
- */
+/** @internal */
 export class RetryQueue {
   #messageQueue: MessageQueue
   #retryManager: RetryManager

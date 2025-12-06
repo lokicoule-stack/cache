@@ -1,43 +1,128 @@
 /**
- * Base error class for encryption-related errors.
+ * Error codes for encryption operations.
+ * @public
+ */
+export const EncryptionErrorCode = {
+  /** Invalid encryption configuration */
+  INVALID_CONFIG :'INVALID_CONFIG',
+  
+  /** Encryption operation failed */
+  ENCRYPTION_FAILED :'ENCRYPTION_FAILED',
+  
+  /** Decryption operation failed */
+  DECRYPTION_FAILED: 'DECRYPTION_FAILED',
+  
+  /** 
+   * Cryptographic authentication failed.
+   * Data integrity cannot be verified.
+   */
+  AUTHENTICATION_FAILED: 'AUTHENTICATION_FAILED',
+  
+  /** Invalid data format or structure */
+  INVALID_DATA :'INVALID_DATA',
+} as const;
+
+/** public */
+export type EncryptionErrorCode = typeof EncryptionErrorCode[keyof typeof EncryptionErrorCode];
+
+/**
+ * Non-sensitive context for encryption errors.
+ * @public
+ */
+export interface EncryptionErrorContext {
+  /** Additional non-sensitive metadata */
+  [key: string]: unknown
+  
+  /** Component or field where error occurred */
+  field?: string
+  
+  /** Cryptographic algorithm being used */
+  algorithm?: string
+  
+  /** Type of operation being performed */
+  operation?: 'encrypt' | 'decrypt' | 'verify' | 'derive'
+
+}
+
+/**
+ * Base error for all encryption operations.
+ *
+ * @remarks
+ * Extends native Error with structured error codes and optional context.
+ * Use the `code` property for programmatic error handling.
+ *
+ * @public
  */
 export class EncryptionError extends Error {
+  /** Machine-readable error code */
+  readonly code: EncryptionErrorCode;
+
+  /** Additional error context */
+  readonly context?: EncryptionErrorContext;
+
   constructor(
     message: string,
-    public readonly code: string = 'ENCRYPTION_ERROR',
+    code: EncryptionErrorCode = EncryptionErrorCode.ENCRYPTION_FAILED,
+    options?: ErrorOptions & { context?: EncryptionErrorContext },
   ) {
-    super(message)
-    this.name = 'EncryptionError'
-    Error.captureStackTrace?.(this, this.constructor)
+    super(message, options);
+
+    this.name = 'EncryptionError';
+    this.code = code;
+    this.context = options?.context;
+
+    Error.captureStackTrace?.(this, this.constructor);
+  }
+
+  /** @internal */
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      code: this.code,
+      context: this.context,
+      stack: this.stack,
+    };
   }
 }
 
 /**
- * Error thrown when encrypted data has an invalid format.
+ * Configuration error for encryption operations.
+ * 
+ * @remarks
+ * Thrown when encryption setup is invalid (missing keys, wrong algorithm, etc).
+ * These errors typically indicate developer mistakes and should be fixed before runtime.
+ * 
+ * @public
  */
-export class InvalidEncryptionDataError extends EncryptionError {
-  constructor(message: string) {
-    super(message, 'INVALID_ENCRYPTION_DATA')
-    this.name = 'InvalidEncryptionDataError'
+export class EncryptionConfigError extends EncryptionError {
+  constructor(
+    message: string,
+    options?: ErrorOptions & { context?: EncryptionErrorContext },
+  ) {
+    super(message, EncryptionErrorCode.INVALID_CONFIG, options);
+    this.name = 'EncryptionConfigError';
   }
 }
 
 /**
- * Error thrown when HMAC verification fails.
+ * Security-critical error for encryption operations.
+ * 
+ * @remarks
+ * Thrown when cryptographic authentication fails (HMAC, GCM auth tag, signature
+ * verification, etc). This indicates the data may have been tampered with or
+ * corrupted and should not be trusted.
+ * 
+ * These errors should trigger security alerts and should never be automatically retried.
+ * 
+ * @public
  */
-export class HMACVerificationError extends EncryptionError {
-  constructor() {
-    super('HMAC verification failed', 'HMAC_VERIFICATION_FAILED')
-    this.name = 'HMACVerificationError'
-  }
-}
-
-/**
- * Error thrown when encryption configuration is invalid.
- */
-export class InvalidEncryptionConfigError extends EncryptionError {
-  constructor(message: string) {
-    super(message, 'INVALID_ENCRYPTION_CONFIG')
-    this.name = 'InvalidEncryptionConfigError'
+export class EncryptionSecurityError extends EncryptionError {
+  constructor(
+    message: string,
+    options?: ErrorOptions & { context?: EncryptionErrorContext },
+  ) {
+    super(message, EncryptionErrorCode.AUTHENTICATION_FAILED, options);
+    this.name = 'EncryptionSecurityError';
   }
 }

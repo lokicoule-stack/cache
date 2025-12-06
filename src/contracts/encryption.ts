@@ -1,43 +1,27 @@
 import type { TransportData } from '../types'
 
 /**
- * Encryption interface for transforming transport data
+ * Data encryption/obfuscation abstraction.
  *
- * Defines the contract for encrypting/decrypting or obfuscating transport data.
- * Implementations can provide various encryption, obfuscation,
- * or authentication mechanisms.
+ * @remarks
+ * Transforms binary data using encryption, obfuscation, or authentication mechanisms.
+ * Operations must be reversible: decrypt(encrypt(x)) === x.
  *
- * @example
- * ```typescript
- * class MyEncryption implements Encryption {
- *   encrypt(data: TransportData): Uint8Array {
- *     // Transform data
- *     return transformed
- *   }
- *
- *   decrypt(data: Uint8Array): Uint8Array {
- *     // Reverse transformation
- *     return original
- *   }
- * }
- * ```
+ * @public
  */
 export interface Encryption {
+  /** Encryption identifier */
+  readonly name: string
+
   /**
-   * Encrypt/transform data before publishing
-   *
-   * @param data - Original transport data
-   * @returns Transformed data
-   * @throws {Error} If encryption fails
+   * Encrypt data
+   * @throws {EncryptionError} on failure
    */
   encrypt(data: TransportData): Uint8Array
 
   /**
-   * Decrypt/reverse data after receiving
-   *
-   * @param data - Transformed data
-   * @returns Original transport data
-   * @throws {Error} If decryption/verification fails
+   * Decrypt data
+   * @throws {EncryptionError} on failure or verification failure
    */
   decrypt(data: Uint8Array): Uint8Array
 }
