@@ -37,6 +37,11 @@ export class CompressionMiddleware extends TransportMiddleware {
    * @returns Resolved compression implementation
    */
   #resolveCompression(option: CompressionOption): Compression {
+    // Handle boolean
+    if (typeof option === 'boolean') {
+      return new GzipCompression()
+    }
+
     // Handle magic string
     if (typeof option === 'string') {
       switch (option) {
@@ -50,6 +55,16 @@ export class CompressionMiddleware extends TransportMiddleware {
       return new GzipCompression({
         level: option.level,
         threshold: option.threshold,
+      })
+    }
+
+    // Handle simplified config (object without 'type' field)
+    if (typeof option === 'object' && option !== null && !('compress' in option)) {
+      const config = option as { level?: number; threshold?: number }
+
+      return new GzipCompression({
+        level: config.level,
+        threshold: config.threshold,
       })
     }
 
