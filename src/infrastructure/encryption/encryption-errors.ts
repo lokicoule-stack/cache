@@ -22,7 +22,7 @@ export const EncryptionErrorCode = {
   INVALID_DATA :'INVALID_DATA',
 } as const;
 
-/** public */
+/** @public */
 export type EncryptionErrorCode = typeof EncryptionErrorCode[keyof typeof EncryptionErrorCode];
 
 /**
@@ -88,11 +88,10 @@ export class EncryptionError extends Error {
 
 /**
  * Configuration error for encryption operations.
- * 
+ *
  * @remarks
  * Thrown when encryption setup is invalid (missing keys, wrong algorithm, etc).
- * These errors typically indicate developer mistakes and should be fixed before runtime.
- * 
+ *
  * @public
  */
 export class EncryptionConfigError extends EncryptionError {
@@ -107,14 +106,11 @@ export class EncryptionConfigError extends EncryptionError {
 
 /**
  * Security-critical error for encryption operations.
- * 
+ *
  * @remarks
- * Thrown when cryptographic authentication fails (HMAC, GCM auth tag, signature
- * verification, etc). This indicates the data may have been tampered with or
- * corrupted and should not be trusted.
- * 
- * These errors should trigger security alerts and should never be automatically retried.
- * 
+ * Thrown when cryptographic authentication fails (HMAC, GCM auth tag, etc).
+ * Indicates data tampering or corruption. Should trigger alerts, never retry.
+ *
  * @public
  */
 export class EncryptionSecurityError extends EncryptionError {

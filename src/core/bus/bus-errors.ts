@@ -55,24 +55,6 @@ export interface BusErrorContext {
  * Extends native Error with structured error codes and optional context.
  * Use the `code` property for programmatic error handling.
  *
- * @example
- * ```ts
- * try {
- *   await bus.publish('events', data);
- * } catch (err) {
- *   if (err instanceof BusError) {
- *     switch (err.code) {
- *       case BusErrorCode.NOT_CONNECTED:
- *         await bus.connect();
- *         break;
- *       case BusErrorCode.HANDLER_FAILED:
- *         logger.error('Handler error', err.context);
- *         break;
- *     }
- *   }
- * }
- * ```
- *
  * @public
  */
 export class BusError extends Error {
@@ -110,11 +92,10 @@ export class BusError extends Error {
 
 /**
  * Configuration error for message bus.
- * 
+ *
  * @remarks
  * Thrown during bus initialization when configuration is invalid.
- * These errors indicate developer mistakes and should be fixed before runtime.
- * 
+ *
  * @public
  */
 export class BusConfigError extends BusError {

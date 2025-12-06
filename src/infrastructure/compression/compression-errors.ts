@@ -93,10 +93,10 @@ export class CompressionError extends Error {
 
 /**
  * Configuration error for compression operations.
- * 
+ *
  * @remarks
  * Thrown when compression setup is invalid (unsupported algorithm, invalid options, etc).
- * 
+ *
  * @public
  */
 export class CompressionConfigError extends CompressionError {
