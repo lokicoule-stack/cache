@@ -27,7 +27,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     this.#config = config
   }
 
-  /** Get or create a bus instance (lazy). @throws {BusConfigError} */
+  /** Get or create a bus instance (lazy). @throws \{BusConfigError\} */
   use<K extends keyof T>(name?: K): Bus {
     const busName = (name ?? this.#config.default) as keyof T
 
@@ -54,7 +54,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     return bus
   }
 
-  /** Start all buses (or specific one). @throws {BusOperationError} */
+  /** Start all buses (or specific one). @throws \{BusOperationError\} */
   async start<K extends keyof T>(name?: K): Promise<void> {
     if (name) {
       await this.use(name).connect()
@@ -63,7 +63,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     }
   }
 
-  /** Stop all buses (or specific one). @throws {BusOperationError} */
+  /** Stop all buses (or specific one). @throws \{BusOperationError\} */
   async stop<K extends keyof T>(name?: K): Promise<void> {
     if (name) {
       await this.use(name).disconnect()
@@ -73,12 +73,12 @@ export class BusManager<T extends Record<string, BusOptions>> {
     }
   }
 
-  /** Publish to default bus. @throws {BusConfigError} @throws {BusOperationError} */
+  /** Publish to default bus. @throws \{BusConfigError\} @throws \{BusOperationError\} */
   async publish<D extends Serializable>(channel: string, data: D): Promise<void> {
     return this.use().publish(channel, data)
   }
 
-  /** Subscribe to default bus. @throws {BusConfigError} @throws {BusOperationError} */
+  /** Subscribe to default bus. @throws \{BusConfigError\} @throws \{BusOperationError\} */
   async subscribe<D extends Serializable>(
     channel: string,
     handler: MessageHandler<D>,
@@ -86,7 +86,7 @@ export class BusManager<T extends Record<string, BusOptions>> {
     return this.use().subscribe(channel, handler)
   }
 
-  /** Unsubscribe from default bus. @throws {BusConfigError} @throws {BusOperationError} */
+  /** Unsubscribe from default bus. @throws \{BusConfigError\} @throws \{BusOperationError\} */
   async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
     return this.use().unsubscribe(channel, handler)
   }

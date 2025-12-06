@@ -40,7 +40,7 @@ export default [
       file: 'dist/index.d.ts',
       format: 'es',
     },
-    external,
+    external: [/node_modules/],
     plugins: [aliasConfig, dts()],
   },
 ]

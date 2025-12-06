@@ -11,13 +11,8 @@ export type { BusOptions } from './core/bus/message-bus'
 export type { BusManagerConfig } from './core/bus/bus-manager'
 
 // Bus Errors
-export {
-  BusError,
-  BusNotConnectedError,
-  BusOperationError,
-  HandlerError,
-  BusConfigurationError,
-} from './core/bus/bus-errors'
+export { BusError, BusErrorCode, BusConfigError } from './core/bus/bus-errors'
+export type { BusErrorContext } from './core/bus/bus-errors'
 
 // ============================================================================
 // TYPES
@@ -55,7 +50,8 @@ export {
 
 // Retry Configuration & Errors
 export type { RetryConfig } from './core/middleware/retry/retry-config'
-export { QueueError, QueueFullError, DeadLetterError } from './core/middleware/retry/retry-errors'
+export { QueueError, QueueErrorCode, DeadLetterError } from './core/middleware/retry/retry-errors'
+export type { QueueErrorContext } from './core/middleware/retry/retry-errors'
 
 // Retry Backoff Functions & Types
 export type {

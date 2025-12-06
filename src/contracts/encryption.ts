@@ -15,13 +15,13 @@ export interface Encryption {
 
   /**
    * Encrypt data
-   * @throws {EncryptionError} on failure
+   * @throws \{EncryptionError\} on failure
    */
   encrypt(data: TransportData): Uint8Array
 
   /**
    * Decrypt data
-   * @throws {EncryptionError} on failure or verification failure
+   * @throws \{EncryptionError\} on failure or verification failure
    */
   decrypt(data: Uint8Array): Uint8Array
 }

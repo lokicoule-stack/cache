@@ -15,13 +15,13 @@ export interface Codec {
 
   /**
    * Serialize to binary
-   * @throws {EncodeError} on failure
+   * @throws \{EncodeError\} on failure
    */
   encode<T extends Serializable>(data: T): TransportData
 
   /**
    * Deserialize from binary
-   * @throws {DecodeError} on failure or corruption
+   * @throws \{DecodeError\} on failure or corruption
    */
   decode<T extends Serializable>(data: TransportData): T
 }

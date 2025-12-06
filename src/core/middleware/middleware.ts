@@ -25,22 +25,37 @@ export interface MiddlewareConfig {
 /** Middleware wrapper function type */
 type MiddlewareWrapper = (transport: Transport) => Transport
 
-/** Compose middleware wrappers (right to left) */
-const compose = (...fns: MiddlewareWrapper[]): MiddlewareWrapper =>
+/**
+ * Compose middleware wrappers (right to left).
+ * @public
+ */
+const compose =
+  (...fns: MiddlewareWrapper[]): MiddlewareWrapper =>
   (transport: Transport) =>
     fns.reduceRight((acc, fn) => fn(acc), transport)
 
-/** Create compression middleware wrapper */
-const withCompression = (compression: CompressionOption): MiddlewareWrapper =>
+/**
+ * Create compression middleware wrapper.
+ * @public
+ */
+const withCompression =
+  (compression: CompressionOption): MiddlewareWrapper =>
   (transport: Transport) =>
     new CompressionMiddleware(transport, { compression })
 
-/** Create encryption middleware wrapper */
-const withEncryption = (encryption: EncryptionOption): MiddlewareWrapper =>
+/**
+ * Create encryption middleware wrapper.
+ * @public
+ */
+const withEncryption =
+  (encryption: EncryptionOption): MiddlewareWrapper =>
   (transport: Transport) =>
     new EncryptionMiddleware(transport, { encryption })
 
-/** Create retry middleware wrapper */
+/**
+ * Create retry middleware wrapper.
+ * @public
+ */
 const withRetry = (config?: RetryConfig): MiddlewareWrapper => {
   return (transport: Transport) => {
     if (config === false) {

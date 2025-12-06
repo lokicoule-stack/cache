@@ -15,13 +15,13 @@ export interface Compression {
 
   /**
    * Compress data
-   * @throws {CompressionError} on failure
+   * @throws \{CompressionError\} on failure
    */
   compress(data: TransportData): Promise<Uint8Array>
 
   /**
    * Decompress data
-   * @throws {CompressionError} on failure or corruption
+   * @throws \{CompressionError\} on failure or corruption
    */
   decompress(data: Uint8Array): Promise<Uint8Array>
 }

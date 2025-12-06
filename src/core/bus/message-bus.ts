@@ -54,7 +54,7 @@ export class MessageBus implements Bus {
     this.#onHandlerError = options.onHandlerError
   }
 
-  /** Connect the bus transport. @throws {BusError} */
+  /** Connect the bus transport. @throws \{BusError\} */
   async connect(): Promise<void> {
     try {
       await this.#transport.connect()
@@ -70,7 +70,7 @@ export class MessageBus implements Bus {
     }
   }
 
-  /** Disconnect the bus transport. @throws {BusError} */
+  /** Disconnect the bus transport. @throws \{BusError\} */
   async disconnect(): Promise<void> {
     try {
       for (const channel of this.#handlers.keys()) {
@@ -89,7 +89,7 @@ export class MessageBus implements Bus {
     }
   }
 
-  /** Publish a message. @throws {BusError} */
+  /** Publish a message. @throws \{BusError\} */
   async publish<T extends Serializable>(channel: string, data: T): Promise<void> {
     try {
       const bytes = this.#codec.encode(data)
@@ -107,7 +107,7 @@ export class MessageBus implements Bus {
     }
   }
 
-  /** Subscribe to a channel. @throws {BusError} */
+  /** Subscribe to a channel. @throws \{BusError\} */
   async subscribe<T extends Serializable>(
     channel: string,
     handler: MessageHandler<T>,
@@ -152,7 +152,7 @@ export class MessageBus implements Bus {
     this.#handlers.get(channel)?.add(handler as MessageHandler)
   }
 
-  /** Unsubscribe from a channel. @throws {BusError} */
+  /** Unsubscribe from a channel. @throws \{BusError\} */
   async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
     const handlers = this.#handlers.get(channel)
 
