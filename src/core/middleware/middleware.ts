@@ -69,11 +69,15 @@ const withEncryption = (encryption: EncryptionOption): MiddlewareWrapper =>
 /**
  * Create retry middleware wrapper
  */
-const withRetry = (config: RetryConfig = { enabled: true }): MiddlewareWrapper =>
-  (transport: Transport) => 
-    config.enabled !== false
-      ? new RetryMiddleware(transport, undefined, config)
-      : transport
+const withRetry = (config?: RetryConfig): MiddlewareWrapper => {
+  return (transport: Transport) => {
+    if (config === false) {
+      return transport
+    }
+
+    return new RetryMiddleware(transport, config)
+  }
+}
 
 /**
  * Pipe operator for composing middleware in natural order (top to bottom)
@@ -140,8 +144,9 @@ export const composeMiddleware = (
   }
 
   // Layer 3: Retry (outermost layer)
-  if (config.retry?.enabled !== false) {
-    middlewares.push(withRetry(config.retry ?? { enabled: true }))
+  // Only skip if explicitly set to false
+  if (!(config.retry === false)) {
+    middlewares.push(withRetry(config.retry))
   }
 
   // Compose all middlewares (right to left)

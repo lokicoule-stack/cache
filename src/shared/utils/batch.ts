@@ -10,10 +10,10 @@ export async function processBatch<T>(
   shouldStop?: () => boolean
 ): Promise<void> {
   for (let i = 0; i < items.length; i += concurrency) {
-    if (shouldStop?.()) {break;}
+    if (shouldStop?.()) { break } 
 
-    const batch = items.slice(i, i + concurrency);
-
-    await Promise.allSettled(batch.map(processor));
+    const batch = items.slice(i, i + concurrency)
+    
+    await Promise.allSettled(batch.map(processor))
   }
 }

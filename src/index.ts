@@ -66,6 +66,21 @@ export {
   DeadLetterError,
 } from './core/middleware/retry/retry-errors'
 
+// Retry Backoff Functions & Types
+export type {
+  RetryBackoff,
+  OnRetryCallback,
+  OnDeadLetterCallback,
+} from './core/middleware/retry/retry-backoff'
+
+export {
+  exponentialBackoff,
+  linearBackoff,
+  fibonacciBackoff,
+  withMaxDelay,
+  withJitter,
+} from './core/middleware/retry/retry-backoff'
+
 // Compression Configuration
 export type {
   CompressionOption,
