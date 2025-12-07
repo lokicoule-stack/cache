@@ -15,6 +15,8 @@ export interface RetryQueueConfig {
   concurrency?: number
   /** Remove duplicate messages (default: true) */
   removeDuplicates?: boolean
+  /** Processing interval in ms (default: 1000) */
+  intervalMs?: number
 }
 
 /**
@@ -48,5 +50,6 @@ export const DEFAULT_RETRY_CONFIG: Required<Omit<RetryConfigObject, 'onRetry' | 
     maxSize: 1000,
     concurrency: 10,
     removeDuplicates: true,
+    intervalMs: 1000,
   },
 }

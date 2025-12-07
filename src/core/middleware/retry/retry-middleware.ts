@@ -1,60 +1,80 @@
 import { TransportMiddleware } from '../base'
 
 import { RetryQueue } from './queue/retry-queue'
-import {
-  type RetryConfig,
-  type RetryConfigObject,
-  DEFAULT_RETRY_CONFIG,
-} from './retry-config'
+import { type RetryConfig, type RetryConfigObject, DEFAULT_RETRY_CONFIG } from './retry-config'
 
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
 
-/** @internal */
+import { TransportError } from '@/infrastructure/transports/transport-errors'
+
+/**
+ * Middleware that adds automatic retry capabilities to transports.
+ *
+ * @internal
+ */
 export class RetryMiddleware extends TransportMiddleware {
-  readonly #retryQueue: RetryQueue | null
+  readonly #queue: RetryQueue | null
 
   constructor(transport: Transport, config?: RetryConfig) {
     super(transport)
 
     const normalizedConfig = this.#normalizeConfig(config)
 
-    this.#retryQueue = this.#initializeQueue(normalizedConfig)
+    this.#queue =
+      (normalizedConfig.maxAttempts ?? 0) > 0 ? this.#createQueue(normalizedConfig) : null
   }
 
-  public override async connect(): Promise<void> {
+  override async connect(): Promise<void> {
+    this.#setupReconnectHandler()
     await this.transport.connect()
-
-    if (this.#retryQueue) {
-      await this.#retryQueue.start()
-    }
+    await this.#queue?.start()
   }
 
-  public override async disconnect(): Promise<void> {
-    if (this.#retryQueue) {
-      await this.#retryQueue.stop()
-    }
-
+  override async disconnect(): Promise<void> {
+    await this.#queue?.stop()
     await this.transport.disconnect()
   }
 
-  public override async publish(
-    channel: string,
-    data: TransportData
-  ): Promise<void> {
+  override async publish(channel: string, data: TransportData): Promise<void> {
     try {
       await this.transport.publish(channel, data)
-    } catch (error) {
-      if (!this.#retryQueue) {
-        throw error
-      }
+    } catch (err) {
+      const queue = this.#queue
 
-      await this.#retryQueue.enqueue(
-        channel,
-        data,
-        error instanceof Error ? error : new Error(String(error))
-      )
+      if (this.#shouldRetry(err) && queue) {
+        const error = err instanceof Error ? err : new Error(String(err))
+
+        await queue.enqueue(channel, data, error)
+
+        return
+      }
+      throw err
     }
+  }
+
+  #shouldRetry(err: unknown): boolean {
+    if (!this.#queue) {
+      return false
+    }
+
+    if (err instanceof TransportError && err.context?.retryable !== undefined) {
+      return err.context.retryable
+    }
+
+    return true
+  }
+
+  #setupReconnectHandler(): void {
+    if (!this.#queue) {
+      return
+    }
+
+    this.transport.onReconnect(() => {
+      if (this.#queue) {
+        void this.#queue.flush()
+      }
+    })
   }
 
   #normalizeConfig(config?: RetryConfig): RetryConfigObject {
@@ -80,16 +100,12 @@ export class RetryMiddleware extends TransportMiddleware {
     }
   }
 
-  #initializeQueue(config: RetryConfigObject): RetryQueue | null {
-    if (config.maxAttempts === 0) {
-      return null
-    }
-
+  #createQueue(config: RetryConfigObject): RetryQueue {
     const queueConfig = config.queue ?? DEFAULT_RETRY_CONFIG.queue
 
     return new RetryQueue(this.transport, {
       baseDelayMs: config.delay,
-      intervalMs: 5000, // Fixed processing interval
+      intervalMs: queueConfig.intervalMs,
       maxAttempts: config.maxAttempts,
       backoff: config.backoff,
       maxSize: queueConfig.maxSize,

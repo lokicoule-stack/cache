@@ -33,6 +33,10 @@ export class MemoryTransport implements Transport {
   async unsubscribe(channel: string): Promise<void> {
     this.#channels.delete(channel)
   }
+
+  onReconnect(_callback: () => void): void {
+    // No-op: MemoryTransport doesn't have reconnection
+  }
 }
 
 /** @public */

@@ -102,6 +102,17 @@ export class RetryQueue {
     return this.#messageQueue.enqueue(channel, data, this.#baseDelayMs, error?.message)
   }
 
+  async flush(): Promise<void> {
+    const all = this.#messageQueue.getAll()
+
+    await processBatch(
+      all,
+      (msg) => this.#processMessage(msg),
+      this.#concurrency,
+      () => !this.#scheduler.isRunning(),
+    )
+  }
+
   clear(): void {
     this.#messageQueue.clear()
   }
@@ -130,9 +141,7 @@ export class RetryQueue {
     }
   }
 
-  #resolveBackoff(
-    backoff: 'exponential' | 'linear' | 'fibonacci' | RetryBackoff,
-  ): RetryBackoff {
+  #resolveBackoff(backoff: 'exponential' | 'linear' | 'fibonacci' | RetryBackoff): RetryBackoff {
     if (typeof backoff === 'function') {
       return backoff
     }

@@ -30,4 +30,7 @@ export interface Transport {
 
   /** Remove subscription from channel */
   unsubscribe(channel: string): Promise<void>
+
+  /** Register callback for reconnection events */
+  onReconnect(callback: () => Promise<void> | void): void
 }
