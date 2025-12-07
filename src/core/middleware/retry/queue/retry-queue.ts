@@ -13,8 +13,8 @@ import { RetryManager } from './retry-manager'
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
 
-import { processBatch } from '@/shared/utils/batch'
-import { createScheduler, type Scheduler } from '@/shared/utils/scheduler'
+import { processBatch } from '@/core/middleware/retry/queue/utils/batch'
+import { createScheduler, type Scheduler } from '@/core/middleware/retry/queue/utils/scheduler'
 
 /** @internal */
 export interface QueuedMessage {
