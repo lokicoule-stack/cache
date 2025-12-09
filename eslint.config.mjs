@@ -167,6 +167,7 @@ export default [
       'dist/**',
       'node_modules/**',
       'coverage/**',
+      'benchmarks/**',
       '*.config.js',
       '*.config.ts',
       '*.config.mjs',

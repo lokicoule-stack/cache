@@ -32,7 +32,14 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
-    "check:api": "npm run build && npm run build:api:prod"
+    "check:api": "npm run build && npm run build:api:prod",
+    "bench": "cd benchmarks && pnpm bench:redis && pnpm bench:codecs",
+    "bench:all": "cd benchmarks && pnpm bench:all",
+    "bench:redis": "cd benchmarks && pnpm bench:redis",
+    "bench:codecs": "cd benchmarks && pnpm bench:codecs",
+    "bench:bus": "cd benchmarks && pnpm bench:bus",
+    "bench:transport": "cd benchmarks && pnpm bench:transport",
+    "bench:bandwidth": "cd benchmarks && pnpm bench:bandwidth"
   },
   "keywords": [
     "typescript",
@@ -53,8 +60,11 @@
     "url": "https://github.com/lokicoule-stack/bus/issues"
   },
   "homepage": "https://github.com/lokicoule-stack/bus#readme",
+  "peerDependencies": {
+    "redis": "^5.0.0"
+  },
   "peerDependenciesMeta": {
-    "ioredis": {
+    "redis": {
       "optional": true
     }
   },
@@ -80,6 +90,7 @@
     "rollup-plugin-dts": "^6.1.1",
     "testcontainers": "^11.9.0",
     "tslib": "^2.8.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.17.0",
     "vitest": "^2.1.8",

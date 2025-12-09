@@ -1,0 +1,31 @@
+{
+  "name": "@lokiverse/bus-benchmarks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Performance benchmarks for @lokiverse/bus",
+  "scripts": {
+    "bench:all": "tsx suites/redis.bench.ts && tsx suites/codecs.bench.ts && tsx suites/bus.bench.ts && tsx suites/transport.bench.ts",
+    "bench:redis": "tsx suites/redis.bench.ts",
+    "bench:codecs": "tsx suites/codecs.bench.ts",
+    "bench:bus": "tsx suites/bus.bench.ts",
+    "bench:transport": "tsx suites/transport.bench.ts",
+    "bench:bandwidth": "tsx suites/bandwidth.bench.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "tinybench": "^6.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "@stylistic/eslint-plugin": "^5.6.1",
+    "@testcontainers/redis": "^11.9.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-import": "^2.32.0",
+    "redis": "^5.10.0",
+    "testcontainers": "^11.9.0",
+    "tsx": "^4.21.0",
+    "typescript-eslint": "^8.17.0"
+  }
+}
