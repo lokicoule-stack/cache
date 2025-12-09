@@ -29,4 +29,8 @@ export abstract class TransportMiddleware implements Middleware {
   async unsubscribe(channel: string): Promise<void> {
     return this.transport.unsubscribe(channel)
   }
+
+  onReconnect(callback: () => Promise<void> | void): void {
+    return this.transport.onReconnect(callback)
+  }
 }

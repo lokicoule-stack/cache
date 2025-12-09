@@ -9,13 +9,13 @@ export type GzipConfig =
       type: 'gzip'
       /** Compression level 0-9 (default: 6) */
       level?: number
-      /** Minimum size in bytes (default: 1024) */
+      /** Minimum size in bytes (default: 5120 = 5KB) */
       threshold?: number
     }
   | {
       /** Compression level 0-9 (default: 6) */
       level?: number
-      /** Minimum size in bytes (default: 1024) */
+      /** Minimum size in bytes (default: 5120 = 5KB) */
       threshold?: number
     }
 

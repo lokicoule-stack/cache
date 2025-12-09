@@ -16,7 +16,7 @@ import { TransportError } from '@/infrastructure/transports/transport-errors'
 export class RetryMiddleware extends TransportMiddleware {
   readonly #queue: RetryQueue | null
 
-  constructor(transport: Transport, config?: RetryConfig) {
+  constructor(transport: Transport, config: RetryConfig) {
     super(transport)
 
     const normalizedConfig = this.#normalizeConfig(config)
@@ -77,12 +77,12 @@ export class RetryMiddleware extends TransportMiddleware {
     })
   }
 
-  #normalizeConfig(config?: RetryConfig): RetryConfigObject {
+  #normalizeConfig(config: RetryConfig): RetryConfigObject {
     if (config === false) {
       return { ...DEFAULT_RETRY_CONFIG, maxAttempts: 0 }
     }
 
-    if (config === undefined || config === true) {
+    if (config === true) {
       return DEFAULT_RETRY_CONFIG
     }
 

@@ -27,7 +27,21 @@ export interface Codec {
 }
 
 /** @public */
-export type CodecType = 'json' | 'msgpack'
+export type CodecType = 'json' | 'msgpack' | 'auto'
+
+/**
+ * Configuration for AutoCodec behavior.
+ * @public
+ */
+export interface AutoCodecConfig {
+  type: 'auto'
+  /**
+   * Size threshold in bytes (default: 500)
+   * - Payloads < threshold: JSON (faster parsing)
+   * - Payloads ≥ threshold: MessagePack (smaller size)
+   */
+  threshold?: number
+}
 
 /** @public */
-export type CodecOption = CodecType | Codec
+export type CodecOption = CodecType | AutoCodecConfig | Codec

@@ -14,9 +14,9 @@ import { GzipCompression } from '@/infrastructure/compression/gzip-compression'
 export class CompressionMiddleware extends TransportMiddleware {
   readonly #compression: Compression
 
-  constructor(transport: Transport, config: CompressionConfig) {
+  constructor(transport: Transport, config?: CompressionConfig) {
     super(transport)
-    this.#compression = this.#resolveCompression(config.compression)
+    this.#compression = this.#resolveCompression(config?.compression)
   }
 
   override async publish(channel: string, data: TransportData): Promise<void> {
@@ -33,7 +33,11 @@ export class CompressionMiddleware extends TransportMiddleware {
     })
   }
 
-  #resolveCompression(option: CompressionOption): Compression {
+  #resolveCompression(option?: CompressionOption): Compression {
+    if (!option) {
+      return new GzipCompression()
+    }
+
     if (typeof option === 'boolean') {
       return new GzipCompression()
     }

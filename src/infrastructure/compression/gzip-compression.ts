@@ -22,13 +22,13 @@ export type CompressionMarkerType = (typeof CompressionMarker)[keyof typeof Comp
 export interface GzipCompressionConfig {
   /** Compression level 0-9 (default: 6) */
   level?: number
-  /** Minimum size in bytes to trigger compression (default: 1024) */
+  /** Minimum size in bytes to trigger compression (default: 5120 = 5KB) */
   threshold?: number
 }
 
 const DEFAULT_OPTIONS: Required<GzipCompressionConfig> = {
   level: 6,
-  threshold: 1024,
+  threshold: 5120,
 }
 
 /** @internal */
@@ -82,9 +82,9 @@ export class GzipCompression implements Compression {
               operation: 'detect',
               algorithm: 'gzip',
               expectedFormat: `${CompressionMarker.GZIP} or ${CompressionMarker.UNCOMPRESSED}`,
-              actualFormat: unknownMarker
-            }
-          }
+              actualFormat: unknownMarker,
+            },
+          },
         )
       }
     }
@@ -99,7 +99,7 @@ export class GzipCompression implements Compression {
       throw new CompressionError(
         'Invalid compressed data: too short',
         CompressionErrorCode.INVALID_DATA,
-        { context: { operation: 'decompress', algorithm: 'gzip' } }
+        { context: { operation: 'decompress', algorithm: 'gzip' } },
       )
     }
   }
