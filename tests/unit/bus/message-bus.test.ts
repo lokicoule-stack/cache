@@ -143,6 +143,7 @@ describe('MessageBus', () => {
 
     it('accepts custom codec instance', async () => {
       const customCodec = {
+        name: 'custom',
         encode: (data: unknown) => new TextEncoder().encode(JSON.stringify(data)),
         decode: (bytes: Uint8Array) => JSON.parse(new TextDecoder().decode(bytes)),
       } as Codec

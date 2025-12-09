@@ -11,19 +11,14 @@ describe('composeMiddleware', () => {
     expect(result).toBe(transport)
   })
 
-  it('applies retry middleware by default', () => {
-    const transport = new FakeTransport()
-
-    const result = composeMiddleware(transport, {})
-
-    expect(result).not.toBe(transport)
-  })
-
   it('composes compression middleware', async () => {
     const transport = new FakeTransport()
 
     const composed = composeMiddleware(transport, {
-      compression: 'gzip',
+      compression: {
+        type: 'gzip',
+        threshold: 2000,
+      },
       retry: false,
     })
     await composed.connect()

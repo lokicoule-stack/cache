@@ -2,7 +2,7 @@
 export type { Bus } from './bus'
 
 // Codec Contract
-export type { Codec, CodecType, CodecOption, AutoCodecConfig } from './codec'
+export type { Codec, CodecType, CodecOption } from './codec'
 
 // Compression Contract
 export type { Compression } from './compression'

@@ -1,12 +1,11 @@
 import { BusError, BusErrorCode } from './bus-errors'
 
 import type { Bus } from '@/contracts/bus'
-import type { CodecOption, Codec, AutoCodecConfig } from '@/contracts/codec'
+import type { CodecOption, Codec } from '@/contracts/codec'
 import type { Transport } from '@/contracts/transport'
 import type { MessageHandler, Serializable } from '@/types'
 
 import { type MiddlewareConfig, composeMiddleware } from '@/core/middleware/middleware'
-import { AutoCodec } from '@/infrastructure/codecs/auto-codec'
 import { InvalidCodecError } from '@/infrastructure/codecs/codec-errors'
 import { JsonCodec } from '@/infrastructure/codecs/json-codec'
 import { MsgPackCodec } from '@/infrastructure/codecs/msgpack-codec'
@@ -20,7 +19,9 @@ export interface BusOptions {
   /** Transport implementation */
   transport: Transport
 
-  /** Codec for serialization (default: 'auto') */
+  /**
+   * Codec for serialization (default: 'msgpack')
+   */
   codec?: CodecOption
 
   /** Middleware configuration */
@@ -175,8 +176,9 @@ export class MessageBus implements Bus {
   }
 
   #resolveCodec(option?: CodecOption): Codec {
-    if (!option || option === 'auto') {
-      return new AutoCodec()
+    // Default to MessagePack (recommended production default)
+    if (!option) {
+      return new MsgPackCodec()
     }
 
     if (option === 'json') {
@@ -187,32 +189,12 @@ export class MessageBus implements Bus {
       return new MsgPackCodec()
     }
 
-    if (typeof option === 'object') {
-      if (this.#isAutoCodecConfig(option)) {
-        return new AutoCodec(option.threshold)
-      }
-
-      // Direct Codec injection
-      if (this.#isCodec(option)) {
-        return option
-      }
+    // Direct Codec injection
+    if (typeof option === 'object' && 'encode' in option && 'decode' in option) {
+      return option
     }
 
     throw new InvalidCodecError(String(option))
-  }
-
-  #isAutoCodecConfig(option: object): option is AutoCodecConfig {
-    return (
-      'type' in option &&
-      option.type === 'auto' &&
-      (!('threshold' in option) ||
-        option.threshold === undefined ||
-        typeof option.threshold === 'number')
-    )
-  }
-
-  #isCodec(option: object): option is Codec {
-    return 'encode' in option && 'decode' in option && 'name' in option
   }
 
   // Errors are swallowed to prevent cascading failures

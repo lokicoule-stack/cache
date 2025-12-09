@@ -41,9 +41,9 @@ interface ResolvedMiddlewareConfig {
  * @internal
  */
 const DEFAULT_MIDDLEWARE_CONFIG: Readonly<ResolvedMiddlewareConfig> = {
-  compression: true,
+  compression: false,
   encryption: false,
-  retry: true,
+  retry: false,
 } as const
 
 /**
