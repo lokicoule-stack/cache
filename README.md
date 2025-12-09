@@ -46,11 +46,11 @@ MacBook Pro 16,1 (x86_64), 16GB RAM, Node v23.3.0, Redis 7-alpine
 
 | Payload | JSON (ops/s) | MessagePack (ops/s) | Overhead | Size Reduction |
 | ------- | ------------ | ------------------- | -------- | -------------- |
-| 30B     | 1,455        | 1,382               | 5.5%     | 26%            |
-| 350B    | 1,432        | 1,368               | 6.8%     | 17%            |
-| 15KB    | 1,110        | 879                 | 14.7%    | 26%            |
+| 70B     | 1,485        | 1,395               | -4.3%    | 17.1%          |
+| 486B    | 1,467        | 1,382               | -1.0%    | 17.3%          |
+| 15KB    | 1,056        | 783                 | 19.5%    | 25.8%          |
 
-Overhead: Type safety + middleware cost. Use `'msgpack'` for production, `'json'` for development.
+Overhead: JSON=-4.3% to 19.5% (faster on small payloads), MessagePack=2.0% to 40.3% (slower but smaller). Use `'msgpack'` for production (bandwidth savings), `'json'` for development.
 
 See [benchmarks/README.md](./benchmarks/README.md) for methodology.
 

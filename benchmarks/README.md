@@ -32,46 +32,60 @@ Requires Docker for Redis-based benchmarks.
 
 ## Results
 
-### Codec Performance
+### Redis Transport: Bus vs Raw Redis
 
-Compares JSON vs MessagePack encoding/decoding speed and size efficiency.
+Compares @lokiverse/bus wrapper overhead against raw Redis pub/sub.
 
-| Payload Size  | JSON Encode | MsgPack Encode | JSON Decode | MsgPack Decode | Size Reduction |
-| ------------- | ----------- | -------------- | ----------- | -------------- | -------------- |
-| Nano (12B)    | TBD ops/s   | TBD ops/s      | TBD ops/s   | TBD ops/s      | 31.8%          |
-| Small (60B)   | TBD ops/s   | TBD ops/s      | TBD ops/s   | TBD ops/s      | 26%            |
-| Medium (150B) | TBD ops/s   | TBD ops/s      | TBD ops/s   | TBD ops/s      | 18.6%          |
-| Large (15KB)  | TBD ops/s   | TBD ops/s      | TBD ops/s   | TBD ops/s      | 34.2%          |
+| Payload  | Raw Redis | Bus + JSON | Bus + MessagePack | JSON Overhead | MsgPack Overhead | Size Reduction |
+| -------- | --------- | ---------- | ----------------- | ------------- | ---------------- | -------------- |
+| 70B      | 1,424     | 1,485      | 1,395             | -4.3%         | 2.0%             | 17.1%          |
+| 486B     | 1,452     | 1,467      | 1,382             | -1.0%         | 4.8%             | 17.3%          |
+| 15KB     | 1,311     | 1,056      | 783               | 19.5%         | 40.3%            | 25.8%          |
 
 **Key findings**:
 
-- MessagePack achieves 17-34% bandwidth savings
-- JSON decoding slightly faster for <100B payloads
-- MessagePack wins on network-bound workloads
+- **JSON overhead**: Negative on small payloads (faster than raw Redis!), 19.5% on large (15KB)
+- **MessagePack overhead**: 2-40% slower but saves 17-26% bandwidth
+- Average wrapper overhead: JSON ~4.7%, MessagePack ~15.7%
 
-### Bus End-to-End Performance
+### Codec Performance
 
-Measures full publish/subscribe cycle including serialization, transport, and deserialization.
+Raw encoding/decoding performance (no transport).
 
-| Payload Size  | JSON ops/s | MessagePack ops/s | Wrapper Overhead |
-| ------------- | ---------- | ----------------- | ---------------- |
-| Small (30B)   | 1,455      | 1,382             | 5.5%             |
-| Medium (350B) | 1,432      | 1,368             | 6.8%             |
-| Large (15KB)  | 1,110      | 879               | 14.7%            |
+| Payload       | Bytes | JSON Encode   | MsgPack Encode | JSON Decode   | MsgPack Decode | Size Reduction |
+| ------------- | ----- | ------------- | -------------- | ------------- | -------------- | -------------- |
+| Nano (ack)    | 11    | 1,348,769/s   | 954,751/s      | 2,536,593/s   | 1,973,365/s    | 54.5%          |
+| Tiny (ping)   | 43    | 1,131,656/s   | 769,470/s      | 1,688,863/s   | 1,509,424/s    | 25.6%          |
+| Small (event) | 70    | 1,165,827/s   | 675,429/s      | 1,580,841/s   | 1,038,267/s    | 17.1%          |
+| Medium        | 173   | 917,987/s     | 357,654/s      | 934,630/s     | 603,194/s      | 15.6%          |
+| Large         | 486   | 339,760/s     | 189,173/s      | 296,411/s     | 237,537/s      | 17.3%          |
+| XLarge        | 2160  | 94,476/s      | 53,949/s       | 66,212/s      | 61,087/s       | 22.0%          |
+| XXLarge       | 15KB  | 20,022/s      | 10,206/s       | 13,649/s      | 12,016/s       | 25.8%          |
+| Huge          | 75KB  | 3,366/s       | 1,735/s        | 2,769/s       | 2,317/s        | 25.7%          |
+| Massive       | 238KB | 641/s         | 980/s          | 729/s         | 1,799/s        | 43.0%          |
+| Enormous      | 1MB   | 149/s         | 310/s          | 172/s         | 673/s          | 47.0%          |
 
-**Wrapper overhead**: Minimal 5-15% cost for type safety, retry logic, and middleware stack.
+**Key findings**:
 
-### Redis Transport vs Raw Redis
+- JSON faster for encoding/decoding on payloads <100B
+- MessagePack wins on very large payloads (>200KB): 2-4x faster decode
+- Size reduction: 15-26% for typical workloads, 43-47% for very large payloads
 
-Compares @lokiverse/bus Redis transport against raw `ioredis` pub/sub.
+### Bus-Level Performance (In-Memory)
 
-| Operation         | Raw Redis | @lokiverse/bus | Overhead |
-| ----------------- | --------- | -------------- | -------- |
-| Publish (small)   | TBD ops/s | TBD ops/s      | TBD%     |
-| Subscribe (small) | TBD ops/s | TBD ops/s      | TBD%     |
-| Publish (large)   | TBD ops/s | TBD ops/s      | TBD%     |
+End-to-end pub/sub with serialization (no network).
 
-**Overhead analysis**: Abstraction cost vs productivity gains (retries, type safety, middleware).
+| Payload       | JSON ops/s | MessagePack ops/s |
+| ------------- | ---------- | ----------------- |
+| Nano (11B)    | 582,936    | 428,665           |
+| Tiny (43B)    | 462,446    | 401,595           |
+| Small (70B)   | 439,275    | 323,970           |
+| Medium (173B) | 374,887    | 187,762           |
+| Large (486B)  | 138,097    | 103,484           |
+| XLarge (2KB)  | 37,526     | 28,437            |
+| XXLarge (15KB)| 7,639      | 5,747             |
+
+**Wrapper overhead**: Type safety + middleware cost is visible but acceptable for production use.
 
 ## Payload Sizes
 
@@ -79,16 +93,16 @@ Benchmarks use 10 standardized payloads representing real-world use cases:
 
 | Size     | Bytes  | Description                       | Use Case                |
 | -------- | ------ | --------------------------------- | ----------------------- |
-| Nano     | ~12B   | Simple ACK                        | Health checks, pings    |
-| Tiny     | ~30B   | Ping with timestamp               | Heartbeats              |
-| Small    | ~60B   | Basic event                       | Click tracking          |
-| Medium   | ~150B  | User action + metadata            | Analytics events        |
-| Large    | ~350B  | Order with 10 items               | E-commerce transactions |
-| XLarge   | ~1.5KB | Order with 50 items               | Bulk orders             |
-| XXLarge  | ~15KB  | Analytics session (100 events)    | Session replays         |
-| Huge     | ~75KB  | Analytics session (500 events)    | Heavy analytics         |
-| Massive  | ~200KB | Dataset (500 records, 20 values)  | Data exports            |
-| Enormous | ~500KB | Dataset (1000 records, 50 values) | Large batch processing  |
+| Nano     | 11B    | Simple ACK                        | Health checks, pings    |
+| Tiny     | 43B    | Ping with timestamp               | Heartbeats              |
+| Small    | 70B    | Basic event                       | Click tracking          |
+| Medium   | 173B   | User action + metadata            | Analytics events        |
+| Large    | 486B   | Order with 10 items               | E-commerce transactions |
+| XLarge   | 2.1KB  | Order with 50 items               | Bulk orders             |
+| XXLarge  | 15KB   | Analytics session (100 events)    | Session replays         |
+| Huge     | 75KB   | Analytics session (500 events)    | Heavy analytics         |
+| Massive  | 238KB  | Dataset (500 records, 20 values)  | Data exports            |
+| Enormous | 1MB    | Dataset (1000 records, 50 values) | Large batch processing  |
 
 ## Reproduction
 
