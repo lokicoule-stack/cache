@@ -53,7 +53,7 @@ export const BusErrorCode: {
 };
 
 // @public (undocumented)
-export type BusErrorCode = typeof BusErrorCode[keyof typeof BusErrorCode];
+export type BusErrorCode = (typeof BusErrorCode)[keyof typeof BusErrorCode];
 
 // @public
 export interface BusErrorContext {
@@ -177,7 +177,7 @@ export const CompressionErrorCode: {
 };
 
 // @public (undocumented)
-export type CompressionErrorCode = typeof CompressionErrorCode[keyof typeof CompressionErrorCode];
+export type CompressionErrorCode = (typeof CompressionErrorCode)[keyof typeof CompressionErrorCode];
 
 // @public
 export interface CompressionErrorContext {
@@ -214,7 +214,9 @@ export class EncryptionError extends Error {
     constructor(message: string, code?: EncryptionErrorCode, options?: ErrorOptions & {
         context?: EncryptionErrorContext;
     });
+    // (undocumented)
     readonly code: EncryptionErrorCode;
+    // (undocumented)
     readonly context?: EncryptionErrorContext;
     // @internal (undocumented)
     toJSON(): {
@@ -231,12 +233,12 @@ export const EncryptionErrorCode: {
     readonly INVALID_CONFIG: "INVALID_CONFIG";
     readonly ENCRYPTION_FAILED: "ENCRYPTION_FAILED";
     readonly DECRYPTION_FAILED: "DECRYPTION_FAILED";
-    readonly AUTHENTICATION_FAILED: "AUTHENTICATION_FAILED";
     readonly INVALID_DATA: "INVALID_DATA";
+    readonly AUTHENTICATION_FAILED: "AUTHENTICATION_FAILED";
 };
 
 // @public (undocumented)
-export type EncryptionErrorCode = typeof EncryptionErrorCode[keyof typeof EncryptionErrorCode];
+export type EncryptionErrorCode = (typeof EncryptionErrorCode)[keyof typeof EncryptionErrorCode];
 
 // @public
 export interface EncryptionErrorContext {
@@ -364,7 +366,7 @@ export const QueueErrorCode: {
 };
 
 // @public (undocumented)
-export type QueueErrorCode = typeof QueueErrorCode[keyof typeof QueueErrorCode];
+export type QueueErrorCode = (typeof QueueErrorCode)[keyof typeof QueueErrorCode];
 
 // @public
 export interface QueueErrorContext {
