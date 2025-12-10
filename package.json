@@ -21,8 +21,8 @@
   },
   "scripts": {
     "build": "rollup -c",
-    "build:api": "api-extractor run --local --verbose",
-    "build:api:prod": "api-extractor run --verbose",
+    "build:api": "api-extractor run --local --verbose && prettier --write etc/bus.api.md",
+    "build:api:prod": "api-extractor run --verbose && prettier --write etc/bus.api.md",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
