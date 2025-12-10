@@ -1,6 +1,6 @@
 import { TransportMiddleware } from '../base'
 
-import { isHMACConfig ,type  EncryptionConfig,type  EncryptionOption } from './encryption-config'
+import { isHMACConfig, type EncryptionConfig, type EncryptionOption } from './encryption-config'
 
 import type { Encryption } from '@/contracts/encryption'
 import type { Transport } from '@/contracts/transport'

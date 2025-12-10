@@ -36,11 +36,11 @@ Testcontainers handles Redis automatically.
 
 Compares @lokiverse/bus wrapper overhead against raw Redis pub/sub.
 
-| Payload  | Raw Redis | Bus + JSON | Bus + MessagePack | JSON Overhead | MsgPack Overhead | Size Reduction |
-| -------- | --------- | ---------- | ----------------- | ------------- | ---------------- | -------------- |
-| 70B      | 1,424     | 1,485      | 1,395             | -4.3%         | 2.0%             | 17.1%          |
-| 486B     | 1,452     | 1,467      | 1,382             | -1.0%         | 4.8%             | 17.3%          |
-| 15KB     | 1,311     | 1,056      | 783               | 19.5%         | 40.3%            | 25.8%          |
+| Payload | Raw Redis | Bus + JSON | Bus + MessagePack | JSON Overhead | MsgPack Overhead | Size Reduction |
+| ------- | --------- | ---------- | ----------------- | ------------- | ---------------- | -------------- |
+| 70B     | 1,424     | 1,485      | 1,395             | -4.3%         | 2.0%             | 17.1%          |
+| 486B    | 1,452     | 1,467      | 1,382             | -1.0%         | 4.8%             | 17.3%          |
+| 15KB    | 1,311     | 1,056      | 783               | 19.5%         | 40.3%            | 25.8%          |
 
 **Key findings**:
 
@@ -52,18 +52,18 @@ Compares @lokiverse/bus wrapper overhead against raw Redis pub/sub.
 
 Raw encoding/decoding performance (no transport).
 
-| Payload       | Bytes | JSON Encode   | MsgPack Encode | JSON Decode   | MsgPack Decode | Size Reduction |
-| ------------- | ----- | ------------- | -------------- | ------------- | -------------- | -------------- |
-| Nano (ack)    | 11    | 1,348,769/s   | 954,751/s      | 2,536,593/s   | 1,973,365/s    | 54.5%          |
-| Tiny (ping)   | 43    | 1,131,656/s   | 769,470/s      | 1,688,863/s   | 1,509,424/s    | 25.6%          |
-| Small (event) | 70    | 1,165,827/s   | 675,429/s      | 1,580,841/s   | 1,038,267/s    | 17.1%          |
-| Medium        | 173   | 917,987/s     | 357,654/s      | 934,630/s     | 603,194/s      | 15.6%          |
-| Large         | 486   | 339,760/s     | 189,173/s      | 296,411/s     | 237,537/s      | 17.3%          |
-| XLarge        | 2160  | 94,476/s      | 53,949/s       | 66,212/s      | 61,087/s       | 22.0%          |
-| XXLarge       | 15KB  | 20,022/s      | 10,206/s       | 13,649/s      | 12,016/s       | 25.8%          |
-| Huge          | 75KB  | 3,366/s       | 1,735/s        | 2,769/s       | 2,317/s        | 25.7%          |
-| Massive       | 238KB | 641/s         | 980/s          | 729/s         | 1,799/s        | 43.0%          |
-| Enormous      | 1MB   | 149/s         | 310/s          | 172/s         | 673/s          | 47.0%          |
+| Payload       | Bytes | JSON Encode | MsgPack Encode | JSON Decode | MsgPack Decode | Size Reduction |
+| ------------- | ----- | ----------- | -------------- | ----------- | -------------- | -------------- |
+| Nano (ack)    | 11    | 1,348,769/s | 954,751/s      | 2,536,593/s | 1,973,365/s    | 54.5%          |
+| Tiny (ping)   | 43    | 1,131,656/s | 769,470/s      | 1,688,863/s | 1,509,424/s    | 25.6%          |
+| Small (event) | 70    | 1,165,827/s | 675,429/s      | 1,580,841/s | 1,038,267/s    | 17.1%          |
+| Medium        | 173   | 917,987/s   | 357,654/s      | 934,630/s   | 603,194/s      | 15.6%          |
+| Large         | 486   | 339,760/s   | 189,173/s      | 296,411/s   | 237,537/s      | 17.3%          |
+| XLarge        | 2160  | 94,476/s    | 53,949/s       | 66,212/s    | 61,087/s       | 22.0%          |
+| XXLarge       | 15KB  | 20,022/s    | 10,206/s       | 13,649/s    | 12,016/s       | 25.8%          |
+| Huge          | 75KB  | 3,366/s     | 1,735/s        | 2,769/s     | 2,317/s        | 25.7%          |
+| Massive       | 238KB | 641/s       | 980/s          | 729/s       | 1,799/s        | 43.0%          |
+| Enormous      | 1MB   | 149/s       | 310/s          | 172/s       | 673/s          | 47.0%          |
 
 **Key findings**:
 
@@ -75,15 +75,15 @@ Raw encoding/decoding performance (no transport).
 
 End-to-end pub/sub with serialization (no network).
 
-| Payload       | JSON ops/s | MessagePack ops/s |
-| ------------- | ---------- | ----------------- |
-| Nano (11B)    | 582,936    | 428,665           |
-| Tiny (43B)    | 462,446    | 401,595           |
-| Small (70B)   | 439,275    | 323,970           |
-| Medium (173B) | 374,887    | 187,762           |
-| Large (486B)  | 138,097    | 103,484           |
-| XLarge (2KB)  | 37,526     | 28,437            |
-| XXLarge (15KB)| 7,639      | 5,747             |
+| Payload        | JSON ops/s | MessagePack ops/s |
+| -------------- | ---------- | ----------------- |
+| Nano (11B)     | 582,936    | 428,665           |
+| Tiny (43B)     | 462,446    | 401,595           |
+| Small (70B)    | 439,275    | 323,970           |
+| Medium (173B)  | 374,887    | 187,762           |
+| Large (486B)   | 138,097    | 103,484           |
+| XLarge (2KB)   | 37,526     | 28,437            |
+| XXLarge (15KB) | 7,639      | 5,747             |
 
 **Wrapper overhead**: Type safety + middleware cost is visible but acceptable for production use.
 
@@ -91,18 +91,18 @@ End-to-end pub/sub with serialization (no network).
 
 Benchmarks use 10 standardized payloads representing real-world use cases:
 
-| Size     | Bytes  | Description                       | Use Case                |
-| -------- | ------ | --------------------------------- | ----------------------- |
-| Nano     | 11B    | Simple ACK                        | Health checks, pings    |
-| Tiny     | 43B    | Ping with timestamp               | Heartbeats              |
-| Small    | 70B    | Basic event                       | Click tracking          |
-| Medium   | 173B   | User action + metadata            | Analytics events        |
-| Large    | 486B   | Order with 10 items               | E-commerce transactions |
-| XLarge   | 2.1KB  | Order with 50 items               | Bulk orders             |
-| XXLarge  | 15KB   | Analytics session (100 events)    | Session replays         |
-| Huge     | 75KB   | Analytics session (500 events)    | Heavy analytics         |
-| Massive  | 238KB  | Dataset (500 records, 20 values)  | Data exports            |
-| Enormous | 1MB    | Dataset (1000 records, 50 values) | Large batch processing  |
+| Size     | Bytes | Description                       | Use Case                |
+| -------- | ----- | --------------------------------- | ----------------------- |
+| Nano     | 11B   | Simple ACK                        | Health checks, pings    |
+| Tiny     | 43B   | Ping with timestamp               | Heartbeats              |
+| Small    | 70B   | Basic event                       | Click tracking          |
+| Medium   | 173B  | User action + metadata            | Analytics events        |
+| Large    | 486B  | Order with 10 items               | E-commerce transactions |
+| XLarge   | 2.1KB | Order with 50 items               | Bulk orders             |
+| XXLarge  | 15KB  | Analytics session (100 events)    | Session replays         |
+| Huge     | 75KB  | Analytics session (500 events)    | Heavy analytics         |
+| Massive  | 238KB | Dataset (500 records, 20 values)  | Data exports            |
+| Enormous | 1MB   | Dataset (1000 records, 50 values) | Large batch processing  |
 
 ## Reproduction
 

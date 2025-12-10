@@ -1,10 +1,6 @@
 import { DeadLetterError } from '../retry-errors'
 
-import type {
-  OnDeadLetterCallback,
-  OnRetryCallback,
-  RetryBackoff,
-} from '../retry-backoff'
+import type { OnDeadLetterCallback, OnRetryCallback, RetryBackoff } from '../retry-backoff'
 import type { QueuedMessage } from './retry-queue'
 import type { Transport } from '@/contracts/transport'
 
@@ -45,11 +41,7 @@ export class RetryManager {
 
     if (this.#onRetry) {
       try {
-        await this.#onRetry(
-          message.channel,
-          message.data,
-          message.attempts,
-        )
+        await this.#onRetry(message.channel, message.data, message.attempts)
       } catch {
         // Swallow callback errors to prevent disruption
       }

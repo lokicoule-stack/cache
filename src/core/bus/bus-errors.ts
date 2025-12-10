@@ -5,27 +5,27 @@
 export const BusErrorCode = {
   /** Generic bus error */
   BUS_ERROR: 'BUS_ERROR',
-  
+
   /** Bus not connected */
   NOT_CONNECTED: 'NOT_CONNECTED',
-  
+
   /** Bus configuration invalid */
   INVALID_CONFIG: 'INVALID_CONFIG',
-  
+
   /** Handler execution failed */
   HANDLER_FAILED: 'HANDLER_FAILED',
-  
+
   /** Transport operation failed */
   TRANSPORT_FAILED: 'TRANSPORT_FAILED',
-  
+
   /** Channel operation failed */
   CHANNEL_ERROR: 'CHANNEL_ERROR',
-} as const;
+} as const
 
 /**
  * @public
  */
-export type BusErrorCode = typeof BusErrorCode[keyof typeof BusErrorCode];
+export type BusErrorCode = (typeof BusErrorCode)[keyof typeof BusErrorCode]
 
 /**
  * Context for bus errors.
@@ -37,13 +37,13 @@ export interface BusErrorContext {
 
   /** Channel name where error occurred */
   channel?: string
-  
+
   /** Operation being performed */
   operation?: string
-  
+
   /** Transport name */
   transport?: string
-  
+
   /** Connection state */
   connected?: boolean
 }
@@ -59,23 +59,23 @@ export interface BusErrorContext {
  */
 export class BusError extends Error {
   /** Machine-readable error code */
-  readonly code: BusErrorCode;
+  readonly code: BusErrorCode
 
   /** Additional error context */
-  readonly context?: BusErrorContext;
+  readonly context?: BusErrorContext
 
   constructor(
     message: string,
     code: BusErrorCode = BusErrorCode.BUS_ERROR,
     options?: ErrorOptions & { context?: BusErrorContext },
   ) {
-    super(message, options);
+    super(message, options)
 
-    this.name = 'BusError';
-    this.code = code;
-    this.context = options?.context;
+    this.name = 'BusError'
+    this.code = code
+    this.context = options?.context
 
-    Error.captureStackTrace?.(this, this.constructor);
+    Error.captureStackTrace?.(this, this.constructor)
   }
 
   /** @internal */
@@ -86,7 +86,7 @@ export class BusError extends Error {
       code: this.code,
       context: this.context,
       stack: this.stack,
-    };
+    }
   }
 }
 
@@ -99,11 +99,8 @@ export class BusError extends Error {
  * @public
  */
 export class BusConfigError extends BusError {
-  constructor(
-    message: string,
-    options?: ErrorOptions & { context?: BusErrorContext },
-  ) {
-    super(message, BusErrorCode.INVALID_CONFIG, options);
-    this.name = 'BusConfigError';
+  constructor(message: string, options?: ErrorOptions & { context?: BusErrorContext }) {
+    super(message, BusErrorCode.INVALID_CONFIG, options)
+    this.name = 'BusConfigError'
   }
 }

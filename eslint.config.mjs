@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import stylistic from '@stylistic/eslint-plugin'
+import prettierConfig from 'eslint-config-prettier'
 import importPlugin from 'eslint-plugin-import'
 import tseslint from 'typescript-eslint'
 
@@ -7,6 +8,7 @@ export default [
   // Base configs
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
+  prettierConfig,
 
   // Global settings
   {
@@ -23,7 +25,7 @@ export default [
     files: ['src/**/*.ts'],
     plugins: {
       '@stylistic': stylistic,
-      'import': importPlugin,
+      import: importPlugin,
     },
     rules: {
       // TypeScript strict rules
@@ -79,7 +81,7 @@ export default [
       'import/order': [
         'error',
         {
-          'groups': [
+          groups: [
             'builtin', // node:crypto, node:fs
             'external', // npm packages
             'internal', // @/alias
@@ -89,7 +91,7 @@ export default [
             'type', // import type
           ],
           'newlines-between': 'always',
-          'alphabetize': {
+          alphabetize: {
             order: 'asc',
             caseInsensitive: true,
           },
@@ -111,41 +113,15 @@ export default [
       'no-unneeded-ternary': 'error',
       'no-else-return': ['error', { allowElseIf: false }],
       'no-lonely-if': 'error',
-      'eqeqeq': ['error', 'always', { null: 'ignore' }],
-      'curly': ['error', 'all'],
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      curly: ['error', 'all'],
 
-      // Stylistic rules - Prettier handles most of these, keep only non-conflicting
-      '@stylistic/member-delimiter-style': [
-        'error',
-        {
-          multiline: { delimiter: 'none' },
-          singleline: { delimiter: 'semi' },
-        },
-      ],
-      '@stylistic/object-curly-spacing': ['error', 'always'],
-      '@stylistic/lines-between-class-members': [
-        'error',
-        'always',
-        { exceptAfterSingleLine: true },
-      ],
-      '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }],
+      // Stylistic rules - Only non-formatting rules (Prettier handles all formatting)
       '@stylistic/padding-line-between-statements': [
         'error',
         { blankLine: 'always', prev: '*', next: 'return' },
         { blankLine: 'always', prev: ['const', 'let', 'var'], next: '*' },
         { blankLine: 'any', prev: ['const', 'let', 'var'], next: ['const', 'let', 'var'] },
-      ],
-      '@stylistic/max-len': [
-        'error',
-        {
-          code: 100,
-          tabWidth: 2,
-          ignoreUrls: true,
-          ignoreStrings: false,
-          ignoreTemplateLiterals: false,
-          ignoreRegExpLiterals: true,
-          ignoreComments: false,
-        },
       ],
     },
   },

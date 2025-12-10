@@ -148,10 +148,7 @@ export type { CompressionErrorContext } from './infrastructure/compression/compr
 // ============================================================================
 
 // Encryption Errors (domain errors only)
-export {
-  EncryptionError,
-  EncryptionErrorCode,
-} from './infrastructure/encryption/encryption-errors'
+export { EncryptionError, EncryptionErrorCode } from './infrastructure/encryption/encryption-errors'
 export type { EncryptionErrorContext } from './infrastructure/encryption/encryption-errors'
 
 // NOTE: Base64Encryption, HMACEncryption are NOT exported

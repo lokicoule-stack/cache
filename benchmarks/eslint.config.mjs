@@ -20,7 +20,7 @@ export default [
     files: ['**/*.ts'],
     plugins: {
       '@stylistic': stylistic,
-      'import': importPlugin,
+      import: importPlugin,
     },
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',
@@ -55,17 +55,9 @@ export default [
       'import/order': [
         'error',
         {
-          'groups': [
-            'builtin',
-            'external',
-            'internal',
-            'parent',
-            'sibling',
-            'index',
-            'type',
-          ],
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type'],
           'newlines-between': 'always',
-          'alphabetize': {
+          alphabetize: {
             order: 'asc',
             caseInsensitive: true,
           },

@@ -3,27 +3,20 @@
  * @public
  */
 export const EncryptionErrorCode = {
-  /** Invalid encryption configuration */
-  INVALID_CONFIG :'INVALID_CONFIG',
-  
-  /** Encryption operation failed */
-  ENCRYPTION_FAILED :'ENCRYPTION_FAILED',
-  
-  /** Decryption operation failed */
+  INVALID_CONFIG: 'INVALID_CONFIG',
+  ENCRYPTION_FAILED: 'ENCRYPTION_FAILED',
   DECRYPTION_FAILED: 'DECRYPTION_FAILED',
-  
-  /** 
+  INVALID_DATA: 'INVALID_DATA',
+
+  /**
    * Cryptographic authentication failed.
    * Data integrity cannot be verified.
    */
   AUTHENTICATION_FAILED: 'AUTHENTICATION_FAILED',
-  
-  /** Invalid data format or structure */
-  INVALID_DATA :'INVALID_DATA',
-} as const;
+} as const
 
 /** @public */
-export type EncryptionErrorCode = typeof EncryptionErrorCode[keyof typeof EncryptionErrorCode];
+export type EncryptionErrorCode = (typeof EncryptionErrorCode)[keyof typeof EncryptionErrorCode]
 
 /**
  * Non-sensitive context for encryption errors.
@@ -32,16 +25,15 @@ export type EncryptionErrorCode = typeof EncryptionErrorCode[keyof typeof Encryp
 export interface EncryptionErrorContext {
   /** Additional non-sensitive metadata */
   [key: string]: unknown
-  
+
   /** Component or field where error occurred */
   field?: string
-  
+
   /** Cryptographic algorithm being used */
   algorithm?: string
-  
+
   /** Type of operation being performed */
   operation?: 'encrypt' | 'decrypt' | 'verify' | 'derive'
-
 }
 
 /**
@@ -54,24 +46,22 @@ export interface EncryptionErrorContext {
  * @public
  */
 export class EncryptionError extends Error {
-  /** Machine-readable error code */
-  readonly code: EncryptionErrorCode;
+  readonly code: EncryptionErrorCode
 
-  /** Additional error context */
-  readonly context?: EncryptionErrorContext;
+  readonly context?: EncryptionErrorContext
 
   constructor(
     message: string,
     code: EncryptionErrorCode = EncryptionErrorCode.ENCRYPTION_FAILED,
     options?: ErrorOptions & { context?: EncryptionErrorContext },
   ) {
-    super(message, options);
+    super(message, options)
 
-    this.name = 'EncryptionError';
-    this.code = code;
-    this.context = options?.context;
+    this.name = 'EncryptionError'
+    this.code = code
+    this.context = options?.context
 
-    Error.captureStackTrace?.(this, this.constructor);
+    Error.captureStackTrace?.(this, this.constructor)
   }
 
   /** @internal */
@@ -82,7 +72,7 @@ export class EncryptionError extends Error {
       code: this.code,
       context: this.context,
       stack: this.stack,
-    };
+    }
   }
 }
 
@@ -95,12 +85,9 @@ export class EncryptionError extends Error {
  * @public
  */
 export class EncryptionConfigError extends EncryptionError {
-  constructor(
-    message: string,
-    options?: ErrorOptions & { context?: EncryptionErrorContext },
-  ) {
-    super(message, EncryptionErrorCode.INVALID_CONFIG, options);
-    this.name = 'EncryptionConfigError';
+  constructor(message: string, options?: ErrorOptions & { context?: EncryptionErrorContext }) {
+    super(message, EncryptionErrorCode.INVALID_CONFIG, options)
+    this.name = 'EncryptionConfigError'
   }
 }
 
@@ -114,11 +101,8 @@ export class EncryptionConfigError extends EncryptionError {
  * @public
  */
 export class EncryptionSecurityError extends EncryptionError {
-  constructor(
-    message: string,
-    options?: ErrorOptions & { context?: EncryptionErrorContext },
-  ) {
-    super(message, EncryptionErrorCode.AUTHENTICATION_FAILED, options);
-    this.name = 'EncryptionSecurityError';
+  constructor(message: string, options?: ErrorOptions & { context?: EncryptionErrorContext }) {
+    super(message, EncryptionErrorCode.AUTHENTICATION_FAILED, options)
+    this.name = 'EncryptionSecurityError'
   }
 }

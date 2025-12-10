@@ -50,7 +50,8 @@ MacBook Pro 16,1 (x86_64), 16GB RAM, Node v23.3.0, Redis 7-alpine
 | 486B    | 1,467        | 1,382               | -1.0%    | 17.3%          |
 | 15KB    | 1,056        | 783                 | 19.5%    | 25.8%          |
 
-Overhead: JSON=-4.3% to 19.5% (faster on small payloads), MessagePack=2.0% to 40.3% (slower but smaller). Use `'msgpack'` for production (bandwidth savings), `'json'` for development.
+Overhead: JSON=-4.3% to 19.5% (faster on small payloads), MessagePack=2.0% to 40.3% (slower but
+smaller). Use `'msgpack'` for production (bandwidth savings), `'json'` for development.
 
 See [benchmarks/README.md](./benchmarks/README.md) for methodology.
 

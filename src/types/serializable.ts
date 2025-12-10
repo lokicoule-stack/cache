@@ -1,5 +1,5 @@
 /** @public */
-export type SerializablePrimitive = string | number | boolean | null;
+export type SerializablePrimitive = string | number | boolean | null
 
 /** @public */
 export interface SerializableObject {
@@ -10,7 +10,4 @@ export interface SerializableObject {
  * Value that can be JSON serialized.
  * @public
  */
-export type Serializable =
-  | SerializablePrimitive
-  | SerializableObject
-  | Serializable[];
+export type Serializable = SerializablePrimitive | SerializableObject | Serializable[]

@@ -27,7 +27,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

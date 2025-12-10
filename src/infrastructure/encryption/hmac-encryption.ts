@@ -8,7 +8,7 @@ import type { TransportData } from '@/types'
 /** @internal */
 export class HMACEncryption implements Encryption {
   static readonly #SIGNATURE_LENGTH = 32 // SHA-256 = 32 bytes
-  
+
   readonly name = 'hmac'
 
   readonly #key: Buffer
@@ -33,11 +33,9 @@ export class HMACEncryption implements Encryption {
 
   decrypt(data: Uint8Array): Uint8Array {
     if (data.length < HMACEncryption.#SIGNATURE_LENGTH) {
-      throw new EncryptionError(
-        'Invalid HMAC data: too short',
-        EncryptionErrorCode.INVALID_DATA,
-        { context: { operation: 'decrypt', algorithm: 'hmac' } }
-      )
+      throw new EncryptionError('Invalid HMAC data: too short', EncryptionErrorCode.INVALID_DATA, {
+        context: { operation: 'decrypt', algorithm: 'hmac' },
+      })
     }
 
     const receivedSignature = data.slice(0, HMACEncryption.#SIGNATURE_LENGTH)
@@ -49,10 +47,9 @@ export class HMACEncryption implements Encryption {
     const expectedSignature = hmac.digest()
 
     if (!this.#constantTimeCompare(receivedSignature, expectedSignature)) {
-      throw new EncryptionSecurityError(
-        'HMAC verification failed',
-        { context: { operation: 'verify', algorithm: 'hmac' } }
-      )
+      throw new EncryptionSecurityError('HMAC verification failed', {
+        context: { operation: 'verify', algorithm: 'hmac' },
+      })
     }
 
     return payload

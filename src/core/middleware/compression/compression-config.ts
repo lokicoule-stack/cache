@@ -20,11 +20,7 @@ export type GzipConfig =
     }
 
 /** @public */
-export type CompressionOption =
-  | CompressionType
-  | GzipConfig
-  | Compression
-  | boolean
+export type CompressionOption = CompressionType | GzipConfig | Compression | boolean
 
 /** @public */
 export interface CompressionConfig {
@@ -33,10 +29,5 @@ export interface CompressionConfig {
 
 /** @public */
 export function isGzipConfig(option: CompressionOption): option is GzipConfig {
-  return (
-    typeof option === 'object' &&
-    option !== null &&
-    'type' in option &&
-    option.type === 'gzip'
-  )
+  return typeof option === 'object' && option !== null && 'type' in option && option.type === 'gzip'
 }

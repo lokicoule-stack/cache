@@ -17,12 +17,12 @@ export const QueueErrorCode = {
 
   /** Message processing exceeded timeout limit */
   PROCESSING_TIMEOUT: 'PROCESSING_TIMEOUT',
-} as const;
+} as const
 
 /**
  * @public
  */
-export type QueueErrorCode = typeof QueueErrorCode[keyof typeof QueueErrorCode];
+export type QueueErrorCode = (typeof QueueErrorCode)[keyof typeof QueueErrorCode]
 
 /**
  * Non-sensitive context for queue and retry errors.
@@ -62,21 +62,21 @@ export interface QueueErrorContext {
  */
 export class QueueError extends Error {
   /** Machine-readable error code */
-  readonly code: QueueErrorCode;
+  readonly code: QueueErrorCode
 
   /** Additional error context */
-  readonly context?: QueueErrorContext;
+  readonly context?: QueueErrorContext
 
   constructor(
     message: string,
     code: QueueErrorCode = QueueErrorCode.QUEUE_ERROR,
     options?: ErrorOptions & { context?: QueueErrorContext },
   ) {
-    super(message, options);
-    this.name = 'QueueError';
-    this.code = code;
-    this.context = options?.context;
-    Error.captureStackTrace?.(this, this.constructor);
+    super(message, options)
+    this.name = 'QueueError'
+    this.code = code
+    this.context = options?.context
+    Error.captureStackTrace?.(this, this.constructor)
   }
 
   /** @internal */
@@ -87,25 +87,22 @@ export class QueueError extends Error {
       code: this.code,
       context: this.context,
       stack: this.stack,
-    };
+    }
   }
 }
 
 /**
  * Message exhausted all retries and moved to dead letter queue.
- * 
+ *
  * @remarks
  * Indicates permanent failure requiring manual intervention.
  * These errors should trigger alerts and be logged for review.
- * 
+ *
  * @public
  */
 export class DeadLetterError extends QueueError {
-  constructor(
-    message: string,
-    options?: ErrorOptions & { context?: QueueErrorContext },
-  ) {
-    super(message, QueueErrorCode.DEAD_LETTER, options);
-    this.name = 'DeadLetterError';
+  constructor(message: string, options?: ErrorOptions & { context?: QueueErrorContext }) {
+    super(message, QueueErrorCode.DEAD_LETTER, options)
+    this.name = 'DeadLetterError'
   }
 }

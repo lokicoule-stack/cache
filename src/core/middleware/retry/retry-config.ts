@@ -1,8 +1,4 @@
-import type {
-  RetryBackoff,
-  OnRetryCallback,
-  OnDeadLetterCallback,
-} from './retry-backoff'
+import type { RetryBackoff, OnRetryCallback, OnDeadLetterCallback } from './retry-backoff'
 
 /**
  * Advanced queue configuration.

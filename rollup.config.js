@@ -8,11 +8,8 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-
 const aliasConfig = alias({
-  entries: [
-    { find: '@', replacement: resolve(__dirname, 'src') }
-  ]
+  entries: [{ find: '@', replacement: resolve(__dirname, 'src') }],
 })
 
 export default [

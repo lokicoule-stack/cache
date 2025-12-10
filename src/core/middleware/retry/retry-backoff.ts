@@ -53,8 +53,7 @@ export const exponentialBackoff: RetryBackoff = (attempt, baseDelayMs) =>
  *
  * @public
  */
-export const linearBackoff: RetryBackoff = (_attempt, baseDelayMs) =>
-  baseDelayMs
+export const linearBackoff: RetryBackoff = (_attempt, baseDelayMs) => baseDelayMs
 
 /**
  * Fibonacci backoff: delay = baseDelay * fibonacci(attempt)
@@ -107,11 +106,10 @@ const fibonacci = (n: number): number => {
  *
  * @public
  */
-export const withMaxDelay = (
-  backoff: RetryBackoff,
-  maxDelayMs: number,
-): RetryBackoff => (attempt, baseDelayMs) =>
-  Math.min(backoff(attempt, baseDelayMs), maxDelayMs)
+export const withMaxDelay =
+  (backoff: RetryBackoff, maxDelayMs: number): RetryBackoff =>
+  (attempt, baseDelayMs) =>
+    Math.min(backoff(attempt, baseDelayMs), maxDelayMs)
 
 /**
  * Add jitter (randomness) to any backoff function.
@@ -132,12 +130,11 @@ export const withMaxDelay = (
  *
  * @public
  */
-export const withJitter = (
-  backoff: RetryBackoff,
-  jitterFactor = 0.1,
-): RetryBackoff => (attempt, baseDelayMs) => {
-  const delay = backoff(attempt, baseDelayMs)
-  const jitter = delay * jitterFactor * (Math.random() * 2 - 1)
+export const withJitter =
+  (backoff: RetryBackoff, jitterFactor = 0.1): RetryBackoff =>
+  (attempt, baseDelayMs) => {
+    const delay = backoff(attempt, baseDelayMs)
+    const jitter = delay * jitterFactor * (Math.random() * 2 - 1)
 
-  return Math.max(0, delay + jitter)
-}
+    return Math.max(0, delay + jitter)
+  }
