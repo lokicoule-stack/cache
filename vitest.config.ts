@@ -23,6 +23,7 @@ export default defineConfig({
         '**/index.ts',
         'src/contracts/**',
         'src/types/**',
+        'benchmarks/**',
         'tests/**',
       ],
     },
