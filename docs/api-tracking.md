@@ -66,11 +66,11 @@ export type MyType = { ... }
 
 ## Scripts
 
-| Command              | Usage           |
-| -------------------- | --------------- |
-| `pnpm build:api`     | Local (no fail) |
-| `pnpm build:api:prod`| Production mode |
-| `pnpm check:api`     | Build + validate|
+| Command               | Usage            |
+| --------------------- | ---------------- |
+| `pnpm build:api`      | Local (no fail)  |
+| `pnpm build:api:prod` | Production mode  |
+| `pnpm check:api`      | Build + validate |
 
 ## Why Track the Report?
 
