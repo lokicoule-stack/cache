@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+benchmarks/node_modules/
 .pnp
 .pnp.js
 
@@ -12,6 +13,9 @@ coverage/
 dist/
 build/
 *.tsbuildinfo
+
+# API Extractor
+temp/
 
 # Misc
 .DS_Store
