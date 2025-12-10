@@ -1,45 +1,71 @@
-/** @public */
+/**
+ * Error codes for codec operations.
+ * @public
+ */
+export const CodecErrorCode = {
+  /** Generic codec error */
+  CODEC_ERROR: 'CODEC_ERROR',
+  /** Encoding operation failed */
+  ENCODE_FAILED: 'ENCODE_FAILED',
+  /** Decoding operation failed */
+  DECODE_FAILED: 'DECODE_FAILED',
+  /** Invalid or unsupported codec type */
+  INVALID_CODEC: 'INVALID_CODEC',
+} as const
+
+/**
+ * @public
+ */
+export type CodecErrorCode = (typeof CodecErrorCode)[keyof typeof CodecErrorCode]
+
+/**
+ * Non-sensitive context for codec errors.
+ * @public
+ */
+export interface CodecErrorContext {
+  /** Additional non-sensitive metadata */
+  [key: string]: unknown
+  /** Codec name or type */
+  codec?: string
+  /** Type of operation being performed */
+  operation?: 'encode' | 'decode'
+}
+
+/**
+ * Base error for all codec operations.
+ *
+ * @remarks
+ * Extends native Error with structured error codes and optional context.
+ * Use the `code` property for programmatic error handling.
+ *
+ * @public
+ */
 export class CodecError extends Error {
+  /** Machine-readable error code */
+  readonly code: CodecErrorCode
+  /** Additional error context */
+  readonly context?: CodecErrorContext
+
   constructor(
     message: string,
-    public readonly codec: string,
-    public readonly operation: 'encode' | 'decode',
-    public readonly code: string = 'CODEC_ERROR',
+    code: CodecErrorCode = CodecErrorCode.CODEC_ERROR,
+    options?: ErrorOptions & { context?: CodecErrorContext },
   ) {
-    super(message)
+    super(message, options)
     this.name = 'CodecError'
+    this.code = code
+    this.context = options?.context
     Error.captureStackTrace?.(this, this.constructor)
   }
-}
 
-/** @public */
-export class EncodeError extends CodecError {
-  constructor(
-    codec: string,
-    cause: Error,
-  ) {
-    super(`Failed to encode data with ${codec}: ${cause.message}`, codec, 'encode', 'ENCODE_FAILED')
-    this.name = 'EncodeError'
-    this.cause = cause
-  }
-}
-
-/** @public */
-export class DecodeError extends CodecError {
-  constructor(
-    codec: string,
-    cause: Error,
-  ) {
-    super(`Failed to decode data with ${codec}: ${cause.message}`, codec, 'decode', 'DECODE_FAILED')
-    this.name = 'DecodeError'
-    this.cause = cause
-  }
-}
-
-/** @public */
-export class InvalidCodecError extends CodecError {
-  constructor(codecType: string) {
-    super(`Invalid codec type: ${codecType}`, codecType, 'encode', 'INVALID_CODEC')
-    this.name = 'InvalidCodecError'
+  /** @internal */
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      code: this.code,
+      context: this.context,
+      stack: this.stack,
+    }
   }
 }

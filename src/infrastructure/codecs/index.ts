@@ -3,4 +3,5 @@ export { JsonCodec } from './json-codec'
 export { MsgPackCodec } from './msgpack-codec'
 
 // Codec Errors
-export { CodecError, EncodeError, DecodeError, InvalidCodecError } from './codec-errors'
+export { CodecError, CodecErrorCode } from './codec-errors'
+export type { CodecErrorContext } from './codec-errors'

@@ -6,7 +6,7 @@ import type { Transport } from '@/contracts/transport'
 import type { MessageHandler, Serializable } from '@/types'
 
 import { type MiddlewareConfig, composeMiddleware } from '@/core/middleware/middleware'
-import { InvalidCodecError } from '@/infrastructure/codecs/codec-errors'
+import { CodecError, CodecErrorCode } from '@/infrastructure/codecs/codec-errors'
 import { JsonCodec } from '@/infrastructure/codecs/json-codec'
 import { MsgPackCodec } from '@/infrastructure/codecs/msgpack-codec'
 
@@ -194,7 +194,9 @@ export class MessageBus implements Bus {
       return option
     }
 
-    throw new InvalidCodecError(String(option))
+    throw new CodecError(`Invalid codec type: ${String(option)}`, CodecErrorCode.INVALID_CODEC, {
+      context: { codec: String(option) },
+    })
   }
 
   // Errors are swallowed to prevent cascading failures
