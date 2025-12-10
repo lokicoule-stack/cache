@@ -172,36 +172,6 @@ export const benchmarkConfig = {
 - Trades CPU for 60-80% bandwidth reduction
 - Test with your actual workload
 
-## Benchmark Architecture
-
-Fully isolated package with independent dependencies:
-
-```text
-benchmarks/
-├── package.json              # Own dependencies (tinybench, testcontainers)
-├── tsconfig.json             # Independent TypeScript config
-├── suites/                   # Benchmark test suites
-│   ├── codecs.bench.ts      # Codec encoding/decoding
-│   ├── bus.bench.ts         # Bus-level pub/sub
-│   ├── redis.bench.ts       # Redis transport comparison
-│   ├── transport.bench.ts   # Memory transport
-│   └── bandwidth.bench.ts   # Network bandwidth
-└── support/                  # Shared utilities
-    ├── config.ts            # Centralized configuration
-    ├── fixtures/
-    │   └── payloads.ts     # Standardized test payloads
-    └── helpers/
-        ├── reporting.ts    # Result formatting
-        └── setup.ts        # Redis/container setup
-```
-
-**Path aliases**:
-
-- `@/` → Main project source code
-- `@bench/` → Benchmark support utilities
-
-No pollution of main project. Zero shared dependencies.
-
 ## Caveats
 
 - Results use synthetic payloads; real-world patterns may differ
@@ -216,7 +186,6 @@ Useful additions:
 
 - Benchmarks on different hardware (ARM, AMD)
 - Production workload profiles
-- Comparison with alternative libraries (BullMQ, EventEmitter2)
 - Memory profiling and GC pressure analysis
 
 ## License
