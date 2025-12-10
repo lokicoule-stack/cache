@@ -1,0 +1,237 @@
+name: API Review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**/*.ts'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'api-extractor.json'
+
+concurrency:
+  group: api-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Reuse the build workflow for PR branch
+  build-pr:
+    name: Build PR
+    uses: ./.github/workflows/_build.yml
+    with:
+      node-version: '20'
+      pnpm-version: '9'
+      cache-build: true
+
+  api-review:
+    name: Review API Changes
+    needs: build-pr
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Restore build from previous job
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            dist/
+            .next/
+            out/
+          key: ${{ needs.build-pr.outputs.build-cache-key }}
+          fail-on-cache-miss: true
+
+      - name: Generate API report (PR)
+        run: pnpm run build:api
+        continue-on-error: true
+
+      - name: Save PR API report
+        run: |
+          mkdir -p /tmp/api-reports
+          if [ -f etc/bus.api.md ]; then
+            cp etc/bus.api.md /tmp/api-reports/pr-api.md
+          else
+            echo "⚠️ No API report generated for PR" > /tmp/api-reports/pr-api.md
+          fi
+
+      # Checkout base branch using worktree
+      - name: Fetch base branch
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git worktree add /tmp/base-branch origin/${{ github.base_ref }}
+
+      - name: Build base branch
+        working-directory: /tmp/base-branch
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+          pnpm run build:api || true
+          if [ -f etc/bus.api.md ]; then
+            cp etc/bus.api.md /tmp/api-reports/base-api.md
+          else
+            echo "⚠️ No API report in base branch" > /tmp/api-reports/base-api.md
+          fi
+
+      - name: Compare API reports
+        id: compare
+        run: |
+          if ! [ -f /tmp/api-reports/base-api.md ] || ! [ -f /tmp/api-reports/pr-api.md ]; then
+            echo "has_changes=error" >> $GITHUB_OUTPUT
+            echo "error_message=Could not generate API reports" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if diff -u /tmp/api-reports/base-api.md /tmp/api-reports/pr-api.md > /tmp/api-reports/diff.txt; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "✅ No API changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "⚠️ API changes detected"
+            
+            # Analyze change types
+            added=$(grep -c "^+" /tmp/api-reports/diff.txt || echo "0")
+            removed=$(grep -c "^-" /tmp/api-reports/diff.txt || echo "0")
+            echo "added_lines=$added" >> $GITHUB_OUTPUT
+            echo "removed_lines=$removed" >> $GITHUB_OUTPUT
+            
+            # Generate comment
+            cat > /tmp/api-reports/comment.md << 'EOF'
+          ## 🔍 API Changes Detected
+
+          The following API changes were detected in this PR:
+
+          **Summary:**
+          - ➕ Added: ${ADDED} lines
+          - ➖ Removed: ${REMOVED} lines
+
+          <details>
+          <summary>View detailed diff</summary>
+
+          ```diff
+          $(cat /tmp/api-reports/diff.txt)
+          ```
+
+          </details>
+
+          ### Review Guidelines
+
+          | Change Type | Risk Level | Action Required |
+          |-------------|------------|-----------------|
+          | ✅ Added exports | Low | Review for intentionality |
+          | ⚠️ Modified signatures | Medium | Check backward compatibility |
+          | 🚨 Removed exports | High | **Breaking change** - requires major version bump |
+
+          ### Next Steps
+
+          Once reviewed, update the API report:
+
+          ```bash
+          pnpm build && pnpm build:api
+          git add etc/bus.api.md
+          git commit -m "docs: update API report"
+          ```
+
+          ---
+          *This comment will be automatically updated if you push new changes.*
+          EOF
+            
+            # Replace variables
+            sed -i "s/\${ADDED}/$added/g" /tmp/api-reports/comment.md
+            sed -i "s/\${REMOVED}/$removed/g" /tmp/api-reports/comment.md
+          fi
+
+      - name: Comment PR with API changes
+        if: steps.compare.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = fs.readFileSync('/tmp/api-reports/comment.md', 'utf8');
+
+            // Find existing API review comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('API Changes Detected')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+              console.log('✅ Updated existing comment');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+              console.log('✅ Created new comment');
+            }
+
+      - name: Add PR label for breaking changes
+        if:
+          steps.compare.outputs.has_changes == 'true' && steps.compare.outputs.removed_lines != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['breaking-change', 'needs-review']
+            });
+
+      - name: Upload API diff artifact
+        if: steps.compare.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-diff-pr-${{ github.event.pull_request.number }}
+          path: /tmp/api-reports/
+          retention-days: 30
+
+      # Final status check
+      - name: API Review Status
+        run: |
+          if [ "${{ steps.compare.outputs.has_changes }}" == "error" ]; then
+            echo "❌ API review failed to complete"
+            exit 1
+          elif [ "${{ steps.compare.outputs.has_changes }}" == "true" ]; then
+            echo "⚠️ API changes detected - review required"
+            # Don't block merge, just inform
+            exit 0
+          else
+            echo "✅ No API changes"
+            exit 0
+          fi

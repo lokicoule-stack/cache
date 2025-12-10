@@ -1,0 +1,75 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '20'
+      pnpm-version:
+        description: 'pnpm version to use'
+        type: string
+        default: '9'
+      cache-build:
+        description: 'Cache build artifacts for reuse'
+        type: boolean
+        default: true
+      build-api-prod:
+        description: 'Build production API'
+        type: boolean
+        default: false
+      working-directory:
+        description: 'Working directory for the workflow'
+        type: string
+        default: '.'
+    outputs:
+      build-cache-key:
+        description: 'Cache key for build artifacts'
+        value: ${{ jobs.build.outputs.cache-key }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      cache-key: build-${{ github.sha }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'pnpm'
+          cache-dependency-path: ${{ inputs.working-directory }}/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm run build
+
+      - name: Build production API
+        if: inputs.build-api-prod
+        run: pnpm run build:api:prod
+
+      - name: Cache build artifacts
+        if: inputs.cache-build
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ inputs.working-directory }}/dist/
+            ${{ inputs.working-directory }}/.next/
+            ${{ inputs.working-directory }}/out/
+          key: build-${{ github.sha }}

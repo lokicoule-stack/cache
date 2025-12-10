@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same workflow and branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast checks running in parallel
+  lint:
+    name: Lint & Format
+    uses: ./.github/workflows/_lint.yml
+    with:
+      node-version: '20'
+      pnpm-version: '9'
+
+  typecheck:
+    name: Type Check
+    uses: ./.github/workflows/_typecheck.yml
+    with:
+      node-version: '20'
+      pnpm-version: '9'
+
+  test:
+    name: Unit Tests
+    uses: ./.github/workflows/_test.yml
+    with:
+      node-version: '20'
+      pnpm-version: '9'
+      upload-coverage: true
+    secrets: inherit
+
+  # Build only after all checks pass
+  build:
+    name: Build
+    needs: [lint, typecheck, test]
+    uses: ./.github/workflows/_build.yml
+    with:
+      node-version: '20'
+      pnpm-version: '9'
+      cache-build: true
+      build-api-prod: true

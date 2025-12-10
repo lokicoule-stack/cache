@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '20'
+      pnpm-version:
+        description: 'pnpm version to use'
+        type: string
+        default: '9'
+      upload-coverage:
+        description: 'Upload coverage to Codecov'
+        type: boolean
+        default: true
+      working-directory:
+        description: 'Working directory for the workflow'
+        type: string
+        default: '.'
+    secrets:
+      CODECOV_TOKEN:
+        description: 'Codecov token for uploading coverage'
+        required: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'pnpm'
+          cache-dependency-path: ${{ inputs.working-directory }}/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests with coverage
+        run: pnpm test -- --coverage
+
+      - name: Upload coverage to Codecov
+        if: inputs.upload-coverage && always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ${{ inputs.working-directory }}/coverage/coverage-final.json
+          flags: unittests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
