@@ -28,7 +28,7 @@ pnpm bench:redis     # Redis transport vs raw Redis
 pnpm bench:bus       # End-to-end bus performance
 ```
 
-Requires Docker for Redis-based benchmarks.
+Testcontainers handles Redis automatically.
 
 ## Results
 
@@ -109,13 +109,11 @@ Benchmarks use 10 standardized payloads representing real-world use cases:
 ### Prerequisites
 
 ```bash
-# Install dependencies
 cd benchmarks
 pnpm install
-
-# Start Redis (Docker required)
-docker run -d -p 6379:6379 redis:7-alpine
 ```
+
+Testcontainers will automatically start/stop Redis containers as needed.
 
 ### Run Benchmarks
 
