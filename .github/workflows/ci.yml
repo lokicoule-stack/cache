@@ -18,21 +18,18 @@ jobs:
     uses: ./.github/workflows/_lint.yml
     with:
       node-version: '20'
-      pnpm-version: '9'
 
   typecheck:
     name: Type Check
     uses: ./.github/workflows/_typecheck.yml
     with:
       node-version: '20'
-      pnpm-version: '9'
 
   test:
     name: Unit Tests
     uses: ./.github/workflows/_test.yml
     with:
       node-version: '20'
-      pnpm-version: '9'
       upload-coverage: true
     secrets: inherit
 
@@ -43,6 +40,5 @@ jobs:
     uses: ./.github/workflows/_build.yml
     with:
       node-version: '20'
-      pnpm-version: '9'
       cache-build: true
       build-api-prod: true

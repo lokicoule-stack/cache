@@ -20,7 +20,6 @@ jobs:
     uses: ./.github/workflows/_build.yml
     with:
       node-version: '20'
-      pnpm-version: '9'
       cache-build: true
 
   api-review:
@@ -34,17 +33,15 @@ jobs:
 
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'pnpm'
@@ -164,7 +161,7 @@ jobs:
 
       - name: Comment PR with API changes
         if: steps.compare.outputs.has_changes == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -203,7 +200,7 @@ jobs:
       - name: Add PR label for breaking changes
         if:
           steps.compare.outputs.has_changes == 'true' && steps.compare.outputs.removed_lines != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             await github.rest.issues.addLabels({

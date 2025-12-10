@@ -7,10 +7,6 @@ on:
         description: 'Node.js version to use'
         type: string
         default: '20'
-      pnpm-version:
-        description: 'pnpm version to use'
-        type: string
-        default: '9'
       working-directory:
         description: 'Working directory for the workflow'
         type: string
@@ -26,15 +22,13 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ inputs.pnpm-version }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
           cache: 'pnpm'
