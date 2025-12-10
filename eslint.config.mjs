@@ -147,6 +147,8 @@ export default [
       '*.config.js',
       '*.config.ts',
       '*.config.mjs',
+      'etc/lokiverse-bus.api.md',
+      'temp/**',
     ],
   },
 ]

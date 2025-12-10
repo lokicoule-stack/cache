@@ -33,3 +33,7 @@ Thumbs.db
 .changeset/*.md
 !.changeset/README.md
 CHANGELOG.md
+
+# API Extractor
+etc/lokiverse-bus.api.md
+temp/
