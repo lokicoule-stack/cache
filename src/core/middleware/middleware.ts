@@ -47,9 +47,10 @@ const DEFAULT_MIDDLEWARE_CONFIG: Readonly<ResolvedMiddlewareConfig> = {
 } as const
 
 /**
- * @internal
+ * Middleware wrapper function type.
+ * @public
  */
-type MiddlewareWrapper = (transport: Transport) => Transport
+export type MiddlewareWrapper = (transport: Transport) => Transport
 
 /**
  * @internal
@@ -118,7 +119,7 @@ export const pipe = <T>(value: T, ...fns: Array<(arg: T) => T>): T =>
 /**
  * Compose middleware stack from configuration.
  *
- * Application order: retry (outer) -> encryption -> compression (inner).
+ * Application order: retry (outer) -\> encryption -\> compression (inner).
  * @public
  */
 export const composeMiddleware = (

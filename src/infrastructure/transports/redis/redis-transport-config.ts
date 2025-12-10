@@ -16,6 +16,10 @@ export interface RedisTransportExternalConfig {
   client: RedisInstance
 }
 
+/**
+ * Redis client instance type.
+ * @public
+ */
 export type RedisInstance = ReturnType<typeof createClient> | ReturnType<typeof createCluster>
 
 export function isClusterConfig(config: RedisTransportConfig): config is RedisClusterOptions {

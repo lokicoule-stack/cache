@@ -18,7 +18,14 @@ export type { BusErrorContext } from './core/bus/bus-errors'
 // TYPES
 // ============================================================================
 
-export type { Serializable, MessageHandler, TransportData, TransportMessageHandler } from './types'
+export type {
+  Serializable,
+  SerializablePrimitive,
+  SerializableObject,
+  MessageHandler,
+  TransportData,
+  TransportMessageHandler,
+} from './types'
 
 // ============================================================================
 // CONTRACTS (Interfaces)
@@ -36,7 +43,7 @@ export type { Middleware } from './contracts/middleware'
 // ============================================================================
 
 // Middleware Configuration
-export type { MiddlewareConfig } from './core/middleware/middleware'
+export type { MiddlewareConfig, MiddlewareWrapper } from './core/middleware/middleware'
 
 // Middleware Composition Functions
 export {
@@ -49,7 +56,11 @@ export {
 } from './core/middleware/middleware'
 
 // Retry Configuration & Errors
-export type { RetryConfig } from './core/middleware/retry/retry-config'
+export type {
+  RetryConfig,
+  RetryConfigObject,
+  RetryQueueConfig,
+} from './core/middleware/retry/retry-config'
 export { QueueError, QueueErrorCode, DeadLetterError } from './core/middleware/retry/retry-errors'
 export type { QueueErrorContext } from './core/middleware/retry/retry-errors'
 
@@ -71,11 +82,16 @@ export {
 // Compression Configuration
 export type {
   CompressionOption,
+  CompressionType,
   GzipConfig,
 } from './core/middleware/compression/compression-config'
 
 // Encryption Configuration
-export type { EncryptionOption, HMACConfig } from './core/middleware/encryption/encryption-config'
+export type {
+  EncryptionOption,
+  EncryptionType,
+  HMACConfig,
+} from './core/middleware/encryption/encryption-config'
 
 // ============================================================================
 // TRANSPORTS
@@ -86,10 +102,18 @@ export { MemoryTransport, memory } from './infrastructure/transports/memory/memo
 
 // Redis Transport
 export { RedisTransport, redis } from './infrastructure/transports/redis/redis-transport'
-export type { RedisTransportConfig } from './infrastructure/transports/redis/redis-transport-config'
+export type {
+  RedisTransportConfig,
+  RedisTransportExternalConfig,
+  RedisInstance,
+} from './infrastructure/transports/redis/redis-transport-config'
 
 // Transport Errors
-export { TransportError, TransportErrorCode } from './infrastructure/transports/transport-errors'
+export {
+  TransportError,
+  TransportErrorCode,
+  TransportOperation,
+} from './infrastructure/transports/transport-errors'
 export type { TransportErrorContext } from './infrastructure/transports/transport-errors'
 
 // ============================================================================
@@ -97,7 +121,8 @@ export type { TransportErrorContext } from './infrastructure/transports/transpor
 // ============================================================================
 
 // Codec Errors (domain errors only)
-export { CodecError } from './infrastructure/codecs/codec-errors'
+export { CodecError, CodecErrorCode } from './infrastructure/codecs/codec-errors'
+export type { CodecErrorContext } from './infrastructure/codecs/codec-errors'
 
 // NOTE: JsonCodec, MsgPackCodec are NOT exported
 // Users should use codec: 'json' | 'msgpack' in config
@@ -108,7 +133,11 @@ export { CodecError } from './infrastructure/codecs/codec-errors'
 // ============================================================================
 
 // Compression Errors (domain errors only)
-export { CompressionError } from './infrastructure/compression/compression-errors'
+export {
+  CompressionError,
+  CompressionErrorCode,
+} from './infrastructure/compression/compression-errors'
+export type { CompressionErrorContext } from './infrastructure/compression/compression-errors'
 
 // NOTE: GzipCompression is NOT exported
 // Users should use compression: 'gzip' in config
@@ -119,7 +148,11 @@ export { CompressionError } from './infrastructure/compression/compression-error
 // ============================================================================
 
 // Encryption Errors (domain errors only)
-export { EncryptionError } from './infrastructure/encryption/encryption-errors'
+export {
+  EncryptionError,
+  EncryptionErrorCode,
+} from './infrastructure/encryption/encryption-errors'
+export type { EncryptionErrorContext } from './infrastructure/encryption/encryption-errors'
 
 // NOTE: Base64Encryption, HMACEncryption are NOT exported
 // Users should use encryption: 'base64' | { type: 'hmac', key } in config
