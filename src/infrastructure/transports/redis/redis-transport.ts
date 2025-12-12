@@ -139,7 +139,7 @@ export class RedisTransport implements Transport {
   }
 
   async #connectWithExternalClient(client: RedisInstance): Promise<void> {
-    this.#publisher = client
+    this.#publisher = client.duplicate()
     this.#subscriber = client.duplicate()
 
     await Promise.all(
