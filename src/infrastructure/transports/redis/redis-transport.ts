@@ -31,7 +31,7 @@ export class RedisTransport implements Transport {
   #publisher?: RedisInstance
   #subscriber?: RedisInstance
   #config: RedisTransportConfig | RedisTransportExternalConfig
-  #subscriptions = new Map<string, Set<TransportMessageHandler>>()
+  #handlers = new Map<string, TransportMessageHandler>()
   #reconnectCallback?: () => void
   #isFirstConnection = true
 
@@ -84,37 +84,24 @@ export class RedisTransport implements Transport {
   async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
     this.#ensureReady(this.#subscriber, TransportOperation.SUBSCRIBE)
 
-    const isNewChannel = !this.#subscriptions.has(channel)
+    try {
+      await this.#subscriber.subscribe(channel, (msg) => {
+        const data = new Uint8Array(Buffer.from(msg))
+        const h = this.#handlers.get(channel)
 
-    if (isNewChannel) {
-      this.#subscriptions.set(channel, new Set())
+        if (h) {
+          Promise.resolve(h(data)).catch(() => {})
+        }
+      })
 
-      try {
-        await this.#subscriber.subscribe(channel, (msg) => {
-          const data = new Uint8Array(Buffer.from(msg))
-          const handlers = this.#subscriptions.get(channel)
-
-          if (handlers) {
-            for (const h of handlers) {
-              Promise.resolve(h(data)).catch(() => {})
-            }
-          }
-        })
-      } catch (err) {
-        this.#subscriptions.delete(channel)
-        throw this.#wrapError(
-          TransportOperation.SUBSCRIBE,
-          TransportErrorCode.SUBSCRIBE_FAILED,
-          err,
-          channel,
-        )
-      }
-    }
-
-    const handlers = this.#subscriptions.get(channel)
-
-    if (handlers) {
-      handlers.add(handler)
+      this.#handlers.set(channel, handler)
+    } catch (err) {
+      throw this.#wrapError(
+        TransportOperation.SUBSCRIBE,
+        TransportErrorCode.SUBSCRIBE_FAILED,
+        err,
+        channel,
+      )
     }
   }
 
@@ -123,7 +110,7 @@ export class RedisTransport implements Transport {
 
     try {
       await this.#subscriber.unsubscribe(channel)
-      this.#subscriptions.delete(channel)
+      this.#handlers.delete(channel)
     } catch (err) {
       throw this.#wrapError(
         TransportOperation.UNSUBSCRIBE,
@@ -219,7 +206,7 @@ export class RedisTransport implements Transport {
   #reset(): void {
     this.#publisher = undefined
     this.#subscriber = undefined
-    this.#subscriptions.clear()
+    this.#handlers.clear()
   }
 
   #wrapError(

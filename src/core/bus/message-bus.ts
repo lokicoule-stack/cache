@@ -75,23 +75,25 @@ export class MessageBus implements Bus {
     handler: MessageHandler<T>,
   ): Promise<void> {
     const subscription = this.#subscriptions.getOrCreate(channel)
-
-    if (subscription.isActive) {
-      subscription.addHandler(handler as MessageHandler)
-
-      return
-    }
+    const isFirstHandler = subscription.handlerCount === 0
 
     subscription.addHandler(handler as MessageHandler)
+
+    if (!isFirstHandler) {
+      return
+    }
 
     try {
       await this.#transport.subscribe(channel, async (bytes) => {
         await this.#dispatcher.dispatch(channel, bytes, subscription)
       })
-
-      subscription.markActive()
     } catch (error) {
-      this.#subscriptions.delete(channel)
+      subscription.removeHandler(handler as MessageHandler)
+
+      if (subscription.handlerCount === 0) {
+        this.#subscriptions.delete(channel)
+      }
+
       throw error
     }
   }

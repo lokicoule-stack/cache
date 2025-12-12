@@ -5,33 +5,28 @@ import type { TransportData, TransportMessageHandler } from '@/types'
 export class MemoryTransport implements Transport {
   readonly name = 'memory'
 
-  #channels = new Map<string, Set<TransportMessageHandler>>()
+  #handlers = new Map<string, TransportMessageHandler>()
 
   async connect(): Promise<void> {}
 
   async disconnect(): Promise<void> {
-    this.#channels.clear()
+    this.#handlers.clear()
   }
 
   async publish(channel: string, data: TransportData): Promise<void> {
-    const handlers = this.#channels.get(channel)
+    const handler = this.#handlers.get(channel)
 
-    if (handlers) {
-      for (const handler of handlers) {
-        Promise.resolve(handler(data)).catch(() => {})
-      }
+    if (handler) {
+      Promise.resolve(handler(data)).catch(() => {})
     }
   }
 
   async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
-    if (!this.#channels.has(channel)) {
-      this.#channels.set(channel, new Set())
-    }
-    this.#channels.get(channel)?.add(handler)
+    this.#handlers.set(channel, handler)
   }
 
   async unsubscribe(channel: string): Promise<void> {
-    this.#channels.delete(channel)
+    this.#handlers.delete(channel)
   }
 
   onReconnect(_callback: () => void): void {

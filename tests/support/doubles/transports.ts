@@ -7,7 +7,7 @@ export class FakeTransport implements Transport {
   readonly name = 'fake'
   connected = false
 
-  private handlers = new Map<string, Set<TransportMessageHandler>>()
+  private handlers = new Map<string, TransportMessageHandler>()
   private publishedMessages: Array<{ channel: string; data: TransportData }> = []
 
   async connect(): Promise<void> {
@@ -24,21 +24,16 @@ export class FakeTransport implements Transport {
 
     this.publishedMessages.push({ channel, data })
 
-    const handlers = this.handlers.get(channel)
-    if (handlers) {
-      for (const handler of handlers) {
-        setImmediate(() => handler(data))
-      }
+    const handler = this.handlers.get(channel)
+    if (handler) {
+      setImmediate(() => handler(data))
     }
   }
 
   async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
     if (!this.connected) throw new Error('Transport not connected')
 
-    if (!this.handlers.has(channel)) {
-      this.handlers.set(channel, new Set())
-    }
-    this.handlers.get(channel)!.add(handler)
+    this.handlers.set(channel, handler)
   }
 
   async unsubscribe(channel: string): Promise<void> {
