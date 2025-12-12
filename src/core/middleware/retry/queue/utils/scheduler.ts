@@ -7,52 +7,105 @@ export interface Scheduler {
   isRunning(): boolean
 }
 
-/** @internal */
+/**
+ * Options for scheduler creation.
+ */
+interface SchedulerOptions {
+  /** Error handler for task failures */
+  onError?: (error: Error) => void
+}
+
+// Prevent memory leaks by tracking schedulers for cleanup on exit
+const activeSchedulers = new Set<Scheduler>()
+let cleanupRegistered = false
+
+function registerCleanup(): void {
+  if (cleanupRegistered) {
+    return
+  }
+
+  cleanupRegistered = true
+
+  process.on('exit', stopAllSchedulers)
+
+  // Handle signals to ensure clean shutdown in containerized environments
+  const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
+
+  signals.forEach((signal) => {
+    process.on(signal, () => {
+      stopAllSchedulers()
+      process.exit(0)
+    })
+  })
+}
+
+function stopAllSchedulers(): void {
+  activeSchedulers.forEach((scheduler) => scheduler.stop())
+  activeSchedulers.clear()
+}
+
+/**
+ * @internal
+ */
 export function createScheduler(
   task: () => void | Promise<void>,
   intervalMs: number,
-  options?: {
-    onError?: (error: unknown) => void
-  },
+  options?: SchedulerOptions,
 ): Scheduler {
   let timer: NodeJS.Timeout | undefined
-  let isRunning = false
+  let running = false
 
-  function schedule(): void {
+  function scheduleNext(): void {
+    if (!running) {
+      return
+    }
+
     timer = setTimeout(async () => {
-      if (!isRunning) {
+      // Avoid race condition if stopped during timeout
+      if (!running) {
         return
       }
 
       try {
         await task()
       } catch (error) {
-        options?.onError?.(error)
+        const err = error instanceof Error ? error : new Error(String(error))
+
+        options?.onError?.(err)
       }
 
-      schedule()
+      // Recursive pattern ensures interval between task completions, not starts
+      scheduleNext()
     }, intervalMs)
   }
 
-  return {
+  const scheduler: Scheduler = {
     start() {
-      if (isRunning) {
+      if (running) {
         return
       }
-      isRunning = true
-      schedule()
+
+      running = true
+      activeSchedulers.add(scheduler)
+      registerCleanup()
+      scheduleNext()
     },
 
     stop() {
-      isRunning = false
+      running = false
+
       if (timer !== undefined) {
         clearTimeout(timer)
         timer = undefined
       }
+
+      activeSchedulers.delete(scheduler)
     },
 
     isRunning() {
-      return isRunning
+      return running
     },
   }
+
+  return scheduler
 }

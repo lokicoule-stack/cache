@@ -7,7 +7,7 @@ import type { Transport } from '@/contracts/transport'
 /** @internal */
 interface RetryResult {
   shouldRemove: boolean
-  nextRetryAt?: Date
+  nextRetryAt?: number
   error?: string
 }
 
@@ -37,13 +37,13 @@ export class RetryManager {
   }
 
   async retry(message: QueuedMessage): Promise<RetryResult> {
-    message.attempts++
+    const currentAttempt = message.attempts + 1
 
     if (this.#onRetry) {
       try {
-        await this.#onRetry(message.channel, message.data, message.attempts)
+        await this.#onRetry(message.channel, message.data, currentAttempt)
       } catch {
-        // Swallow callback errors to prevent disruption
+        // Swallow callback errors
       }
     }
 
@@ -54,7 +54,7 @@ export class RetryManager {
     } catch (error) {
       const errorMessage = (error as Error).message
 
-      if (message.attempts >= this.#maxAttempts) {
+      if (currentAttempt >= this.#maxAttempts) {
         const deadLetterError = new DeadLetterError(
           `Message exhausted all retry attempts: ${errorMessage}`,
           {
@@ -70,22 +70,17 @@ export class RetryManager {
 
         if (this.#onDeadLetter) {
           try {
-            await this.#onDeadLetter(
-              message.channel,
-              message.data,
-              deadLetterError,
-              message.attempts,
-            )
+            await this.#onDeadLetter(message.channel, message.data, deadLetterError, currentAttempt)
           } catch {
-            // Swallow callback errors to prevent disruption
+            // Swallow callback errors
           }
         }
 
         return { shouldRemove: true }
       }
 
-      const delayMs = this.#backoff(message.attempts, this.#baseDelayMs)
-      const nextRetryAt = new Date(Date.now() + delayMs)
+      const delayMs = this.#backoff(currentAttempt, this.#baseDelayMs)
+      const nextRetryAt = Date.now() + delayMs
 
       return {
         shouldRemove: false,
