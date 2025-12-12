@@ -1,24 +1,14 @@
-import {
-  createClient,
-  createCluster,
-  type RedisClientOptions,
-  type RedisClusterOptions,
-} from 'redis'
-
 import { TransportError, TransportErrorCode, TransportOperation } from '../transport-errors'
 
+import { RedisConnectionManager } from './redis-connection-manager'
 import {
   type RedisTransportConfig,
   type RedisTransportExternalConfig,
   type RedisInstance,
-  isClusterConfig,
-  isExternalConfig,
 } from './redis-transport-config'
 
 import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'
-
-const DEFAULT_RECONNECT_STRATEGY = (retries: number) => Math.min(retries * 100, 3000)
 
 /**
  * Redis transport supporting standalone and cluster modes.
@@ -28,37 +18,27 @@ const DEFAULT_RECONNECT_STRATEGY = (retries: number) => Math.min(retries * 100, 
 export class RedisTransport implements Transport {
   readonly name = 'redis'
 
-  #publisher?: RedisInstance
-  #subscriber?: RedisInstance
-  #config: RedisTransportConfig | RedisTransportExternalConfig
+  #connectionManager: RedisConnectionManager
   #handlers = new Map<string, TransportMessageHandler>()
-  #reconnectCallback?: () => void
-  #isFirstConnection = true
 
   constructor(config: RedisTransportConfig | RedisTransportExternalConfig = {}) {
-    this.#config = this.#normalizeConfig(config)
+    this.#connectionManager = new RedisConnectionManager(config)
   }
 
   async connect(): Promise<void> {
     try {
-      if (isExternalConfig(this.#config)) {
-        await this.#connectWithExternalClient(this.#config.client)
-      } else if (isClusterConfig(this.#config)) {
-        await this.#connectCluster(this.#config)
-      } else {
-        await this.#connectStandalone(this.#config)
-      }
+      await this.#connectionManager.connect()
     } catch (err) {
-      throw this.#wrapError(TransportOperation.CONNECT, TransportErrorCode.CONNECTION_FAILED, err)
+      throw this.#createError(TransportOperation.CONNECT, TransportErrorCode.CONNECTION_FAILED, err)
     }
   }
 
   async disconnect(): Promise<void> {
     try {
-      await Promise.all([this.#publisher?.quit(), this.#subscriber?.quit()])
-      this.#reset()
+      await this.#connectionManager.disconnect()
+      this.#handlers.clear()
     } catch (err) {
-      throw this.#wrapError(
+      throw this.#createError(
         TransportOperation.DISCONNECT,
         TransportErrorCode.CONNECTION_FAILED,
         err,
@@ -67,12 +47,14 @@ export class RedisTransport implements Transport {
   }
 
   async publish(channel: string, data: TransportData): Promise<void> {
-    this.#ensureReady(this.#publisher, TransportOperation.PUBLISH)
+    const publisher = this.#getReadyClient('publisher', TransportOperation.PUBLISH)
 
     try {
-      await this.#publisher.publish(channel, Buffer.from(data))
+      const buffer = Buffer.from(data)
+
+      await publisher.publish(channel, buffer)
     } catch (err) {
-      throw this.#wrapError(
+      throw this.#createError(
         TransportOperation.PUBLISH,
         TransportErrorCode.PUBLISH_FAILED,
         err,
@@ -82,21 +64,13 @@ export class RedisTransport implements Transport {
   }
 
   async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
-    this.#ensureReady(this.#subscriber, TransportOperation.SUBSCRIBE)
+    const subscriber = this.#getReadyClient('subscriber', TransportOperation.SUBSCRIBE)
 
     try {
-      await this.#subscriber.subscribe(channel, (msg) => {
-        const data = new Uint8Array(Buffer.from(msg))
-        const h = this.#handlers.get(channel)
-
-        if (h) {
-          Promise.resolve(h(data)).catch(() => {})
-        }
-      })
-
+      await subscriber.subscribe(channel, (msg) => this.#handleMessage(msg, channel))
       this.#handlers.set(channel, handler)
     } catch (err) {
-      throw this.#wrapError(
+      throw this.#createError(
         TransportOperation.SUBSCRIBE,
         TransportErrorCode.SUBSCRIBE_FAILED,
         err,
@@ -106,13 +80,13 @@ export class RedisTransport implements Transport {
   }
 
   async unsubscribe(channel: string): Promise<void> {
-    this.#ensureReady(this.#subscriber, TransportOperation.UNSUBSCRIBE)
+    const subscriber = this.#getReadyClient('subscriber', TransportOperation.UNSUBSCRIBE)
 
     try {
-      await this.#subscriber.unsubscribe(channel)
+      await subscriber.unsubscribe(channel)
       this.#handlers.delete(channel)
     } catch (err) {
-      throw this.#wrapError(
+      throw this.#createError(
         TransportOperation.UNSUBSCRIBE,
         TransportErrorCode.UNSUBSCRIBE_FAILED,
         err,
@@ -122,70 +96,22 @@ export class RedisTransport implements Transport {
   }
 
   onReconnect(callback: () => void): void {
-    this.#reconnectCallback = callback
+    this.#connectionManager.onReconnect(callback)
   }
 
-  async #connectWithExternalClient(client: RedisInstance): Promise<void> {
-    this.#publisher = client.duplicate()
-    this.#subscriber = client.duplicate()
+  #handleMessage(msg: string, channel: string): void {
+    const data = new Uint8Array(Buffer.from(msg))
+    const handler = this.#handlers.get(channel)
 
-    await Promise.all(
-      [this.#publisher, this.#subscriber].map((c) => (c.isOpen ? Promise.resolve() : c.connect())),
-    )
-  }
-
-  async #connectCluster(config: RedisClusterOptions): Promise<void> {
-    this.#publisher = createCluster(config)
-    this.#subscriber = this.#publisher.duplicate()
-
-    this.#attachReconnectHandler()
-    await Promise.all([this.#publisher.connect(), this.#subscriber.connect()])
-  }
-
-  async #connectStandalone(config: RedisClientOptions): Promise<void> {
-    this.#publisher = createClient(config)
-    this.#subscriber = this.#publisher.duplicate()
-
-    this.#attachReconnectHandler()
-    await Promise.all([this.#publisher.connect(), this.#subscriber.connect()])
-  }
-
-  #attachReconnectHandler(): void {
-    if (!this.#publisher || !('on' in this.#publisher)) {
-      return
+    if (handler) {
+      Promise.resolve(handler(data)).catch(() => {})
     }
-
-    this.#publisher.on('ready', () => {
-      if (this.#isFirstConnection) {
-        this.#isFirstConnection = false
-
-        return
-      }
-
-      this.#reconnectCallback?.()
-    })
   }
 
-  #normalizeConfig(
-    config: RedisTransportConfig | RedisTransportExternalConfig,
-  ): RedisTransportConfig | RedisTransportExternalConfig {
-    if (isExternalConfig(config) || isClusterConfig(config)) {
-      return config
-    }
+  #getReadyClient(type: 'publisher' | 'subscriber', operation: TransportOperation): RedisInstance {
+    const client =
+      type === 'publisher' ? this.#connectionManager.publisher : this.#connectionManager.subscriber
 
-    return {
-      ...config,
-      socket: {
-        reconnectStrategy: DEFAULT_RECONNECT_STRATEGY,
-        ...(config as RedisClientOptions).socket,
-      },
-    } as RedisClientOptions
-  }
-
-  #ensureReady(
-    client: RedisInstance | undefined,
-    operation: TransportOperation,
-  ): asserts client is RedisInstance {
     if (!client) {
       throw new TransportError(
         `Transport not connected. Call connect() before ${operation}`,
@@ -194,31 +120,25 @@ export class RedisTransport implements Transport {
       )
     }
 
-    const isReady = 'isReady' in client ? client.isReady : client.isOpen
-
-    if (!isReady) {
+    if (!this.#connectionManager.isReady(client)) {
       throw new TransportError(`Transport temporarily unavailable`, TransportErrorCode.NOT_READY, {
         context: { transport: this.name, operation, retryable: true },
       })
     }
+
+    return client
   }
 
-  #reset(): void {
-    this.#publisher = undefined
-    this.#subscriber = undefined
-    this.#handlers.clear()
-  }
-
-  #wrapError(
+  #createError(
     operation: TransportOperation,
     code: TransportErrorCode,
     err: unknown,
     channel?: string,
   ): TransportError {
     const error = err as Error
-    const suffix = channel ? ` on channel '${channel}'` : ''
+    const channelInfo = channel ? ` on channel '${channel}'` : ''
 
-    return new TransportError(`Failed to ${operation}${suffix}: ${error.message}`, code, {
+    return new TransportError(`Failed to ${operation}${channelInfo}: ${error.message}`, code, {
       context: {
         transport: this.name,
         operation,
