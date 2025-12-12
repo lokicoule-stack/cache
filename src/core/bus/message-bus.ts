@@ -1,14 +1,15 @@
-import { BusError, BusErrorCode } from './bus-errors'
+import { CodecResolver } from './internal/codec-resolver'
+import { ErrorHandler } from './internal/error-handler'
+import { MessageDispatcher } from './internal/message-dispatcher'
+import { SubscriptionManager } from './internal/subscription-manager'
+import { TransportWrapper } from './internal/transport-wrapper'
 
 import type { Bus } from '@/contracts/bus'
-import type { CodecOption, Codec } from '@/contracts/codec'
+import type { Codec, CodecOption } from '@/contracts/codec'
 import type { Transport } from '@/contracts/transport'
 import type { MessageHandler, Serializable } from '@/types'
 
 import { type MiddlewareConfig, composeMiddleware } from '@/core/middleware/middleware'
-import { CodecError, CodecErrorCode } from '@/infrastructure/codecs/codec-errors'
-import { JsonCodec } from '@/infrastructure/codecs/json-codec'
-import { MsgPackCodec } from '@/infrastructure/codecs/msgpack-codec'
 
 /**
  * Bus configuration options.
@@ -19,9 +20,7 @@ export interface BusOptions {
   /** Transport implementation */
   transport: Transport
 
-  /**
-   * Codec for serialization (default: 'msgpack')
-   */
+  /** Codec for serialization (default: 'msgpack') */
   codec?: CodecOption
 
   /** Middleware configuration */
@@ -32,186 +31,90 @@ export interface BusOptions {
 }
 
 /**
+ * Main message bus implementation.
+ * Coordinates between transport, codec, and subscription management.
+ *
  * @public
  */
 export class MessageBus implements Bus {
-  #transport: Transport
-  #codec: Codec
-  #handlers = new Map<string, Set<MessageHandler>>()
-  #onHandlerError?: (channel: string, error: Error) => void
+  readonly #transport: TransportWrapper
+  readonly #codec: Codec
+  readonly #subscriptions: SubscriptionManager
+  readonly #dispatcher: MessageDispatcher
+  readonly #errorHandler: ErrorHandler
 
   constructor(options: BusOptions) {
-    this.#transport = composeMiddleware(options.transport, options.middleware)
-    this.#codec = this.#resolveCodec(options.codec)
-    this.#onHandlerError = options.onHandlerError
+    const transport = composeMiddleware(options.transport, options.middleware)
+
+    this.#transport = new TransportWrapper(transport)
+    this.#codec = CodecResolver.resolve(options.codec)
+    this.#errorHandler = new ErrorHandler(options.onHandlerError)
+    this.#dispatcher = new MessageDispatcher(this.#codec, this.#errorHandler)
+    this.#subscriptions = new SubscriptionManager()
   }
 
-  /** Connect the bus transport. @throws \{BusError\} */
   async connect(): Promise<void> {
-    try {
-      await this.#transport.connect()
-    } catch (error) {
-      throw new BusError(
-        `Failed to connect bus: ${(error as Error).message}`,
-        BusErrorCode.TRANSPORT_FAILED,
-        {
-          context: { operation: 'connect', transport: this.#transport.name },
-          cause: error as Error,
-        },
-      )
-    }
+    await this.#transport.connect()
   }
 
-  /** Disconnect the bus transport. @throws \{BusError\} */
   async disconnect(): Promise<void> {
-    try {
-      for (const channel of this.#handlers.keys()) {
-        await this.unsubscribe(channel)
-      }
-      await this.#transport.disconnect()
-    } catch (error) {
-      throw new BusError(
-        `Failed to disconnect bus: ${(error as Error).message}`,
-        BusErrorCode.TRANSPORT_FAILED,
-        {
-          context: { operation: 'disconnect', transport: this.#transport.name },
-          cause: error as Error,
-        },
-      )
-    }
+    const channels = this.#subscriptions.getAllChannels()
+
+    await Promise.all(channels.map((channel) => this.unsubscribe(channel)))
+    await this.#transport.disconnect()
   }
 
-  /** Publish a message. @throws \{BusError\} */
   async publish<T extends Serializable>(channel: string, data: T): Promise<void> {
-    try {
-      const bytes = this.#codec.encode(data)
+    const bytes = this.#codec.encode(data)
 
-      await this.#transport.publish(channel, bytes)
-    } catch (error) {
-      throw new BusError(
-        `Failed to publish message to channel '${channel}': ${(error as Error).message}`,
-        BusErrorCode.TRANSPORT_FAILED,
-        {
-          context: { operation: 'publish', channel, transport: this.#transport.name },
-          cause: error as Error,
-        },
-      )
-    }
+    await this.#transport.publish(channel, bytes)
   }
 
-  /** Subscribe to a channel. @throws \{BusError\} */
   async subscribe<T extends Serializable>(
     channel: string,
     handler: MessageHandler<T>,
   ): Promise<void> {
-    if (!this.#handlers.has(channel)) {
-      this.#handlers.set(channel, new Set())
+    const subscription = this.#subscriptions.getOrCreate(channel)
 
-      try {
-        await this.#transport.subscribe(channel, (bytes) => {
-          try {
-            const data = this.#codec.decode<T>(bytes)
-            const handlers = this.#handlers.get(channel)
+    if (subscription.isActive) {
+      subscription.addHandler(handler as MessageHandler)
 
-            if (handlers) {
-              for (const h of handlers) {
-                try {
-                  Promise.resolve(h(data)).catch((error: Error) => {
-                    this.#handleError(channel, error)
-                  })
-                } catch (error) {
-                  this.#handleError(channel, error as Error)
-                }
-              }
-            }
-          } catch (error) {
-            this.#handleError(channel, error as Error)
-          }
-        })
-      } catch (error) {
-        this.#handlers.delete(channel)
-        throw new BusError(
-          `Failed to subscribe to channel '${channel}': ${(error as Error).message}`,
-          BusErrorCode.CHANNEL_ERROR,
-          {
-            context: { operation: 'subscribe', channel, transport: this.#transport.name },
-            cause: error as Error,
-          },
-        )
-      }
-    }
-
-    this.#handlers.get(channel)?.add(handler as MessageHandler)
-  }
-
-  /** Unsubscribe from a channel. @throws \{BusError\} */
-  async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
-    const handlers = this.#handlers.get(channel)
-
-    if (!handlers) {
       return
     }
 
+    subscription.addHandler(handler as MessageHandler)
+
     try {
-      if (handler) {
-        handlers.delete(handler)
-        if (handlers.size === 0) {
-          await this.#transport.unsubscribe(channel)
-          this.#handlers.delete(channel)
-        }
-      } else {
-        await this.#transport.unsubscribe(channel)
-        this.#handlers.delete(channel)
-      }
+      await this.#transport.subscribe(channel, async (bytes) => {
+        await this.#dispatcher.dispatch(channel, bytes, subscription)
+      })
+
+      subscription.markActive()
     } catch (error) {
-      throw new BusError(
-        `Failed to unsubscribe from channel '${channel}': ${(error as Error).message}`,
-        BusErrorCode.CHANNEL_ERROR,
-        {
-          context: { operation: 'unsubscribe', channel, transport: this.#transport.name },
-          cause: error as Error,
-        },
-      )
+      this.#subscriptions.delete(channel)
+      throw error
     }
   }
 
-  #resolveCodec(option?: CodecOption): Codec {
-    // Default to MessagePack (recommended production default)
-    if (!option) {
-      return new MsgPackCodec()
+  async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
+    const subscription = this.#subscriptions.get(channel)
+
+    if (!subscription) {
+      return
     }
 
-    if (option === 'json') {
-      return new JsonCodec()
+    if (handler) {
+      subscription.removeHandler(handler)
+
+      if (subscription.handlerCount === 0) {
+        await this.#transport.unsubscribe(channel)
+        this.#subscriptions.delete(channel)
+      }
+
+      return
     }
 
-    if (option === 'msgpack') {
-      return new MsgPackCodec()
-    }
-
-    // Direct Codec injection
-    if (typeof option === 'object' && 'encode' in option && 'decode' in option) {
-      return option
-    }
-
-    throw new CodecError(`Invalid codec type: ${String(option)}`, CodecErrorCode.INVALID_CODEC, {
-      context: { codec: String(option) },
-    })
-  }
-
-  // Errors are swallowed to prevent cascading failures
-  #handleError(channel: string, error: Error): void {
-    const handlerError = new BusError(
-      `Handler failed for channel '${channel}': ${error.message}`,
-      BusErrorCode.HANDLER_FAILED,
-      {
-        context: { operation: 'handle', channel },
-        cause: error,
-      },
-    )
-
-    if (this.#onHandlerError) {
-      this.#onHandlerError(channel, handlerError)
-    }
+    await this.#transport.unsubscribe(channel)
+    this.#subscriptions.delete(channel)
   }
 }
