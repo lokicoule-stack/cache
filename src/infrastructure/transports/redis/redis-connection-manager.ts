@@ -29,15 +29,13 @@ class ExternalConnectionStrategy implements ConnectionStrategy {
     const publisher = this.client.duplicate()
     const subscriber = this.client.duplicate()
 
-    await this.#ensureConnected([publisher, subscriber])
+    await Promise.all(
+      [publisher, subscriber].map((client) =>
+        client.isOpen ? Promise.resolve() : client.connect(),
+      ),
+    )
 
     return { publisher, subscriber }
-  }
-
-  async #ensureConnected(clients: RedisInstance[]): Promise<void> {
-    const promises = clients.map((client) => (client.isOpen ? Promise.resolve() : client.connect()))
-
-    await Promise.all(promises)
   }
 }
 

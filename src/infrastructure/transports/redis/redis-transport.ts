@@ -19,7 +19,6 @@ export class RedisTransport implements Transport {
   readonly name = 'redis'
 
   #connectionManager: RedisConnectionManager
-  #handlers = new Map<string, TransportMessageHandler>()
 
   constructor(config: RedisTransportConfig | RedisTransportExternalConfig = {}) {
     this.#connectionManager = new RedisConnectionManager(config)
@@ -36,7 +35,6 @@ export class RedisTransport implements Transport {
   async disconnect(): Promise<void> {
     try {
       await this.#connectionManager.disconnect()
-      this.#handlers.clear()
     } catch (err) {
       throw this.#createError(
         TransportOperation.DISCONNECT,
@@ -67,8 +65,11 @@ export class RedisTransport implements Transport {
     const subscriber = this.#getReadyClient('subscriber', TransportOperation.SUBSCRIBE)
 
     try {
-      await subscriber.subscribe(channel, (msg) => this.#handleMessage(msg, channel))
-      this.#handlers.set(channel, handler)
+      await subscriber.subscribe(channel, (msg) => {
+        const data = new Uint8Array(Buffer.from(msg))
+
+        Promise.resolve(handler(data)).catch(() => {})
+      })
     } catch (err) {
       throw this.#createError(
         TransportOperation.SUBSCRIBE,
@@ -84,7 +85,6 @@ export class RedisTransport implements Transport {
 
     try {
       await subscriber.unsubscribe(channel)
-      this.#handlers.delete(channel)
     } catch (err) {
       throw this.#createError(
         TransportOperation.UNSUBSCRIBE,
@@ -97,15 +97,6 @@ export class RedisTransport implements Transport {
 
   onReconnect(callback: () => void): void {
     this.#connectionManager.onReconnect(callback)
-  }
-
-  #handleMessage(msg: string, channel: string): void {
-    const data = new Uint8Array(Buffer.from(msg))
-    const handler = this.#handlers.get(channel)
-
-    if (handler) {
-      Promise.resolve(handler(data)).catch(() => {})
-    }
   }
 
   #getReadyClient(type: 'publisher' | 'subscriber', operation: TransportOperation): RedisInstance {
