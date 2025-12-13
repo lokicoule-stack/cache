@@ -52,13 +52,8 @@ export {
 } from './core/middleware/middleware'
 
 // Retry Configuration & Errors
-export type {
-  RetryConfig,
-  RetryConfigObject,
-  RetryQueueConfig,
-} from './core/middleware/retry/retry-config'
-export { QueueError, QueueErrorCode, DeadLetterError } from './core/middleware/retry/retry-errors'
-export type { QueueErrorContext } from './core/middleware/retry/retry-errors'
+export type { RetryConfig, RetryConfigObject } from './core/middleware/retry/retry-config'
+export { DeadLetterError } from './core/middleware/retry/retry-errors'
 
 // Retry Backoff Functions & Types
 export type {

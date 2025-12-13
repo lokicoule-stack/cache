@@ -13,7 +13,7 @@ export {
 
 // Retry Configuration & Errors (Public)
 export type { RetryConfig } from './retry/retry-config'
-export { QueueError, DeadLetterError } from './retry/retry-errors'
+export { DeadLetterError } from './retry/retry-errors'
 
 // Compression Configuration (Public)
 export type { CompressionOption, GzipConfig } from './compression/compression-config'

@@ -1,7 +1,13 @@
 import { TransportMiddleware } from '../base'
 
-import { RetryQueue } from './queue/retry-queue'
+import {
+  exponentialBackoff,
+  fibonacciBackoff,
+  linearBackoff,
+  type RetryBackoff,
+} from './retry-backoff'
 import { type RetryConfig, type RetryConfigObject, DEFAULT_RETRY_CONFIG } from './retry-config'
+import { DeadLetterError } from './retry-errors'
 
 import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
@@ -14,50 +20,80 @@ import { TransportError } from '@/infrastructure/transports/transport-errors'
  * @internal
  */
 export class RetryMiddleware extends TransportMiddleware {
-  readonly #queue: RetryQueue | null
+  readonly #config: RetryConfigObject
+  readonly #backoff: RetryBackoff
 
   constructor(transport: Transport, config: RetryConfig) {
     super(transport)
 
-    const normalizedConfig = this.#normalizeConfig(config)
-
-    this.#queue =
-      (normalizedConfig.maxAttempts ?? 0) > 0 ? this.#createQueue(normalizedConfig) : null
-  }
-
-  override async connect(): Promise<void> {
-    this.#setupReconnectHandler()
-    await this.transport.connect()
-    await this.#queue?.start()
-  }
-
-  override async disconnect(): Promise<void> {
-    await this.#queue?.stop()
-    await this.transport.disconnect()
+    this.#config = this.#normalizeConfig(config)
+    this.#backoff = this.#resolveBackoff(this.#config.backoff ?? 'exponential')
   }
 
   override async publish(channel: string, data: TransportData): Promise<void> {
-    try {
+    const maxAttempts = this.#config.maxAttempts ?? 0
+
+    if (maxAttempts === 0) {
       await this.transport.publish(channel, data)
-    } catch (err) {
-      const queue = this.#queue
 
-      if (this.#shouldRetry(err) && queue) {
-        const error = err instanceof Error ? err : new Error(String(err))
+      return
+    }
 
-        await queue.enqueue(channel, data, error)
+    let lastError: Error | undefined
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (this.#config.onRetry && attempt > 1) {
+          try {
+            await this.#config.onRetry(channel, data, attempt)
+          } catch {
+            // Swallow callback errors
+          }
+        }
+
+        await this.transport.publish(channel, data)
 
         return
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+
+        if (!this.#shouldRetry(err)) {
+          throw err
+        }
+
+        if (attempt < maxAttempts) {
+          const delayMs = this.#backoff(attempt, this.#config.delay ?? 1000)
+
+          await this.#sleep(delayMs)
+        }
       }
-      throw err
     }
+
+    const deadLetterError = new DeadLetterError(
+      `Message exhausted all retry attempts: ${lastError?.message}`,
+      {
+        context: {
+          channel,
+          attempts: maxAttempts,
+          maxAttempts,
+          operation: 'retry',
+        },
+        cause: lastError,
+      },
+    )
+
+    if (this.#config.onDeadLetter) {
+      try {
+        await this.#config.onDeadLetter(channel, data, deadLetterError, maxAttempts)
+      } catch {
+        // Swallow callback errors
+      }
+    }
+
+    throw deadLetterError
   }
 
   #shouldRetry(err: unknown): boolean {
-    if (!this.#queue) {
-      return false
-    }
-
     if (err instanceof TransportError && err.context?.retryable !== undefined) {
       return err.context.retryable
     }
@@ -65,21 +101,13 @@ export class RetryMiddleware extends TransportMiddleware {
     return true
   }
 
-  #setupReconnectHandler(): void {
-    if (!this.#queue) {
-      return
-    }
-
-    this.transport.onReconnect(() => {
-      if (this.#queue) {
-        void this.#queue.flush()
-      }
-    })
+  #sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
   #normalizeConfig(config: RetryConfig): RetryConfigObject {
     if (config === false) {
-      return { ...DEFAULT_RETRY_CONFIG, maxAttempts: 0 }
+      return { maxAttempts: 0 }
     }
 
     if (config === true) {
@@ -93,26 +121,21 @@ export class RetryMiddleware extends TransportMiddleware {
     return {
       ...DEFAULT_RETRY_CONFIG,
       ...config,
-      queue: {
-        ...DEFAULT_RETRY_CONFIG.queue,
-        ...config.queue,
-      },
     }
   }
 
-  #createQueue(config: RetryConfigObject): RetryQueue {
-    const queueConfig = config.queue ?? DEFAULT_RETRY_CONFIG.queue
+  #resolveBackoff(backoff: 'exponential' | 'linear' | 'fibonacci' | RetryBackoff): RetryBackoff {
+    if (typeof backoff === 'function') {
+      return backoff
+    }
 
-    return new RetryQueue(this.transport, {
-      baseDelayMs: config.delay,
-      intervalMs: queueConfig.intervalMs,
-      maxAttempts: config.maxAttempts,
-      backoff: config.backoff,
-      maxSize: queueConfig.maxSize,
-      concurrency: queueConfig.concurrency,
-      removeDuplicates: queueConfig.removeDuplicates,
-      onRetry: config.onRetry,
-      onDeadLetter: config.onDeadLetter,
-    })
+    switch (backoff) {
+      case 'exponential':
+        return exponentialBackoff
+      case 'linear':
+        return linearBackoff
+      case 'fibonacci':
+        return fibonacciBackoff
+    }
   }
 }

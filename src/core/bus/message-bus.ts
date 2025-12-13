@@ -7,6 +7,7 @@ import type { Transport } from '@/contracts/transport'
 import type { MessageHandler, Serializable } from '@/types'
 
 import { type MiddlewareConfig, composeMiddleware } from '@/core/middleware/middleware'
+import debug from '@/debug'
 import { createCodec } from '@/infrastructure/codecs'
 
 /**
@@ -45,6 +46,8 @@ export class MessageBus implements Bus {
     this.#codec = createCodec(options.codec)
     this.#dispatcher = new MessageDispatcher(this.#codec, options.onHandlerError)
     this.#subscriptions = new SubscriptionManager()
+
+    this.#setupReconnectionHandler()
   }
 
   async connect(): Promise<void> {
@@ -112,5 +115,39 @@ export class MessageBus implements Bus {
 
     await this.#transport.unsubscribe(channel)
     this.#subscriptions.delete(channel)
+  }
+
+  #setupReconnectionHandler(): void {
+    this.#transport.onReconnect(() => {
+      const channels = this.#subscriptions.getAllChannels()
+
+      if (channels.length === 0) {
+        return
+      }
+
+      debug('[RECONNECT] Re-subscribing to %d channels', channels.length)
+
+      Promise.all(
+        channels.map(async (channel) => {
+          const subscription = this.#subscriptions.get(channel)
+
+          if (!subscription) {
+            return
+          }
+
+          try {
+            await this.#transport.subscribe(channel, async (bytes) => {
+              await this.#dispatcher.dispatch(channel, bytes, subscription)
+            })
+
+            debug('[RECONNECT] Re-subscribed to channel: %s', channel)
+          } catch (error) {
+            debug('[RECONNECT ERROR] Failed to re-subscribe to channel %s:', channel, error)
+          }
+        }),
+      ).catch((error) => {
+        debug('[RECONNECT ERROR] Failed to re-subscribe channels:', error)
+      })
+    })
   }
 }

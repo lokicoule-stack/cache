@@ -59,7 +59,9 @@ export class BusManager<T extends Record<string, BusOptions>> {
     if (name) {
       await this.use(name).connect()
     } else {
-      await Promise.all(Array.from(this.#buses.values()).map((b) => b.connect()))
+      const busNames = Object.keys(this.#config.transports) as Array<keyof T>
+
+      await Promise.all(busNames.map((busName) => this.use(busName).connect()))
     }
   }
 
