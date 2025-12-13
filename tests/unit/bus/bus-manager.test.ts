@@ -1,17 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BusManager } from '@/core/bus/bus-manager'
 import { BusConfigError } from '@/core/bus/bus-errors'
-import { FakeTransport } from '@test/doubles/transports'
+import { FakeTransport } from '@test/doubles'
 
 describe('BusManager', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let manager: BusManager<any>
 
   afterEach(async () => {
     await manager?.stop().catch(() => {})
   })
 
-  describe('use()', () => {
+  describe('bus instantiation', () => {
     it('creates and caches bus instances lazily', () => {
       manager = new BusManager({
         default: 'main',
@@ -26,21 +26,28 @@ describe('BusManager', () => {
       expect(first).toBe(named)
     })
 
-    it.each([
-      [undefined, 'No bus name specified and no default configured'],
-      ['unknown', "Transport 'unknown' not found"],
-    ])('throws BusConfigError for invalid access (%s)', (name, expectedMsg) => {
+    it('throws BusConfigError when no default and no name specified', () => {
       manager = new BusManager({
         transports: { valid: { transport: new FakeTransport(), codec: 'json' } },
       })
 
-      expect(() => manager.use(name as any)).toThrow(BusConfigError)
-      expect(() => manager.use(name as any)).toThrow(expectedMsg)
+      expect(() => manager.use()).toThrow(BusConfigError)
+      expect(() => manager.use()).toThrow('No bus name specified')
+    })
+
+    it('throws BusConfigError for unknown transport name', () => {
+      manager = new BusManager({
+        transports: { valid: { transport: new FakeTransport(), codec: 'json' } },
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(() => manager.use('unknown' as any)).toThrow(BusConfigError)
+      expect(() => manager.use('unknown' as any)).toThrow("Transport 'unknown' not found")
     })
   })
 
-  describe('lifecycle', () => {
-    it('start/stop delegates to underlying buses', async () => {
+  describe('lifecycle management', () => {
+    it('starts and stops all instantiated buses', async () => {
       const t1 = new FakeTransport()
       const t2 = new FakeTransport()
 
@@ -51,6 +58,7 @@ describe('BusManager', () => {
         },
       })
 
+      // Instantiate both buses
       manager.use('bus1')
       manager.use('bus2')
 
@@ -65,7 +73,7 @@ describe('BusManager', () => {
   })
 
   describe('default bus proxy', () => {
-    it('delegates pub/sub/unsub to default bus', async () => {
+    it('proxies pub/sub operations to default bus', async () => {
       manager = new BusManager({
         default: 'main',
         transports: { main: { transport: new FakeTransport(), codec: 'json' } },
@@ -75,7 +83,6 @@ describe('BusManager', () => {
       await bus.connect()
 
       const handler = vi.fn()
-
       await expect(manager.subscribe('ch', handler)).resolves.toBeUndefined()
       await expect(manager.publish('ch', { msg: 'test' })).resolves.toBeUndefined()
       await expect(manager.unsubscribe('ch', handler)).resolves.toBeUndefined()

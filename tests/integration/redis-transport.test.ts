@@ -1,12 +1,9 @@
-/**
- * RedisTransport with real Redis instance.
- * Skipped if Docker unavailable.
- */
-
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { RedisTransport } from '@/infrastructure/transports/redis/redis-transport'
+import { runTransportContractTests } from '@test/suites/transport-contract'
 import { testConfig } from '@test/config'
 import { isDockerAvailable } from '@test/helpers/docker'
+import { EventCollector } from '@test/helpers'
 
 const dockerAvailable = isDockerAvailable()
 
@@ -16,32 +13,72 @@ describe.skipIf(!dockerAvailable)('RedisTransport Integration', async () => {
   type Container = Awaited<ReturnType<InstanceType<typeof RedisContainer>['start']>>
 
   let container: Container
-  let transport: RedisTransport
 
   beforeAll(async () => {
     container = await new RedisContainer(testConfig.redis.image).start()
-    transport = new RedisTransport({
-      url: container.getConnectionUrl(),
-    })
-    await transport.connect()
-  }, 60_000)
+  }, testConfig.timeouts.container)
 
   afterAll(async () => {
-    await transport?.disconnect()
     await container?.stop()
   })
 
-  it('delivers messages via real Redis pub/sub', async () => {
-    const handler = vi.fn()
-    const data = new TextEncoder().encode('hello redis')
+  // Run contract tests with real Redis
+  runTransportContractTests(
+    () =>
+      new RedisTransport({
+        url: container.getConnectionUrl(),
+      }),
+    { skipDisconnectedTests: false },
+  )
 
-    await transport.subscribe('test-channel', handler)
-    await new Promise((r) => setTimeout(r, 100))
-    await transport.publish('test-channel', data)
+  describe('Redis-specific behavior', () => {
+    let transport: RedisTransport
 
-    await vi.waitFor(() => expect(handler).toHaveBeenCalled(), { timeout: 5000 })
+    beforeEach(async () => {
+      transport = new RedisTransport({
+        url: container.getConnectionUrl(),
+      })
+      await transport.connect()
+    })
 
-    const received = handler.mock.calls[0][0] as Uint8Array
-    expect(new TextDecoder().decode(received)).toBe('hello redis')
+    afterEach(async () => {
+      await transport?.disconnect()
+    })
+
+    it('delivers messages via real Redis pub/sub', async () => {
+      const collector = new EventCollector<Uint8Array>()
+      const data = new TextEncoder().encode('hello redis')
+
+      await transport.subscribe('test-channel', (d) => collector.add(d))
+      await new Promise((r) => setTimeout(r, 100))
+      await transport.publish('test-channel', data)
+
+      const received = await collector.waitForEvent(undefined, 5000)
+      expect(new TextDecoder().decode(received)).toBe('hello redis')
+    })
+
+    it('handles multiple concurrent subscriptions', async () => {
+      const collectors = {
+        ch1: new EventCollector<Uint8Array>(),
+        ch2: new EventCollector<Uint8Array>(),
+      }
+
+      await transport.subscribe('ch1', (d) => collectors.ch1.add(d))
+      await transport.subscribe('ch2', (d) => collectors.ch2.add(d))
+      await new Promise((r) => setTimeout(r, 100))
+
+      await Promise.all([
+        transport.publish('ch1', new Uint8Array([1])),
+        transport.publish('ch2', new Uint8Array([2])),
+      ])
+
+      const [msg1, msg2] = await Promise.all([
+        collectors.ch1.waitForEvent(undefined, 5000),
+        collectors.ch2.waitForEvent(undefined, 5000),
+      ])
+
+      expect(msg1).toEqual(new Uint8Array([1]))
+      expect(msg2).toEqual(new Uint8Array([2]))
+    })
   })
 })

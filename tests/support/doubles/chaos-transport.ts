@@ -1,86 +1,120 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
 import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'
 
+/**
+ * Chaos transport for fault injection testing.
+ *
+ * Simple API:
+ * - failNext(n) - fail next N operations
+ * - alwaysFail() - fail all operations
+ * - neverFail() - disable failures
+ * - recover() - reset and trigger reconnect
+ */
 export class ChaosTransport implements Transport {
   readonly name = 'chaos'
 
-  #inner: Transport
-  #shouldFail = false
-  #failCount = 0
-  #failUntil = 0
-  #onReconnectCallback?: () => void
+  private inner: Transport
+  private shouldAlwaysFail = false
+  private remainingFailures = 0
+  private _failures = 0
+  private onReconnectCallback?: () => void | Promise<void>
+  private errorFactory: () => Error = () => new Error('Chaos failure')
 
   constructor(transport: Transport) {
-    this.#inner = transport
+    this.inner = transport
   }
 
-  alwaysFail(): this {
-    this.#shouldFail = true
-    return this
-  }
+  // ============ Chaos Control API ============
 
-  /** Trigger reconnect callback */
-  recover(): this {
-    this.#shouldFail = false
-    this.#failUntil = 0
-    this.#onReconnectCallback?.()
-
-    return this
-  }
-
-  neverFail(): this {
-    this.#shouldFail = false
-    this.#failUntil = 0
-
-    return this
-  }
-
+  /** Fail the next N operations */
   failNext(count: number): this {
-    this.#failCount = 0
-    this.#failUntil = count
+    this.remainingFailures = count
+    this._failures = 0
     return this
   }
 
-  get failures(): number {
-    return this.#failCount
+  /** Fail all operations until recover() or neverFail() */
+  alwaysFail(): this {
+    this.shouldAlwaysFail = true
+    return this
   }
+
+  /** Stop failing operations */
+  neverFail(): this {
+    this.shouldAlwaysFail = false
+    this.remainingFailures = 0
+    return this
+  }
+
+  /** Reset failures and trigger reconnect callback */
+  recover(): this {
+    this.neverFail()
+    this._failures = 0
+    this.onReconnectCallback?.()
+    return this
+  }
+
+  /** Set custom error factory */
+  withError(factory: () => Error): this {
+    this.errorFactory = factory
+    return this
+  }
+
+  /** Number of failures that have occurred */
+  get failures(): number {
+    return this._failures
+  }
+
+  /** Reset failure counter */
+  resetFailureCount(): void {
+    this._failures = 0
+  }
+
+  // ============ Transport Interface ============
 
   async connect(): Promise<void> {
-    this.#maybeThrow()
-    return this.#inner.connect()
+    this.maybeThrow()
+    return this.inner.connect()
   }
 
   async disconnect(): Promise<void> {
-    return this.#inner.disconnect()
+    // Disconnect always succeeds
+    return this.inner.disconnect()
   }
 
   async publish(channel: string, data: TransportData): Promise<void> {
-    this.#maybeThrow()
-    return this.#inner.publish(channel, data)
+    this.maybeThrow()
+    return this.inner.publish(channel, data)
   }
 
   async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
-    this.#maybeThrow()
-    return this.#inner.subscribe(channel, handler)
+    this.maybeThrow()
+    return this.inner.subscribe(channel, handler)
   }
 
   async unsubscribe(channel: string): Promise<void> {
-    return this.#inner.unsubscribe(channel)
+    // Unsubscribe always succeeds
+    return this.inner.unsubscribe(channel)
   }
 
-  onReconnect(callback: () => void): void {
-    this.#onReconnectCallback = callback
+  onReconnect(callback: () => void | Promise<void>): void {
+    this.onReconnectCallback = callback
+    this.inner.onReconnect(callback)
   }
 
-  #maybeThrow(): void {
-    if (this.#shouldFail) {
-      this.#failCount++
-      throw new Error('Chaos failure')
+  // ============ Internal ============
+
+  private maybeThrow(): void {
+    if (this.shouldAlwaysFail) {
+      this._failures++
+      throw this.errorFactory()
     }
 
-    if (this.#failUntil > 0 && this.#failCount < this.#failUntil) {
-      this.#failCount++
-      throw new Error('Chaos failure')
+    if (this.remainingFailures > 0) {
+      this.remainingFailures--
+      this._failures++
+      throw this.errorFactory()
     }
   }
 }
