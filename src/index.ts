@@ -10,10 +10,6 @@ export { BusManager } from './core/bus/bus-manager'
 export type { BusOptions } from './core/bus/message-bus'
 export type { BusManagerConfig } from './core/bus/bus-manager'
 
-// Bus Errors
-export { BusError, BusErrorCode, BusConfigError } from './core/bus/bus-errors'
-export type { BusErrorContext } from './core/bus/bus-errors'
-
 // ============================================================================
 // TYPES
 // ============================================================================

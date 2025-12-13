@@ -1,8 +1,5 @@
-import { CodecResolver } from './internal/codec-resolver'
-import { ErrorHandler } from './internal/error-handler'
 import { MessageDispatcher } from './internal/message-dispatcher'
 import { SubscriptionManager } from './internal/subscription-manager'
-import { TransportWrapper } from './internal/transport-wrapper'
 
 import type { Bus } from '@/contracts/bus'
 import type { Codec, CodecOption } from '@/contracts/codec'
@@ -10,6 +7,7 @@ import type { Transport } from '@/contracts/transport'
 import type { MessageHandler, Serializable } from '@/types'
 
 import { type MiddlewareConfig, composeMiddleware } from '@/core/middleware/middleware'
+import { createCodec } from '@/infrastructure/codecs'
 
 /**
  * Bus configuration options.
@@ -37,19 +35,15 @@ export interface BusOptions {
  * @public
  */
 export class MessageBus implements Bus {
-  readonly #transport: TransportWrapper
+  readonly #transport: Transport
   readonly #codec: Codec
   readonly #subscriptions: SubscriptionManager
   readonly #dispatcher: MessageDispatcher
-  readonly #errorHandler: ErrorHandler
 
   constructor(options: BusOptions) {
-    const transport = composeMiddleware(options.transport, options.middleware)
-
-    this.#transport = new TransportWrapper(transport)
-    this.#codec = CodecResolver.resolve(options.codec)
-    this.#errorHandler = new ErrorHandler(options.onHandlerError)
-    this.#dispatcher = new MessageDispatcher(this.#codec, this.#errorHandler)
+    this.#transport = composeMiddleware(options.transport, options.middleware)
+    this.#codec = createCodec(options.codec)
+    this.#dispatcher = new MessageDispatcher(this.#codec, options.onHandlerError)
     this.#subscriptions = new SubscriptionManager()
   }
 
