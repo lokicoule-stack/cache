@@ -1,14 +1,12 @@
 import { TransportMiddleware } from '../base'
 
-import { isHMACConfig, type EncryptionConfig, type EncryptionOption } from './encryption-config'
+import type { EncryptionConfig } from './encryption-config'
 
 import type { Encryption } from '@/contracts/encryption'
 import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'
 
-import { Base64Encryption } from '@/infrastructure/encryption/base64-encryption'
-import { EncryptionConfigError } from '@/infrastructure/encryption/encryption-errors'
-import { HMACEncryption } from '@/infrastructure/encryption/hmac-encryption'
+import { createEncryption } from '@/infrastructure/encryption'
 
 /**
  * @internal
@@ -18,7 +16,7 @@ export class EncryptionMiddleware extends TransportMiddleware {
 
   constructor(transport: Transport, config: EncryptionConfig) {
     super(transport)
-    this.#encryption = this.#resolveEncryption(config.encryption)
+    this.#encryption = createEncryption(config.encryption)
   }
 
   override async publish(channel: string, data: TransportData): Promise<void> {
@@ -33,24 +31,5 @@ export class EncryptionMiddleware extends TransportMiddleware {
 
       handler(decrypted)
     })
-  }
-
-  #resolveEncryption(option: EncryptionOption): Encryption {
-    if (typeof option === 'string') {
-      switch (option) {
-        case 'base64':
-          return new Base64Encryption()
-        case 'hmac':
-          throw new EncryptionConfigError(
-            'HMAC encryption requires a key. Use { type: "hmac", key: "..." } instead.',
-          )
-      }
-    }
-
-    if (isHMACConfig(option)) {
-      return new HMACEncryption(option.key)
-    }
-
-    return option
   }
 }

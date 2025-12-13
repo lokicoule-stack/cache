@@ -5,6 +5,8 @@ import { EncryptionError, EncryptionErrorCode, EncryptionSecurityError } from '.
 import type { Encryption } from '@/contracts/encryption'
 import type { TransportData } from '@/types'
 
+import debug from '@/debug'
+
 /** @internal */
 export class HMACEncryption implements Encryption {
   static readonly #SIGNATURE_LENGTH = 32 // SHA-256 = 32 bytes
@@ -47,6 +49,11 @@ export class HMACEncryption implements Encryption {
     const expectedSignature = hmac.digest()
 
     if (!this.#constantTimeCompare(receivedSignature, expectedSignature)) {
+      debug('[ERROR] HMAC verification failed:', {
+        severity: 'SECURITY',
+        algorithm: 'hmac',
+      })
+
       throw new EncryptionSecurityError('HMAC verification failed', {
         context: { operation: 'verify', algorithm: 'hmac' },
       })
