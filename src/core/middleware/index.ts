@@ -6,7 +6,7 @@ export {
   composeMiddleware,
   pipe,
   withCompression,
-  withEncryption,
+  withIntegrity,
   withRetry,
   compose,
 } from './middleware'
@@ -18,8 +18,8 @@ export { QueueError, DeadLetterError } from './retry/retry-errors'
 // Compression Configuration (Public)
 export type { CompressionOption, GzipConfig } from './compression/compression-config'
 
-// Encryption Configuration (Public)
-export type { EncryptionOption, HMACConfig } from './encryption/encryption-config'
+// Integrity Configuration (Public)
+export type { IntegrityOption, HMACConfig } from './integrity/integrity-config'
 
-// NOTE: Middleware implementations (CompressionMiddleware, EncryptionMiddleware,
+// NOTE: Middleware implementations (CompressionMiddleware, IntegrityMiddleware,
 // RetryMiddleware) are NOT exported - they are internal implementation details

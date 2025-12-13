@@ -1,9 +1,9 @@
 import { CompressionMiddleware } from './compression/compression-middleware'
-import { EncryptionMiddleware } from './encryption/encryption-middleware'
+import { IntegrityMiddleware } from './integrity/integrity-middleware'
 import { RetryMiddleware } from './retry/retry-middleware'
 
 import type { CompressionOption } from './compression/compression-config'
-import type { EncryptionOption } from './encryption/encryption-config'
+import type { IntegrityOption } from './integrity/integrity-config'
 import type { RetryConfig } from './retry/retry-config'
 import type { Transport } from '@/contracts/transport'
 
@@ -13,17 +13,20 @@ import type { Transport } from '@/contracts/transport'
  */
 export interface MiddlewareConfig {
   /**
-   * Compression configuration. Default: `true` (gzip). Set to `false` to disable.
+   * Compression configuration. Default: `false`. Provide config to enable.
    */
   compression?: CompressionOption | false
 
   /**
-   * Encryption configuration. Default: `false`. Provide config to enable.
+   * Message integrity/authentication configuration. Default: `false`. Provide config to enable.
+   *
+   * Note: Integrity ensures message authenticity and detects tampering, but does NOT
+   * provide confidentiality (data remains readable). Use encryption for data privacy.
    */
-  encryption?: EncryptionOption | false
+  integrity?: IntegrityOption | false
 
   /**
-   * Retry configuration. Default: `true`. Set to `false` to disable.
+   * Retry configuration. Default: `false`. Provide config to enable.
    */
   retry?: RetryConfig | false
 }
@@ -33,7 +36,7 @@ export interface MiddlewareConfig {
  */
 interface ResolvedMiddlewareConfig {
   compression: CompressionOption | false
-  encryption: EncryptionOption | false
+  integrity: IntegrityOption | false
   retry: RetryConfig | false
 }
 
@@ -42,7 +45,7 @@ interface ResolvedMiddlewareConfig {
  */
 const DEFAULT_MIDDLEWARE_CONFIG: Readonly<ResolvedMiddlewareConfig> = {
   compression: false,
-  encryption: false,
+  integrity: false,
   retry: false,
 } as const
 
@@ -68,7 +71,7 @@ export const resolveMiddlewareConfig = (config?: MiddlewareConfig): ResolvedMidd
 
   return {
     compression: config.compression ?? DEFAULT_MIDDLEWARE_CONFIG.compression,
-    encryption: config.encryption ?? DEFAULT_MIDDLEWARE_CONFIG.encryption,
+    integrity: config.integrity ?? DEFAULT_MIDDLEWARE_CONFIG.integrity,
     retry: config.retry ?? DEFAULT_MIDDLEWARE_CONFIG.retry,
   }
 }
@@ -92,13 +95,13 @@ export const withCompression =
     new CompressionMiddleware(transport, { compression })
 
 /**
- * Create encryption middleware wrapper.
+ * Create integrity middleware wrapper.
  * @public
  */
-export const withEncryption =
-  (encryption: EncryptionOption): MiddlewareWrapper =>
+export const withIntegrity =
+  (integrity: IntegrityOption): MiddlewareWrapper =>
   (transport: Transport) =>
-    new EncryptionMiddleware(transport, { encryption })
+    new IntegrityMiddleware(transport, { integrity })
 
 /**
  * Create retry middleware wrapper.
@@ -119,7 +122,7 @@ export const pipe = <T>(value: T, ...fns: Array<(arg: T) => T>): T =>
 /**
  * Compose middleware stack from configuration.
  *
- * Application order: retry (outer) -\> encryption -\> compression (inner).
+ * Application order: retry (outer) -> integrity -> compression (inner).
  * @public
  */
 export const composeMiddleware = (
@@ -133,8 +136,8 @@ export const composeMiddleware = (
     middlewares.push(withCompression(resolved.compression))
   }
 
-  if (!isDisabled(resolved.encryption)) {
-    middlewares.push(withEncryption(resolved.encryption))
+  if (!isDisabled(resolved.integrity)) {
+    middlewares.push(withIntegrity(resolved.integrity))
   }
 
   if (!isDisabled(resolved.retry)) {

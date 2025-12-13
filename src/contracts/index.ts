@@ -7,8 +7,8 @@ export type { Codec, CodecType, CodecOption } from './codec'
 // Compression Contract
 export type { Compression } from './compression'
 
-// Encryption Contract
-export type { Encryption } from './encryption'
+// Integrity Contract
+export type { Integrity } from './integrity'
 
 // Middleware Contract
 export type { Middleware } from './middleware'

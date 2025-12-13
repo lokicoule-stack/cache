@@ -42,7 +42,7 @@ export class GzipCompression implements Compression {
     this.#options = { ...DEFAULT_OPTIONS, ...options }
   }
 
-  async compress(data: TransportData): Promise<Uint8Array> {
+  async compress(data: TransportData): Promise<TransportData> {
     const shouldCompress = this.#shouldCompress(data)
 
     if (!shouldCompress) {
@@ -58,7 +58,7 @@ export class GzipCompression implements Compression {
     return this.#prependMarker(CompressionMarker.GZIP, compressed)
   }
 
-  async decompress(data: Uint8Array): Promise<Uint8Array> {
+  async decompress(data: TransportData): Promise<TransportData> {
     this.#validateData(data)
 
     const marker = this.#extractMarker(data)

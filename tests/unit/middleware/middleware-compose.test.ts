@@ -30,11 +30,12 @@ describe('composeMiddleware', () => {
     expect(published.data.length).toBeLessThan(data.length)
   })
 
-  it('composes encryption middleware', async () => {
+  it('composes integrity middleware', async () => {
     const transport = new FakeTransport()
+    const key = Buffer.from('0'.repeat(64), 'hex')
 
     const composed = composeMiddleware(transport, {
-      encryption: 'base64',
+      integrity: { type: 'hmac', key },
       retry: false,
     })
     await composed.connect()
@@ -44,15 +45,17 @@ describe('composeMiddleware', () => {
 
     const published = transport.getPublishedMessages()[0]
     expect(published.data).not.toEqual(data)
+    expect(published.data.length).toBeGreaterThan(data.length) // signature added
   })
 
   it('stacks multiple middlewares in correct order', async () => {
     const transport = new FakeTransport()
     const handler = vi.fn()
+    const key = Buffer.from('0'.repeat(64), 'hex')
 
     const composed = composeMiddleware(transport, {
       compression: { threshold: 10 },
-      encryption: 'base64',
+      integrity: { type: 'hmac', key },
       retry: false,
     })
     await composed.connect()

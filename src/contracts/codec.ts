@@ -27,7 +27,7 @@ export interface Codec {
 }
 
 /** @public */
-export type CodecType = 'json' | 'msgpack'
+export type CodecType = 'json' | 'msgpack' | 'base64'
 
 /** @public */
 export type CodecOption = CodecType | Codec

@@ -1,6 +1,6 @@
 import type { ChannelSubscription } from './channel-subscription'
 import type { Codec } from '@/contracts/codec'
-import type { Serializable } from '@/types'
+import type { Serializable, TransportData } from '@/types'
 
 import debug from '@/debug'
 import { CodecError } from '@/infrastructure/codecs/codec-errors'
@@ -19,7 +19,7 @@ export class MessageDispatcher {
 
   async dispatch<T extends Serializable>(
     channel: string,
-    bytes: Uint8Array,
+    bytes: TransportData,
     subscription: ChannelSubscription,
   ): Promise<void> {
     try {

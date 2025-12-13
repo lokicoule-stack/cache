@@ -31,7 +31,7 @@ export type { Bus } from './contracts/bus'
 export type { Transport } from './contracts/transport'
 export type { Codec, CodecType, CodecOption } from './contracts/codec'
 export type { Compression } from './contracts/compression'
-export type { Encryption } from './contracts/encryption'
+export type { Integrity } from './contracts/integrity'
 export type { Middleware } from './contracts/middleware'
 
 // ============================================================================
@@ -46,7 +46,7 @@ export {
   composeMiddleware,
   pipe,
   withCompression,
-  withEncryption,
+  withIntegrity,
   withRetry,
   compose,
 } from './core/middleware/middleware'
@@ -82,12 +82,12 @@ export type {
   GzipConfig,
 } from './core/middleware/compression/compression-config'
 
-// Encryption Configuration
+// Integrity Configuration
 export type {
-  EncryptionOption,
-  EncryptionType,
+  IntegrityOption,
+  IntegrityType,
   HMACConfig,
-} from './core/middleware/encryption/encryption-config'
+} from './core/middleware/integrity/integrity-config'
 
 // ============================================================================
 // TRANSPORTS
@@ -140,13 +140,18 @@ export type { CompressionErrorContext } from './infrastructure/compression/compr
 // For custom compression, implement the Compression interface
 
 // ============================================================================
-// ENCRYPTION
+// INTEGRITY
 // ============================================================================
 
-// Encryption Errors (domain errors only)
-export { EncryptionError, EncryptionErrorCode } from './infrastructure/encryption/encryption-errors'
-export type { EncryptionErrorContext } from './infrastructure/encryption/encryption-errors'
+// Integrity Errors (domain errors only)
+export {
+  IntegrityError,
+  IntegrityErrorCode,
+  IntegritySecurityError,
+  IntegrityConfigError,
+} from './infrastructure/integrity/integrity-errors'
+export type { IntegrityErrorContext } from './infrastructure/integrity/integrity-errors'
 
-// NOTE: Base64Encryption, HMACEncryption are NOT exported
-// Users should use encryption: 'base64' | { type: 'hmac', key } in config
-// For custom encryption, implement the Encryption interface
+// NOTE: HMACIntegrity is NOT exported
+// Users should use integrity: { type: 'hmac', key } in config
+// For custom integrity mechanisms, implement the Integrity interface

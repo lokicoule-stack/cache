@@ -4,8 +4,8 @@ export * from './codecs'
 // Compression
 export * from './compression'
 
-// Encryption
-export * from './encryption'
+// Integrity
+export * from './integrity'
 
 // Transports
 export * from './transports'

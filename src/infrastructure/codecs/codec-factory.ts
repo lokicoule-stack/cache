@@ -1,3 +1,4 @@
+import { Base64Codec } from './base64-codec'
 import { CodecError, CodecErrorCode } from './codec-errors'
 import { JsonCodec } from './json-codec'
 import { MsgPackCodec } from './msgpack-codec'
@@ -18,6 +19,10 @@ export function createCodec(option?: CodecOption): Codec {
 
   if (option === 'json') {
     return new JsonCodec()
+  }
+
+  if (option === 'base64') {
+    return new Base64Codec()
   }
 
   if (isCustomCodec(option)) {

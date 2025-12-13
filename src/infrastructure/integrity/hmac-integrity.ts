@@ -1,14 +1,14 @@
 import { createHmac } from 'node:crypto'
 
-import { EncryptionError, EncryptionErrorCode, EncryptionSecurityError } from './encryption-errors'
+import { IntegrityError, IntegrityErrorCode, IntegritySecurityError } from './integrity-errors'
 
-import type { Encryption } from '@/contracts/encryption'
+import type { Integrity } from '@/contracts/integrity'
 import type { TransportData } from '@/types'
 
 import debug from '@/debug'
 
 /** @internal */
-export class HMACEncryption implements Encryption {
+export class HMACIntegrity implements Integrity {
   static readonly #SIGNATURE_LENGTH = 32 // SHA-256 = 32 bytes
 
   readonly name = 'hmac'
@@ -19,7 +19,7 @@ export class HMACEncryption implements Encryption {
     this.#key = typeof key === 'string' ? Buffer.from(key, 'hex') : key
   }
 
-  encrypt(data: TransportData): Uint8Array {
+  sign(data: TransportData): TransportData {
     const hmac = createHmac('sha256', this.#key)
 
     hmac.update(data)
@@ -33,15 +33,15 @@ export class HMACEncryption implements Encryption {
     return combined
   }
 
-  decrypt(data: Uint8Array): Uint8Array {
-    if (data.length < HMACEncryption.#SIGNATURE_LENGTH) {
-      throw new EncryptionError('Invalid HMAC data: too short', EncryptionErrorCode.INVALID_DATA, {
-        context: { operation: 'decrypt', algorithm: 'hmac' },
+  verify(data: TransportData): TransportData {
+    if (data.length < HMACIntegrity.#SIGNATURE_LENGTH) {
+      throw new IntegrityError('Invalid HMAC data: too short', IntegrityErrorCode.INVALID_DATA, {
+        context: { operation: 'verify', algorithm: 'hmac' },
       })
     }
 
-    const receivedSignature = data.slice(0, HMACEncryption.#SIGNATURE_LENGTH)
-    const payload = data.slice(HMACEncryption.#SIGNATURE_LENGTH)
+    const receivedSignature = data.slice(0, HMACIntegrity.#SIGNATURE_LENGTH)
+    const payload = data.slice(HMACIntegrity.#SIGNATURE_LENGTH)
 
     const hmac = createHmac('sha256', this.#key)
 
@@ -54,7 +54,7 @@ export class HMACEncryption implements Encryption {
         algorithm: 'hmac',
       })
 
-      throw new EncryptionSecurityError('HMAC verification failed', {
+      throw new IntegritySecurityError('HMAC verification failed', {
         context: { operation: 'verify', algorithm: 'hmac' },
       })
     }
