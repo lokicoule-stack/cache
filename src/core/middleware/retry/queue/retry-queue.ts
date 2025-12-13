@@ -14,6 +14,8 @@ import type { TransportData } from '@/types'
 
 import { createScheduler, type Scheduler } from '@/core/middleware/retry/queue/utils/scheduler'
 
+import debug from '@/debug'
+
 /** @internal */
 export interface QueuedMessage {
   channel: string
@@ -335,6 +337,18 @@ export class RetryQueue {
     }
 
     if (oldestHash) {
+      const evicted = this.#messages.get(oldestHash)
+
+      // Critical: Message evicted from retry queue due to size limit
+      if (evicted) {
+        debug('[ERROR] Message evicted from retry queue:', {
+          channel: evicted.message.channel,
+          queueSize: this.#maxSize,
+          attempts: evicted.message.attempts,
+          age: Date.now() - evicted.message.createdAt,
+        })
+      }
+
       this.#messages.delete(oldestHash)
     }
   }

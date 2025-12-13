@@ -4,6 +4,8 @@ import type { OnDeadLetterCallback, OnRetryCallback, RetryBackoff } from '../ret
 import type { QueuedMessage } from './retry-queue'
 import type { Transport } from '@/contracts/transport'
 
+import debug from '@/debug'
+
 /** @internal */
 interface RetryResult {
   shouldRemove: boolean
@@ -67,6 +69,16 @@ export class RetryManager {
             cause: error as Error,
           },
         )
+
+        // Critical: Message permanently lost after exhausting all retries
+        debug('[ERROR] Message dead lettered:', {
+          channel: message.channel,
+          attempts: currentAttempt,
+          maxAttempts: this.#maxAttempts,
+          lastError: errorMessage,
+          enqueuedAt: message.createdAt,
+          duration: Date.now() - message.createdAt,
+        })
 
         if (this.#onDeadLetter) {
           try {
