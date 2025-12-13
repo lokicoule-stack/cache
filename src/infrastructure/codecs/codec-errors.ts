@@ -1,15 +1,10 @@
 /**
- * Error codes for codec operations.
  * @public
  */
 export const CodecErrorCode = {
-  /** Generic codec error */
   CODEC_ERROR: 'CODEC_ERROR',
-  /** Encoding operation failed */
   ENCODE_FAILED: 'ENCODE_FAILED',
-  /** Decoding operation failed */
   DECODE_FAILED: 'DECODE_FAILED',
-  /** Invalid or unsupported codec type */
   INVALID_CODEC: 'INVALID_CODEC',
 } as const
 
@@ -19,7 +14,6 @@ export const CodecErrorCode = {
 export type CodecErrorCode = (typeof CodecErrorCode)[keyof typeof CodecErrorCode]
 
 /**
- * Non-sensitive context for codec errors.
  * @public
  */
 export interface CodecErrorContext {
@@ -32,17 +26,12 @@ export interface CodecErrorContext {
 }
 
 /**
- * Base error for all codec operations.
- *
- * @remarks
- * Extends native Error with structured error codes and optional context.
- * Use the `code` property for programmatic error handling.
- *
  * @public
  */
 export class CodecError extends Error {
   /** Machine-readable error code */
   readonly code: CodecErrorCode
+
   /** Additional error context */
   readonly context?: CodecErrorContext
 

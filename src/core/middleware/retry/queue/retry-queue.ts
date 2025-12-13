@@ -13,7 +13,6 @@ import type { Transport } from '@/contracts/transport'
 import type { TransportData } from '@/types'
 
 import { createScheduler, type Scheduler } from '@/core/middleware/retry/queue/utils/scheduler'
-
 import debug from '@/debug'
 
 /** @internal */

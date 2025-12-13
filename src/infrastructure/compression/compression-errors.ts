@@ -1,21 +1,11 @@
 /**
- * Error codes for compression operations.
  * @public
  */
 export const CompressionErrorCode = {
-  /** Generic compression failure */
   COMPRESSION_FAILED: 'COMPRESSION_FAILED',
-
-  /** Decompression operation failed */
   DECOMPRESSION_FAILED: 'DECOMPRESSION_FAILED',
-
-  /** Invalid compressed data format or structure */
   INVALID_DATA: 'INVALID_DATA',
-
-  /** Unknown or unsupported compression format/marker */
   UNKNOWN_FORMAT: 'UNKNOWN_FORMAT',
-
-  /** Invalid compression configuration */
   INVALID_CONFIG: 'INVALID_CONFIG',
 } as const
 
@@ -25,7 +15,6 @@ export const CompressionErrorCode = {
 export type CompressionErrorCode = (typeof CompressionErrorCode)[keyof typeof CompressionErrorCode]
 
 /**
- * Non-sensitive context for compression errors.
  * @public
  */
 export interface CompressionErrorContext {
@@ -49,12 +38,6 @@ export interface CompressionErrorContext {
 }
 
 /**
- * Base error for all compression operations.
- *
- * @remarks
- * Extends native Error with structured error codes and optional context.
- * Use the `code` property for programmatic error handling.
- *
  * @public
  */
 export class CompressionError extends Error {

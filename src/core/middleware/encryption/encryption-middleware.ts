@@ -1,7 +1,6 @@
 import { TransportMiddleware } from '../base'
 
 import type { EncryptionConfig } from './encryption-config'
-
 import type { Encryption } from '@/contracts/encryption'
 import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'

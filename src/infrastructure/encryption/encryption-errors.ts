@@ -1,5 +1,4 @@
 /**
- * Error codes for encryption operations.
  * @public
  */
 export const EncryptionErrorCode = {
@@ -19,7 +18,6 @@ export const EncryptionErrorCode = {
 export type EncryptionErrorCode = (typeof EncryptionErrorCode)[keyof typeof EncryptionErrorCode]
 
 /**
- * Non-sensitive context for encryption errors.
  * @public
  */
 export interface EncryptionErrorContext {
@@ -37,12 +35,6 @@ export interface EncryptionErrorContext {
 }
 
 /**
- * Base error for all encryption operations.
- *
- * @remarks
- * Extends native Error with structured error codes and optional context.
- * Use the `code` property for programmatic error handling.
- *
  * @public
  */
 export class EncryptionError extends Error {
