@@ -32,15 +32,27 @@ export class BusManager<T extends Record<string, BusOptions>> {
 // @public
 export interface BusManagerConfig<T extends Record<string, BusOptions>> {
     default?: keyof T;
+    telemetry?: BusTelemetry;
     transports: T;
 }
 
 // @public
 export interface BusOptions {
     codec?: CodecOption;
+    maxPayloadSize?: number;
     middleware?: MiddlewareConfig;
     onHandlerError?: (channel: string, error: Error) => void;
+    telemetry?: BusTelemetry;
     transport: Transport;
+}
+
+// @public
+export interface BusTelemetry {
+    onError?: (event: ErrorEvent) => void | Promise<void>;
+    onHandlerExecution?: (event: HandlerExecutionEvent) => void | Promise<void>;
+    onPublish?: (event: PublishEvent) => void | Promise<void>;
+    onSubscribe?: (event: SubscribeEvent) => void | Promise<void>;
+    onUnsubscribe?: (event: UnsubscribeEvent) => void | Promise<void>;
 }
 
 // @public
@@ -73,6 +85,7 @@ export const CodecErrorCode: {
     readonly ENCODE_FAILED: "ENCODE_FAILED";
     readonly DECODE_FAILED: "DECODE_FAILED";
     readonly INVALID_CODEC: "INVALID_CODEC";
+    readonly PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE";
 };
 
 // @public
@@ -159,6 +172,15 @@ export class DeadLetterError extends Error {
 }
 
 // @public
+export interface ErrorEvent {
+    channel?: string;
+    context?: Record<string, unknown>;
+    error: Error;
+    operation: 'publish' | 'subscribe' | 'unsubscribe' | 'decode' | 'handler';
+    timestamp: number;
+}
+
+// @public
 export const exponentialBackoff: RetryBackoff;
 
 // @public
@@ -173,6 +195,15 @@ export type GzipConfig = {
     level?: number;
     threshold?: number;
 };
+
+// @public
+export interface HandlerExecutionEvent {
+    channel: string;
+    duration: number;
+    error?: Error;
+    success: boolean;
+    timestamp: number;
+}
 
 // @public
 export interface HMACConfig {
@@ -301,6 +332,15 @@ export type OnDeadLetterCallback = (channel: string, data: TransportData, error:
 export type OnRetryCallback = (channel: string, data: TransportData, attempt: number) => void | Promise<void>;
 
 // @public
+export interface PublishEvent {
+    channel: string;
+    codecUsed: string;
+    duration?: number;
+    payloadSize: number;
+    timestamp: number;
+}
+
+// @public
 export function redis(config?: RedisTransportConfig | RedisTransportExternalConfig): RedisTransport;
 
 // @public
@@ -369,6 +409,13 @@ export interface SerializableObject {
 
 // @public (undocumented)
 export type SerializablePrimitive = string | number | boolean | null;
+
+// @public
+export interface SubscribeEvent {
+    channel: string;
+    handlerCount: number;
+    timestamp: number;
+}
 
 // @public
 export interface Transport {
@@ -444,6 +491,13 @@ export const TransportOperation: {
 
 // @public (undocumented)
 export type TransportOperation = (typeof TransportOperation)[keyof typeof TransportOperation];
+
+// @public
+export interface UnsubscribeEvent {
+    channel: string;
+    handlerCount: number;
+    timestamp: number;
+}
 
 // @public
 export const withJitter: (backoff: RetryBackoff, jitterFactor?: number) => RetryBackoff;
