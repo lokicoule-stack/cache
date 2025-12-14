@@ -8,6 +8,7 @@ benchmarks/node_modules/
 coverage/
 *.lcov
 .nyc_output
+report/
 
 # Build
 dist/
@@ -16,6 +17,9 @@ build/
 
 # API Extractor
 temp/
+
+# Stryker
+.stryker-tmp/
 
 # Misc
 .DS_Store
