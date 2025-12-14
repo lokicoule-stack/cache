@@ -1,230 +1,320 @@
 # @lokiverse/bus
 
-Type-safe message bus for TypeScript with Redis pub/sub, middleware pipeline, and efficient
-serialization.
+Type-safe message bus for TypeScript. It works.
 
 [![npm](https://img.shields.io/npm/v/@lokiverse/bus)](https://www.npmjs.com/package/@lokiverse/bus)
-[![Coverage](https://img.shields.io/badge/coverage-79%25-green)](./coverage)
+[![Coverage](https://img.shields.io/badge/coverage-80%25-green)](./coverage)
+[![Tests](https://img.shields.io/badge/tests-149%20passing-brightgreen)](./tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
----
+## Philosophy: 退屈 (Taikutsu)
 
-## Quick Start
+In Japanese culture, there exists a concept opposite to **改善 (Kaizen)** — the relentless pursuit
+of continuous improvement. We embrace **退屈 (Taikutsu)**: boring, unchanging stability.
+
+**Boring is a feature, not a bug.**
+
+This library doesn't aim to revolutionize message buses. It doesn't compete with anything. It exists
+in its own space, quietly doing one thing: reliable pub/sub with types.
+
+No innovation. No disruption. No "10x better than X". Just predictable behavior that you can trust
+at 3 AM when something breaks.
+
+The best tools are the ones you forget exist because they never cause problems. That's our goal.
+
+## Install
 
 ```bash
-npm install @lokiverse/bus redis
+npm install @lokiverse/bus
+npm install redis  # optional, for Redis transport
 ```
 
-```typescript
-import { MessageBus, redis } from '@lokiverse/bus'
-
-const bus = new MessageBus({
-  transport: redis({ url: 'redis://localhost:6379' }),
-  codec: 'msgpack',
-})
-
-await bus.connect()
-await bus.subscribe('orders', (order) => console.log(order))
-await bus.publish('orders', { id: 1, total: 99.99 })
-```
-
----
-
-## Features
-
-- **Type-safe pub/sub** — Generic handlers with compile-time validation
-- **Transport-agnostic** — Redis, in-memory, or custom implementations
-- **Efficient serialization** — MessagePack: 17-34% bandwidth reduction vs JSON
-- **Middleware pipeline** — Retry, compression, encryption via config
-- **Production-ready** — 79% coverage, 1 runtime dependency
-
----
-
-## Performance
-
-MacBook Pro 16,1 (x86_64), 16GB RAM, Node v23.3.0, Redis 7-alpine
-
-| Payload | JSON (ops/s) | MessagePack (ops/s) | Overhead | Size Reduction |
-| ------- | ------------ | ------------------- | -------- | -------------- |
-| 70B     | 1,485        | 1,395               | -4.3%    | 17.1%          |
-| 486B    | 1,467        | 1,382               | -1.0%    | 17.3%          |
-| 15KB    | 1,056        | 783                 | 19.5%    | 25.8%          |
-
-Overhead: JSON=-4.3% to 19.5% (faster on small payloads), MessagePack=2.0% to 40.3% (slower but
-smaller). Use `'msgpack'` for production (bandwidth savings), `'json'` for development.
-
-See [benchmarks/README.md](./benchmarks/README.md) for methodology.
-
----
-
-## Usage
-
-### Type Safety
+## Use It
 
 ```typescript
-interface UserCreated {
-  id: number
-  email: string
+import { BusManager, redis } from '@lokiverse/bus'
+
+type Messages = {
+  'order:created': { id: string; total: number }
 }
 
-await bus.subscribe<UserCreated>('user.created', (event) => {
-  console.log(event.email) // Typed
+const bus = new BusManager<Messages>({
+  default: 'main',
+  transports: { main: { transport: redis() } },
 })
+
+await bus.subscribe('order:created', (order) => {
+  console.log(order.id, order.total) // TypeScript knows these types
+})
+
+await bus.publish('order:created', { id: '123', total: 99.99 })
+await bus.stop()
 ```
 
-### Middleware
+## Configuration
+
+### Development
 
 ```typescript
-const bus = new MessageBus({
-  transport: redis({ url: 'redis://localhost:6379' }),
-  codec: 'msgpack',
-  middleware: {
-    retry: { maxAttempts: 10, backoff: 'exponential' },
-    compression: { type: 'gzip', threshold: 5120 },
-    encryption: { type: 'hmac', key: process.env.KEY },
+const bus = new BusManager({
+  default: 'main',
+  transports: {
+    main: { transport: memory() }, // in-memory, for tests
   },
 })
 ```
 
-Shortcuts: `retry: true` (10 attempts, exponential), `retry: 5` (5 attempts), `compression: true`
-(gzip, 5KB threshold)
+### Production
+
+```typescript
+const bus = new BusManager({
+  default: 'main',
+  transports: {
+    main: {
+      transport: redis({ url: process.env.REDIS_URL }),
+      codec: 'msgpack', // 17-47% smaller than JSON
+      middleware: {
+        retry: { maxAttempts: 3, backoff: 'exponential' },
+        compression: { type: 'gzip', threshold: 1024 },
+        integrity: { type: 'hmac', key: process.env.HMAC_SECRET },
+      },
+    },
+  },
+})
+```
+
+## Features
+
+| Feature                       | Works |
+| ----------------------------- | ----- |
+| Pub/Sub across processes      | ✅    |
+| TypeScript type safety        | ✅    |
+| Redis transport               | ✅    |
+| In-memory transport           | ✅    |
+| Auto-reconnect + re-subscribe | ✅    |
+| Retry with backoff            | ✅    |
+| Gzip compression              | ✅    |
+| HMAC integrity                | ✅    |
+| OpenTelemetry tracing         | ✅    |
+
+## Type Safety
+
+Define your schema once:
+
+```typescript
+type AppMessages = {
+  'user:created': { id: string; email: string }
+  'order:placed': { orderId: string; total: number }
+}
+
+const bus = new BusManager<AppMessages>({
+  /* ... */
+})
+
+// TypeScript catches mistakes
+await bus.publish('user:created', { id: '123', email: 'a@b.com' }) // ✅
+await bus.publish('user:created', { id: 123 }) // ❌ TypeScript error
+await bus.publish('typo:channel', {}) // ❌ TypeScript error
+
+await bus.subscribe('order:placed', (order) => {
+  const id: string = order.orderId // ✅ inferred
+  const amount: number = order.total // ✅ inferred
+})
+```
+
+## Transports
+
+### Redis (Production)
+
+```typescript
+import { redis } from '@lokiverse/bus'
+
+// Standalone
+redis({ url: 'redis://localhost:6379' })
+
+// Cluster
+redis({
+  rootNodes: [
+    { host: 'node1', port: 7000 },
+    { host: 'node2', port: 7001 },
+  ],
+})
+
+// With reconnect strategy
+redis({
+  url: process.env.REDIS_URL,
+  socket: {
+    reconnectStrategy: (retries) => Math.min(retries * 100, 5000),
+  },
+})
+```
+
+**Auto-reconnect:** When Redis reconnects, all channels are automatically re-subscribed. No messages
+are lost.
+
+### Memory (Testing)
+
+```typescript
+import { memory } from '@lokiverse/bus'
+
+const bus = new MessageBus({ transport: memory() })
+```
+
+Synchronous delivery, same process only. Perfect for unit tests.
 
 ### Multiple Transports
 
 ```typescript
-import { BusManager } from '@lokiverse/bus'
-
 const manager = new BusManager({
-  default: 'events',
+  default: 'critical',
   transports: {
-    events: { transport: redis({ url: 'redis://events:6379' }), codec: 'msgpack' },
-    local: { transport: memory(), codec: 'json' },
+    critical: { transport: redis({ url: process.env.REDIS_URL }) },
+    internal: { transport: memory() },
   },
 })
 
-await manager.start()
-await manager.use('events').publish('user.created', { id: 1 })
+await manager.publish('orders', data) // uses 'critical'
+await manager.use('internal').publish('cache:clear', {}) // explicit
 ```
 
-### Redis Cluster
+## Middleware
+
+Applied in order: Tracing → Retry → Integrity → Compression → Transport
+
+### Retry
 
 ```typescript
-const bus = new MessageBus({
-  transport: redis({
-    rootNodes: [
-      { host: 'localhost', port: 7000 },
-      { host: 'localhost', port: 7001 },
-    ],
-  }),
+middleware: {
+  retry: {
+    maxAttempts: 5,
+    backoff: 'exponential',  // or 'linear', 'fibonacci'
+    onDeadLetter: (channel, data, error) => {
+      logger.error('Message failed permanently', { channel, error })
+    }
+  }
+}
+```
+
+### Compression
+
+```typescript
+middleware: {
+  compression: {
+    type: 'gzip',
+    threshold: 1024  // only compress if > 1KB
+  }
+}
+```
+
+Only compresses when beneficial (compressed size < 90% of original).
+
+### Integrity (HMAC)
+
+```typescript
+middleware: {
+  integrity: {
+    type: 'hmac',
+    key: process.env.HMAC_SECRET,
+    algorithm: 'sha256'  // or 'sha384', 'sha512'
+  }
+}
+```
+
+Signs messages to detect tampering. Uses timing-safe comparison.
+
+### Tracing (OpenTelemetry)
+
+```typescript
+import { trace } from '@opentelemetry/api'
+
+middleware: {
+  tracing: {
+    tracer: trace.getTracer('my-service'),
+    recordPayloadSize: true
+  }
+}
+```
+
+Creates spans with W3C TraceContext propagation.
+
+## Codecs
+
+| Codec   | Size vs JSON   | Use Case             |
+| ------- | -------------- | -------------------- |
+| msgpack | 17-47% smaller | Production (default) |
+| json    | baseline       | Debugging            |
+| base64  | 33% larger     | Text-only transports |
+
+```typescript
+codec: 'msgpack' // default
+codec: 'json' // human-readable
+```
+
+## Error Handling
+
+```typescript
+import { TransportError, CodecError, IntegrityError } from '@lokiverse/bus'
+
+try {
+  await bus.publish('channel', data)
+} catch (error) {
+  if (error instanceof TransportError) {
+    // Redis down, connection failed, etc.
+  }
+  if (error instanceof IntegrityError) {
+    // HMAC verification failed
+  }
+}
+```
+
+All errors have a `.code` property:
+
+- `CONNECTION_FAILED`, `PUBLISH_FAILED` (TransportError)
+- `PAYLOAD_TOO_LARGE`, `ENCODE_FAILED` (CodecError)
+- `VERIFICATION_FAILED` (IntegrityError)
+
+## Telemetry
+
+```typescript
+const manager = new BusManager({
+  transports: { main: { transport: redis() } },
+  telemetry: {
+    onPublish: ({ channel, payloadSize, duration }) => {
+      metrics.histogram('bus.publish.duration', duration, { channel })
+    },
+    onError: ({ operation, channel, error }) => {
+      logger.error(`Bus ${operation} failed`, { channel, error })
+    },
+    onHandlerExecution: ({ channel, duration, success }) => {
+      metrics.histogram('bus.handler.duration', duration, { channel, success })
+    },
+  },
 })
 ```
 
----
+Hooks: `onPublish`, `onSubscribe`, `onUnsubscribe`, `onError`, `onHandlerExecution`
 
-## API Reference
+## Documentation
 
-### MessageBus
+See `/docs` folder for details:
 
-```typescript
-class MessageBus {
-  constructor(options: BusOptions)
-  connect(): Promise<void>
-  disconnect(): Promise<void>
-  publish<T>(channel: string, data: T): Promise<void>
-  subscribe<T>(channel: string, handler: (data: T) => void | Promise<void>): Promise<void>
-  unsubscribe(channel: string, handler?: Function): Promise<void>
-}
-```
+- [Architecture](./docs/architecture.md) - Internal design
+- [Middleware](./docs/middleware.md) - Retry, compression, integrity, tracing
+- [Transports](./docs/transports.md) - Redis, Memory, custom implementations
+- [Telemetry](./docs/telemetry.md) - Observability hooks
 
-### BusOptions
+## Contributing
 
-```typescript
-interface BusOptions {
-  transport: Transport
-  codec?: 'json' | 'msgpack' | Codec
-  middleware?: {
-    retry?: RetryConfig | boolean | number
-    compression?: CompressionOption | boolean
-    encryption?: EncryptionOption
-  }
-  onHandlerError?: (channel: string, error: Error) => void
-}
-```
+Pull requests welcome. Keep it boring.
 
-### BusManager
-
-```typescript
-class BusManager<T extends Record<string, BusOptions>> {
-  constructor(config: BusManagerConfig<T>)
-  use<K extends keyof T>(name?: K): Bus
-  start<K extends keyof T>(name?: K): Promise<void>
-  stop<K extends keyof T>(name?: K): Promise<void>
-  publish<D>(channel: string, data: D): Promise<void>
-  subscribe<D>(channel: string, handler: (data: D) => void): Promise<void>
-  unsubscribe(channel: string, handler?: Function): Promise<void>
-}
-```
-
-Full API: [api-extractor.api.md](./etc/api-extractor.api.md)
-
----
-
-## Extensibility
-
-### Custom Codec
-
-```typescript
-const customCodec: Codec = {
-  encode: (data) => new Uint8Array(Buffer.from(JSON.stringify(data))),
-  decode: (bytes) => JSON.parse(Buffer.from(bytes).toString()),
-}
-```
-
-### Custom Transport
-
-```typescript
-class CustomTransport implements Transport {
-  readonly name = 'custom'
-  async connect(): Promise<void> {
-    /* ... */
-  }
-  async disconnect(): Promise<void> {
-    /* ... */
-  }
-  async publish(channel: string, data: TransportData): Promise<void> {
-    /* ... */
-  }
-  async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
-    /* ... */
-  }
-  async unsubscribe(channel: string): Promise<void> {
-    /* ... */
-  }
-  onReconnect(callback: () => void): void {
-    /* ... */
-  }
-}
-```
-
----
-
-## Testing
-
-```bash
-pnpm test           # All tests (testcontainers handles Redis automatically)
-pnpm test:coverage  # With coverage report
-```
-
-## Roadmap
-
-**Transports**: Kafka, NATS, RabbitMQ
-
-**Middleware**: Rate limiting, circuit breaker, observability (metrics/tracing)
-
-**Ecosystem**: Schema validation, persistent DLQ
-
----
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup.
 
 ## License
 
-MIT — See [LICENSE](./LICENSE)
+MIT
+
+## Final Note:
+
+**退屈 (Taikutsu)** — Boring is not a limitation. It's a philosophy.
+
+The software that ages well is the software that doesn't try to be clever.
