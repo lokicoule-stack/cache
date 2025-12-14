@@ -1,13 +1,16 @@
-import { context, propagation, SpanKind, SpanStatusCode } from '@opentelemetry/api'
+import { context, propagation, SpanKind, SpanStatusCode, type Span } from '@opentelemetry/api'
 
 import { TransportMiddleware } from '../base'
 
-import type { TracingConfig, ResolvedTracingConfig } from './tracing-config'
-import type { Span, Tracer } from '@opentelemetry/api'
+import {
+  isTracingApi,
+  resolveTracingConfig,
+  type TracingConfig,
+  type ResolvedTracingConfig,
+} from './tracing-config'
+
 import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'
-
-import { isTracingApi, resolveTracingConfig } from './tracing-config'
 
 /**
  * Message envelope that wraps payload with trace context.
@@ -83,45 +86,42 @@ export class TracingMiddleware extends TransportMiddleware {
   override async publish(channel: string, data: TransportData): Promise<void> {
     const spanName = `${channel} publish`
 
-    await this.#withSpan(
-      spanName,
-      { kind: SpanKind.PRODUCER },
-      async (span) => {
-        // Set messaging attributes
-        span.setAttributes({
-          [MessagingAttributes.SYSTEM]: this.#getTransportSystem(),
-          [MessagingAttributes.DESTINATION]: channel,
-          [MessagingAttributes.OPERATION]: 'publish',
-        })
+    await this.#withSpan(spanName, { kind: SpanKind.PRODUCER }, async (span) => {
+      // Set messaging attributes
+      span.setAttributes({
+        [MessagingAttributes.SYSTEM]: this.#getTransportSystem(),
+        [MessagingAttributes.DESTINATION]: channel,
+        [MessagingAttributes.OPERATION]: 'publish',
+      })
 
-        if (this.#config.recordPayloadSize) {
-          span.setAttribute(MessagingAttributes.MESSAGE_PAYLOAD_SIZE, data.length)
+      if (this.#config.recordPayloadSize) {
+        span.setAttribute(MessagingAttributes.MESSAGE_PAYLOAD_SIZE, data.length)
+      }
+
+      try {
+        // Inject trace context into carrier
+        const carrier: Record<string, string> = {}
+
+        this.#injectContext(carrier)
+
+        // Create traced envelope
+        const envelope: TracedEnvelope = {
+          p: Array.from(data),
+          t: carrier,
         }
 
-        try {
-          // Inject trace context into carrier
-          const carrier: Record<string, string> = {}
-          this.#injectContext(carrier)
+        // Encode envelope with magic prefix
+        const envelopeBytes = this.#encodeEnvelope(envelope)
 
-          // Create traced envelope
-          const envelope: TracedEnvelope = {
-            p: Array.from(data),
-            t: carrier,
-          }
+        await this.transport.publish(channel, envelopeBytes)
 
-          // Encode envelope with magic prefix
-          const envelopeBytes = this.#encodeEnvelope(envelope)
-
-          await this.transport.publish(channel, envelopeBytes)
-
-          span.setStatus({ code: SpanStatusCode.OK })
-        } catch (error) {
-          span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
-          span.recordException(error as Error)
-          throw error
-        }
-      },
-    )
+        span.setStatus({ code: SpanStatusCode.OK })
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
+        span.recordException(error as Error)
+        throw error
+      }
+    })
   }
 
   override async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
@@ -130,14 +130,17 @@ export class TracingMiddleware extends TransportMiddleware {
       if (!this.#isTracedMessage(data)) {
         // Non-traced message, pass through directly
         await handler(data)
+
         return
       }
 
       // Decode envelope
       const envelope = this.#decodeEnvelope(data)
+
       if (!envelope) {
         // Failed to decode, pass original data
         await handler(data)
+
         return
       }
 
@@ -165,6 +168,7 @@ export class TracingMiddleware extends TransportMiddleware {
           try {
             // Reconstruct original payload
             const originalData = new Uint8Array(envelope.p)
+
             await handler(originalData)
 
             span.setStatus({ code: SpanStatusCode.OK })
@@ -190,6 +194,7 @@ export class TracingMiddleware extends TransportMiddleware {
 
     if (isTracingApi(tracer)) {
       const ctx = tracer.getActiveContext()
+
       return tracer.startActiveSpan(name, options, ctx, async (span) => {
         try {
           return await fn(span)
@@ -200,7 +205,7 @@ export class TracingMiddleware extends TransportMiddleware {
     }
 
     // Standard OpenTelemetry Tracer
-    return (tracer as Tracer).startActiveSpan(name, options, async (span) => {
+    return tracer.startActiveSpan(name, options, async (span) => {
       try {
         return await fn(span)
       } finally {
@@ -234,7 +239,7 @@ export class TracingMiddleware extends TransportMiddleware {
 
     // Standard OpenTelemetry Tracer - use context.with
     return context.with(parentContext, async () => {
-      return (tracer as Tracer).startActiveSpan(name, options, parentContext, async (span) => {
+      return tracer.startActiveSpan(name, options, parentContext, async (span) => {
         try {
           return await fn(span)
         } finally {
@@ -252,6 +257,7 @@ export class TracingMiddleware extends TransportMiddleware {
 
     if (isTracingApi(tracer)) {
       const ctx = tracer.getActiveContext()
+
       tracer.inject(ctx, carrier)
     } else {
       // Use standard propagation API
@@ -292,6 +298,7 @@ export class TracingMiddleware extends TransportMiddleware {
     const jsonBytes = this.#encoder.encode(json)
 
     const result = new Uint8Array(TRACE_MAGIC.length + jsonBytes.length)
+
     result.set(TRACE_MAGIC, 0)
     result.set(jsonBytes, TRACE_MAGIC.length)
 
@@ -305,6 +312,7 @@ export class TracingMiddleware extends TransportMiddleware {
     try {
       const jsonBytes = data.slice(TRACE_MAGIC.length)
       const json = this.#decoder.decode(jsonBytes)
+
       return JSON.parse(json) as TracedEnvelope
     } catch {
       return null
@@ -317,11 +325,21 @@ export class TracingMiddleware extends TransportMiddleware {
   #getTransportSystem(): string {
     const name = this.transport.name.toLowerCase()
 
-    if (name.includes('redis')) return 'redis'
-    if (name.includes('memory')) return 'memory'
-    if (name.includes('kafka')) return 'kafka'
-    if (name.includes('rabbitmq')) return 'rabbitmq'
-    if (name.includes('nats')) return 'nats'
+    if (name.includes('redis')) {
+      return 'redis'
+    }
+    if (name.includes('memory')) {
+      return 'memory'
+    }
+    if (name.includes('kafka')) {
+      return 'kafka'
+    }
+    if (name.includes('rabbitmq')) {
+      return 'rabbitmq'
+    }
+    if (name.includes('nats')) {
+      return 'nats'
+    }
 
     return name
   }
