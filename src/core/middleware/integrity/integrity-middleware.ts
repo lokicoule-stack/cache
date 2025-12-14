@@ -22,10 +22,10 @@ export class IntegrityMiddleware extends TransportMiddleware {
   }
 
   override async subscribe(channel: string, handler: TransportMessageHandler): Promise<void> {
-    return this.transport.subscribe(channel, (signedData: TransportData) => {
+    return this.transport.subscribe(channel, async (signedData: TransportData) => {
       const verified = this.#integrity.verify(signedData)
 
-      handler(verified)
+      await handler(verified)
     })
   }
 }

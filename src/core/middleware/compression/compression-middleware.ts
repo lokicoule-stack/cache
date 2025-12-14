@@ -25,7 +25,7 @@ export class CompressionMiddleware extends TransportMiddleware {
     return this.transport.subscribe(channel, async (compressedData: TransportData) => {
       const decompressed = await this.#compression.decompress(compressedData)
 
-      handler(decompressed)
+      await handler(decompressed)
     })
   }
 }
