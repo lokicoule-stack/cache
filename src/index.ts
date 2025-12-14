@@ -35,6 +35,19 @@ export type { Integrity } from './contracts/integrity'
 export type { Middleware } from './contracts/middleware'
 
 // ============================================================================
+// TELEMETRY (Observability)
+// ============================================================================
+
+export type {
+  BusTelemetry,
+  PublishEvent,
+  SubscribeEvent,
+  UnsubscribeEvent,
+  ErrorEvent,
+  HandlerExecutionEvent,
+} from './contracts/bus'
+
+// ============================================================================
 // MIDDLEWARE
 // ============================================================================
 

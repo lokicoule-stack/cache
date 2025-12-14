@@ -1,7 +1,7 @@
 import { MessageDispatcher } from './internal/message-dispatcher'
 import { SubscriptionManager } from './internal/subscription-manager'
 
-import type { Bus } from '@/contracts/bus'
+import type { Bus, BusTelemetry, HandlerExecutionEvent } from '@/contracts/bus'
 import type { Codec, CodecOption } from '@/contracts/codec'
 import type { Transport } from '@/contracts/transport'
 import type { MessageHandler, Serializable } from '@/types'
@@ -30,6 +30,9 @@ export interface BusOptions {
 
   /** Maximum payload size in bytes (default: 10MB) */
   maxPayloadSize?: number
+
+  /** Observability hooks for monitoring */
+  telemetry?: BusTelemetry
 }
 
 /**
@@ -43,11 +46,24 @@ export class MessageBus implements Bus {
   readonly #codec: Codec
   readonly #subscriptions: SubscriptionManager
   readonly #dispatcher: MessageDispatcher
+  readonly #telemetry?: BusTelemetry
 
   constructor(options: BusOptions) {
     this.#transport = composeMiddleware(options.transport, options.middleware)
     this.#codec = createCodec(options.codec, options.maxPayloadSize)
-    this.#dispatcher = new MessageDispatcher(this.#codec, options.onHandlerError)
+    this.#telemetry = options.telemetry
+
+    const onHandlerExecution = options.telemetry?.onHandlerExecution
+      ? (event: HandlerExecutionEvent) => {
+          void this.#emitTelemetry('onHandlerExecution', event)
+        }
+      : undefined
+
+    this.#dispatcher = new MessageDispatcher(
+      this.#codec,
+      options.onHandlerError,
+      onHandlerExecution,
+    )
     this.#subscriptions = new SubscriptionManager()
 
     this.#setupReconnectionHandler()
@@ -65,9 +81,38 @@ export class MessageBus implements Bus {
   }
 
   async publish<T extends Serializable>(channel: string, data: T): Promise<void> {
-    const bytes = this.#codec.encode(data)
+    const startTime = performance.now()
 
-    await this.#transport.publish(channel, bytes)
+    try {
+      const bytes = this.#codec.encode(data)
+
+      void this.#emitTelemetry('onPublish', {
+        channel,
+        payloadSize: bytes.length,
+        codecUsed: this.#codec.name,
+        timestamp: Date.now(),
+      })
+
+      await this.#transport.publish(channel, bytes)
+
+      void this.#emitTelemetry('onPublish', {
+        channel,
+        payloadSize: bytes.length,
+        codecUsed: this.#codec.name,
+        timestamp: Date.now(),
+        duration: performance.now() - startTime,
+      })
+    } catch (error) {
+      void this.#emitTelemetry('onError', {
+        channel,
+        error: error as Error,
+        operation: 'publish',
+        timestamp: Date.now(),
+        context: { codecUsed: this.#codec.name },
+      })
+
+      throw error
+    }
   }
 
   async subscribe<T extends Serializable>(
@@ -78,6 +123,12 @@ export class MessageBus implements Bus {
     const isFirstHandler = subscription.handlerCount === 0
 
     subscription.addHandler(handler as MessageHandler)
+
+    void this.#emitTelemetry('onSubscribe', {
+      channel,
+      handlerCount: subscription.handlerCount,
+      timestamp: Date.now(),
+    })
 
     if (!isFirstHandler) {
       return
@@ -94,6 +145,13 @@ export class MessageBus implements Bus {
         this.#subscriptions.delete(channel)
       }
 
+      void this.#emitTelemetry('onError', {
+        channel,
+        error: error as Error,
+        operation: 'subscribe',
+        timestamp: Date.now(),
+      })
+
       throw error
     }
   }
@@ -108,7 +166,15 @@ export class MessageBus implements Bus {
     if (handler) {
       subscription.removeHandler(handler)
 
-      if (subscription.handlerCount === 0) {
+      const handlerCount = subscription.handlerCount
+
+      void this.#emitTelemetry('onUnsubscribe', {
+        channel,
+        handlerCount,
+        timestamp: Date.now(),
+      })
+
+      if (handlerCount === 0) {
         await this.#transport.unsubscribe(channel)
         this.#subscriptions.delete(channel)
       }
@@ -118,6 +184,12 @@ export class MessageBus implements Bus {
 
     await this.#transport.unsubscribe(channel)
     this.#subscriptions.delete(channel)
+
+    void this.#emitTelemetry('onUnsubscribe', {
+      channel,
+      handlerCount: 0,
+      timestamp: Date.now(),
+    })
   }
 
   #setupReconnectionHandler(): void {
@@ -130,7 +202,7 @@ export class MessageBus implements Bus {
 
       debug('[RECONNECT] Re-subscribing to %d channels', channels.length)
 
-      Promise.all(
+      void Promise.all(
         channels.map(async (channel) => {
           const subscription = this.#subscriptions.get(channel)
 
@@ -152,5 +224,22 @@ export class MessageBus implements Bus {
         debug('[RECONNECT ERROR] Failed to re-subscribe channels:', error)
       })
     })
+  }
+
+  async #emitTelemetry<K extends keyof BusTelemetry>(
+    event: K,
+    data: Parameters<NonNullable<BusTelemetry[K]>>[0],
+  ): Promise<void> {
+    const callback = this.#telemetry?.[event]
+
+    if (!callback) {
+      return
+    }
+
+    try {
+      await callback(data as never)
+    } catch (error) {
+      debug('[TELEMETRY ERROR] %s:', event, error)
+    }
   }
 }

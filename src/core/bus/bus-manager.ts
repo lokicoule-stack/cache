@@ -2,7 +2,7 @@ import { BusConfigError } from './bus-errors'
 import { MessageBus, type BusOptions } from './message-bus'
 
 import type { MessageHandler, Serializable } from '../../types'
-import type { Bus } from '@/contracts/bus'
+import type { Bus, BusTelemetry } from '@/contracts/bus'
 
 /**
  * Bus manager configuration.
@@ -13,6 +13,8 @@ export interface BusManagerConfig<T extends Record<string, BusOptions>> {
   default?: keyof T
   /** Transport configurations */
   transports: T
+  /** Global telemetry configuration (can be overridden per transport) */
+  telemetry?: BusTelemetry
 }
 
 /**
@@ -41,13 +43,19 @@ export class BusManager<T extends Record<string, BusOptions>> {
       return cached
     }
 
-    const config = this.#config.transports[busName]
+    const busConfig = this.#config.transports[busName]
 
-    if (!config) {
+    if (!busConfig) {
       throw new BusConfigError(`Transport '${String(busName)}' not found`)
     }
 
-    const bus = new MessageBus(config)
+    // Merge global telemetry with bus-specific telemetry
+    const mergedConfig: BusOptions = {
+      ...busConfig,
+      telemetry: busConfig.telemetry ?? this.#config.telemetry,
+    }
+
+    const bus = new MessageBus(mergedConfig)
 
     this.#buses.set(busName, bus)
 
