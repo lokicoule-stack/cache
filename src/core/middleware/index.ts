@@ -8,6 +8,7 @@ export {
   withCompression,
   withIntegrity,
   withRetry,
+  withTracing,
   compose,
 } from './middleware'
 
@@ -21,5 +22,8 @@ export type { CompressionOption, GzipConfig } from './compression/compression-co
 // Integrity Configuration (Public)
 export type { IntegrityOption, HMACConfig } from './integrity/integrity-config'
 
+// Tracing Configuration (Public)
+export type { TracingOption, TracingConfig, TracingApi } from './tracing/tracing-config'
+
 // NOTE: Middleware implementations (CompressionMiddleware, IntegrityMiddleware,
-// RetryMiddleware) are NOT exported - they are internal implementation details
+// RetryMiddleware, TracingMiddleware) are NOT exported - they are internal implementation details

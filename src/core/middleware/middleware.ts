@@ -1,10 +1,12 @@
 import { CompressionMiddleware } from './compression/compression-middleware'
 import { IntegrityMiddleware } from './integrity/integrity-middleware'
 import { RetryMiddleware } from './retry/retry-middleware'
+import { TracingMiddleware } from './tracing/tracing-middleware'
 
 import type { CompressionOption } from './compression/compression-config'
 import type { IntegrityOption } from './integrity/integrity-config'
 import type { RetryConfig } from './retry/retry-config'
+import type { TracingConfig, TracingOption } from './tracing/tracing-config'
 import type { Transport } from '@/contracts/transport'
 
 /**
@@ -29,18 +31,31 @@ export interface MiddlewareConfig {
    * Retry configuration. Default: `false`. Provide config to enable.
    */
   retry?: RetryConfig | false
+
+  /**
+   * OpenTelemetry tracing configuration. Default: `false`. Provide config to enable.
+   *
+   * @remarks
+   * When enabled, trace context is propagated across message boundaries using W3C TraceContext.
+   * This allows distributed tracing across publisher and subscriber services.
+   *
+   * Requires `@opentelemetry/api` as a peer dependency.
+   */
+  tracing?: TracingOption
 }
 
 interface ResolvedMiddlewareConfig {
   compression: CompressionOption | false
   integrity: IntegrityOption | false
   retry: RetryConfig | false
+  tracing: TracingOption
 }
 
 const DEFAULT_MIDDLEWARE_CONFIG: Readonly<ResolvedMiddlewareConfig> = {
   compression: false,
   integrity: false,
   retry: false,
+  tracing: false,
 } as const
 
 export type MiddlewareWrapper = (transport: Transport) => Transport
@@ -56,6 +71,7 @@ export const resolveMiddlewareConfig = (config?: MiddlewareConfig): ResolvedMidd
     compression: config.compression ?? DEFAULT_MIDDLEWARE_CONFIG.compression,
     integrity: config.integrity ?? DEFAULT_MIDDLEWARE_CONFIG.integrity,
     retry: config.retry ?? DEFAULT_MIDDLEWARE_CONFIG.retry,
+    tracing: config.tracing ?? DEFAULT_MIDDLEWARE_CONFIG.tracing,
   }
 }
 
@@ -79,6 +95,11 @@ export const withRetry =
   (transport: Transport) =>
     new RetryMiddleware(transport, config)
 
+export const withTracing =
+  (config: TracingConfig): MiddlewareWrapper =>
+  (transport: Transport) =>
+    new TracingMiddleware(transport, config)
+
 export const pipe = <T>(value: T, ...fns: Array<(arg: T) => T>): T =>
   fns.reduce((acc, fn) => fn(acc), value)
 
@@ -99,6 +120,11 @@ export const composeMiddleware = (
 
   if (!isDisabled(resolved.retry)) {
     middlewares.push(withRetry(resolved.retry))
+  }
+
+  // Tracing is outermost middleware to capture full request lifecycle
+  if (!isDisabled(resolved.tracing)) {
+    middlewares.push(withTracing(resolved.tracing))
   }
 
   if (middlewares.length === 0) {
