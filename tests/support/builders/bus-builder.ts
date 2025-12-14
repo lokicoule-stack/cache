@@ -1,5 +1,6 @@
 import { MessageBus } from '@/core/bus/message-bus'
 import type { BusOptions } from '@/core/bus/message-bus'
+import type { BusTelemetry } from '@/contracts/bus'
 import type { Transport } from '@/contracts/transport'
 import { FakeTransport } from '../doubles/fake-transport'
 
@@ -39,6 +40,11 @@ export class BusBuilder {
 
   withErrorHandler(handler: NonNullable<BusOptions['onHandlerError']>): this {
     this.#config.onHandlerError = handler
+    return this
+  }
+
+  withTelemetry(telemetry: BusTelemetry): this {
+    this.#config.telemetry = telemetry
     return this
   }
 
