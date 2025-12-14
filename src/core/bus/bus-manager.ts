@@ -75,7 +75,7 @@ export class BusManager<
    *
    * @param name - Transport name (defaults to configured default)
    * @returns Bus instance with schema type safety
-   * @throws {BusConfigError} If transport not found
+   * @throws \{BusConfigError\} If transport not found
    */
   use<K extends keyof Transports>(name?: K): Bus<Schema> {
     const busName = (name ?? this.#config.default) as keyof Transports
