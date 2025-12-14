@@ -33,6 +33,9 @@ export interface BusOptions {
 
   /** Observability hooks for monitoring */
   telemetry?: BusTelemetry
+
+  /** Auto-connect on first publish/subscribe (default: true) */
+  autoConnect?: boolean
 }
 
 /**
@@ -47,11 +50,15 @@ export class MessageBus implements Bus {
   readonly #subscriptions: SubscriptionManager
   readonly #dispatcher: MessageDispatcher
   readonly #telemetry?: BusTelemetry
+  readonly #autoConnect: boolean
+  #connected = false
+  #connecting?: Promise<void>
 
   constructor(options: BusOptions) {
     this.#transport = composeMiddleware(options.transport, options.middleware)
     this.#codec = createCodec(options.codec, options.maxPayloadSize)
     this.#telemetry = options.telemetry
+    this.#autoConnect = options.autoConnect ?? true
 
     const onHandlerExecution = options.telemetry?.onHandlerExecution
       ? (event: HandlerExecutionEvent) => {
@@ -70,7 +77,20 @@ export class MessageBus implements Bus {
   }
 
   async connect(): Promise<void> {
-    await this.#transport.connect()
+    if (this.#connected) {
+      return
+    }
+
+    if (this.#connecting) {
+      return this.#connecting
+    }
+
+    this.#connecting = this.#transport.connect().then(() => {
+      this.#connected = true
+      this.#connecting = undefined
+    })
+
+    return this.#connecting
   }
 
   async disconnect(): Promise<void> {
@@ -78,9 +98,13 @@ export class MessageBus implements Bus {
 
     await Promise.all(channels.map((channel) => this.unsubscribe(channel)))
     await this.#transport.disconnect()
+    this.#connected = false
+    this.#connecting = undefined
   }
 
   async publish<T extends Serializable>(channel: string, data: T): Promise<void> {
+    await this.#ensureConnected()
+
     const startTime = performance.now()
 
     try {
@@ -119,6 +143,8 @@ export class MessageBus implements Bus {
     channel: string,
     handler: MessageHandler<T>,
   ): Promise<void> {
+    await this.#ensureConnected()
+
     const subscription = this.#subscriptions.getOrCreate(channel)
     const isFirstHandler = subscription.handlerCount === 0
 
@@ -190,6 +216,16 @@ export class MessageBus implements Bus {
       handlerCount: 0,
       timestamp: Date.now(),
     })
+  }
+
+  async #ensureConnected(): Promise<void> {
+    if (this.#connected) {
+      return
+    }
+
+    if (this.#autoConnect) {
+      await this.connect()
+    }
   }
 
   #setupReconnectionHandler(): void {

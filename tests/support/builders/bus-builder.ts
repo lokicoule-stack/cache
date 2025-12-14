@@ -6,7 +6,7 @@ import { FakeTransport } from '../doubles/fake-transport'
 
 export class BusBuilder {
   #transport: Transport = new FakeTransport()
-  #config: Partial<BusOptions> = { codec: 'json' }
+  #config: Partial<BusOptions> = { codec: 'json', autoConnect: false }
 
   static create(): BusBuilder {
     return new BusBuilder()

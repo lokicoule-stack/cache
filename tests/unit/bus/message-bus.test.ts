@@ -184,4 +184,18 @@ describe('MessageBus', () => {
       await bus.disconnect()
     })
   })
+
+  describe('autoConnect', () => {
+    it('connects automatically on first publish or subscribe', async () => {
+      const transport = new FakeTransport()
+      const connectSpy = vi.spyOn(transport, 'connect')
+      const bus = new MessageBus({ transport, autoConnect: true })
+
+      await bus.subscribe('ch', vi.fn())
+      await bus.publish('ch', 'data')
+
+      expect(connectSpy).toHaveBeenCalledTimes(1)
+      await bus.disconnect()
+    })
+  })
 })
