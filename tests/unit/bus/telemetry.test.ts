@@ -60,10 +60,7 @@ describe('MessageBus Telemetry', () => {
       const transport = new FakeTransport()
       transport.publish = vi.fn().mockRejectedValue(new Error('Transport down'))
 
-      const bus = BusBuilder.create()
-        .withTransport(transport)
-        .withTelemetry({ onError })
-        .build()
+      const bus = BusBuilder.create().withTransport(transport).withTelemetry({ onError }).build()
       await bus.connect()
 
       await expect(bus.publish('ch', 'test')).rejects.toThrow()
