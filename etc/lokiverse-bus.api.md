@@ -15,35 +15,40 @@ import { TextMapGetter } from '@opentelemetry/api';
 import { TextMapSetter } from '@opentelemetry/api';
 import { Tracer } from '@opentelemetry/api';
 
+// Warning: (ae-forgotten-export) The symbol "DefaultSchema" needs to be exported by the entry point index.d.ts
+//
 // @public
-export interface Bus {
+export interface Bus<Schema extends BusSchema = DefaultSchema> {
     connect(): Promise<void>;
     disconnect(): Promise<void>;
-    publish<T extends Serializable>(channel: string, data: T): Promise<void>;
-    subscribe<T extends Serializable>(channel: string, handler: MessageHandler<T>): Promise<void>;
-    unsubscribe(channel: string, handler?: MessageHandler): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ChannelOf" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "PayloadOf" needs to be exported by the entry point index.d.ts
+    publish<C extends ChannelOf<Schema>>(channel: C, data: PayloadOf<Schema, C>): Promise<void>;
+    subscribe<C extends ChannelOf<Schema>>(channel: C, handler: MessageHandler<PayloadOf<Schema, C>>): Promise<void>;
+    unsubscribe<C extends ChannelOf<Schema>>(channel: C, handler?: MessageHandler<PayloadOf<Schema, C>>): Promise<void>;
 }
 
 // @public
-export class BusManager<T extends Record<string, BusOptions>> {
-    constructor(config: BusManagerConfig<T>);
-    publish<D extends Serializable>(channel: string, data: D): Promise<void>;
-    start<K extends keyof T>(name?: K): Promise<void>;
-    stop<K extends keyof T>(name?: K): Promise<void>;
-    subscribe<D extends Serializable>(channel: string, handler: MessageHandler<D>): Promise<void>;
-    unsubscribe(channel: string, handler?: MessageHandler): Promise<void>;
-    use<K extends keyof T>(name?: K): Bus;
+export class BusManager<Schema extends BusSchema = DefaultSchema, Transports extends Record<string, BusOptions> = Record<string, BusOptions>> {
+    constructor(config: BusManagerConfig<Transports>);
+    publish<C extends ChannelOf<Schema>>(channel: C, data: PayloadOf<Schema, C>): Promise<void>;
+    start<K extends keyof Transports>(name?: K): Promise<void>;
+    stop<K extends keyof Transports>(name?: K): Promise<void>;
+    subscribe<C extends ChannelOf<Schema>>(channel: C, handler: MessageHandler<PayloadOf<Schema, C>>): Promise<void>;
+    unsubscribe<C extends ChannelOf<Schema>>(channel: C, handler?: MessageHandler<PayloadOf<Schema, C>>): Promise<void>;
+    use<K extends keyof Transports>(name?: K): Bus<Schema>;
 }
 
 // @public
-export interface BusManagerConfig<T extends Record<string, BusOptions>> {
-    default?: keyof T;
+export interface BusManagerConfig<Transports extends Record<string, BusOptions>> {
+    default?: keyof Transports;
     telemetry?: BusTelemetry;
-    transports: T;
+    transports: Transports;
 }
 
 // @public
 export interface BusOptions {
+    autoConnect?: boolean;
     codec?: CodecOption;
     maxPayloadSize?: number;
     middleware?: MiddlewareConfig;
@@ -51,6 +56,9 @@ export interface BusOptions {
     telemetry?: BusTelemetry;
     transport: Transport;
 }
+
+// @public
+export type BusSchema = Record<string, Serializable>;
 
 // @public
 export interface BusTelemetry {
@@ -302,18 +310,18 @@ export class MemoryTransport implements Transport {
 }
 
 // @public
-export class MessageBus implements Bus {
+export class MessageBus<Schema extends BusSchema = DefaultSchema> implements Bus<Schema> {
     constructor(options: BusOptions);
     // (undocumented)
     connect(): Promise<void>;
     // (undocumented)
     disconnect(): Promise<void>;
     // (undocumented)
-    publish<T extends Serializable>(channel: string, data: T): Promise<void>;
+    publish<C extends ChannelOf<Schema>>(channel: C, data: PayloadOf<Schema, C>): Promise<void>;
     // (undocumented)
-    subscribe<T extends Serializable>(channel: string, handler: MessageHandler<T>): Promise<void>;
+    subscribe<C extends ChannelOf<Schema>>(channel: C, handler: MessageHandler<PayloadOf<Schema, C>>): Promise<void>;
     // (undocumented)
-    unsubscribe(channel: string, handler?: MessageHandler): Promise<void>;
+    unsubscribe<C extends ChannelOf<Schema>>(channel: C, handler?: MessageHandler<PayloadOf<Schema, C>>): Promise<void>;
 }
 
 // @public
