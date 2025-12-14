@@ -4,10 +4,16 @@
 
 ```ts
 
+import { Context } from '@opentelemetry/api';
 import { createClient } from 'redis';
 import { createCluster } from 'redis';
 import { RedisClientOptions } from 'redis';
 import { RedisClusterOptions } from 'redis';
+import { Span } from '@opentelemetry/api';
+import { SpanOptions } from '@opentelemetry/api';
+import { TextMapGetter } from '@opentelemetry/api';
+import { TextMapSetter } from '@opentelemetry/api';
+import { Tracer } from '@opentelemetry/api';
 
 // @public
 export interface Bus {
@@ -323,6 +329,8 @@ export interface MiddlewareConfig {
     compression?: CompressionOption | false;
     integrity?: IntegrityOption | false;
     retry?: RetryConfig | false;
+    // Warning: (ae-forgotten-export) The symbol "TracingOption" needs to be exported by the entry point index.d.ts
+    tracing?: TracingOption;
 }
 
 // @public
