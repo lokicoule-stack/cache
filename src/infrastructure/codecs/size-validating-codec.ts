@@ -29,7 +29,9 @@ export class SizeValidatingCodec implements Codec {
 
     if (encoded.length > this.#maxPayloadSize) {
       throw new CodecError(
-        `Payload size ${encoded.length} bytes exceeds maximum allowed size of ${this.#maxPayloadSize} bytes`,
+        `Payload size ${encoded.length} bytes exceeds maximum allowed size of ${
+          this.#maxPayloadSize
+        } bytes`,
         CodecErrorCode.PAYLOAD_TOO_LARGE,
         {
           context: {
@@ -48,7 +50,9 @@ export class SizeValidatingCodec implements Codec {
   decode<T extends Serializable>(data: TransportData): T {
     if (data.length > this.#maxPayloadSize) {
       throw new CodecError(
-        `Payload size ${data.length} bytes exceeds maximum allowed size of ${this.#maxPayloadSize} bytes`,
+        `Payload size ${data.length} bytes exceeds maximum allowed size of ${
+          this.#maxPayloadSize
+        } bytes`,
         CodecErrorCode.PAYLOAD_TOO_LARGE,
         {
           context: {
