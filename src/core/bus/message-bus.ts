@@ -52,32 +52,6 @@ export interface BusOptions {
  * @remarks
  * Coordinates between transport, codec, and subscription management.
  *
- * When a Schema type is provided, channel names and payload types are
- * validated at compile time. Without a schema, any channel/payload is allowed
- * (backward compatible behavior).
- *
- * @example
- * ```typescript
- * // Without schema (backward compatible)
- * const bus = new MessageBus({ transport: memory() })
- * await bus.publish('any-channel', { any: 'data' })
- *
- * // With schema (type-safe)
- * type MySchema = {
- *   'user:created': { id: string; email: string }
- *   'order:placed': { orderId: string; total: number }
- * }
- *
- * const bus = new MessageBus<MySchema>({ transport: redis() })
- * await bus.publish('user:created', { id: '123', email: 'a@b.com' }) // OK
- * await bus.publish('user:created', { id: 123 }) // TS Error
- * await bus.publish('invalid', {}) // TS Error
- *
- * await bus.subscribe('order:placed', (order) => {
- *   console.log(order.total) // number - inferred!
- * })
- * ```
- *
  * @public
  */
 export class MessageBus<Schema extends BusSchema = DefaultSchema> implements Bus<Schema> {

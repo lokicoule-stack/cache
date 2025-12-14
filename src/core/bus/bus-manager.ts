@@ -36,17 +36,6 @@ export interface BusManagerConfig<Transports extends Record<string, BusOptions>>
  *
  * @example
  * ```typescript
- * // Without schema (backward compatible)
- * const manager = new BusManager({
- *   default: 'main',
- *   transports: {
- *     main: { transport: redis() },
- *     internal: { transport: memory() },
- *   },
- * })
- *
- * await manager.publish('any-channel', { any: 'data' })
- *
  * // With schema (type-safe)
  * type AppSchema = {
  *   'user:created': { id: string; email: string }
