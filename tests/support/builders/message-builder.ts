@@ -5,15 +5,6 @@ export interface TestMessage {
   data: TransportData
 }
 
-/**
- * Fluent builder for creating test message data.
- *
- * @example
- * ```ts
- * const msg = MessageBuilder.create().withChannel('orders').withPayload({ id: 1 }).build()
- * const large = MessageBuilder.large(100) // 100KB of data
- * ```
- */
 export class MessageBuilder {
   private channel = 'test-channel'
   private data: TransportData = new Uint8Array([1, 2, 3])
@@ -22,22 +13,18 @@ export class MessageBuilder {
     return new MessageBuilder()
   }
 
-  /** Create a message with N KB of data */
   static large(sizeKb: number): TestMessage {
     return new MessageBuilder().withSize(sizeKb * 1024).build()
   }
 
-  /** Create an empty message */
   static empty(): TestMessage {
     return new MessageBuilder().withData(new Uint8Array([])).build()
   }
 
-  /** Create a simple text message */
   static text(text: string, channel = 'test-channel'): TestMessage {
     return new MessageBuilder().withChannel(channel).withText(text).build()
   }
 
-  /** Create a JSON payload message */
   static json<T>(payload: T, channel = 'test-channel'): TestMessage {
     return new MessageBuilder().withChannel(channel).withPayload(payload).build()
   }
@@ -92,9 +79,6 @@ export class MessageBuilder {
   }
 }
 
-/**
- * Common test data fixtures
- */
 export const TestData = {
   /** Small payload for basic tests */
   small: new Uint8Array([1, 2, 3]),

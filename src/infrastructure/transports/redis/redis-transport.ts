@@ -68,7 +68,7 @@ export class RedisTransport implements Transport {
       await subscriber.subscribe(channel, (msg) => {
         const data = new Uint8Array(Buffer.from(msg))
 
-        Promise.resolve(handler(data)).catch(() => {})
+        void handler(data)
       })
     } catch (err) {
       throw this.#createError(

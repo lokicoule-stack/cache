@@ -17,7 +17,7 @@ export class MemoryTransport implements Transport {
     const handler = this.#handlers.get(channel)
 
     if (handler) {
-      Promise.resolve(handler(data)).catch(() => {})
+      void handler(data)
     }
   }
 

@@ -27,6 +27,9 @@ export interface BusOptions {
 
   /** Handler error callback */
   onHandlerError?: (channel: string, error: Error) => void
+
+  /** Maximum payload size in bytes (default: 10MB) */
+  maxPayloadSize?: number
 }
 
 /**
@@ -43,7 +46,7 @@ export class MessageBus implements Bus {
 
   constructor(options: BusOptions) {
     this.#transport = composeMiddleware(options.transport, options.middleware)
-    this.#codec = createCodec(options.codec)
+    this.#codec = createCodec(options.codec, options.maxPayloadSize)
     this.#dispatcher = new MessageDispatcher(this.#codec, options.onHandlerError)
     this.#subscriptions = new SubscriptionManager()
 
