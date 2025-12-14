@@ -1,4 +1,11 @@
-import type { Context, Span, SpanOptions, TextMapGetter, TextMapSetter, Tracer } from '@opentelemetry/api'
+import type {
+  Context,
+  Span,
+  SpanOptions,
+  TextMapGetter,
+  TextMapSetter,
+  Tracer,
+} from '@opentelemetry/api'
 
 /**
  * OpenTelemetry API interface subset used by tracing middleware.
@@ -28,12 +35,7 @@ export interface TracingApi {
   startSpan(name: string, options?: SpanOptions, context?: Context): Span
 
   /** Create a span and execute callback within it */
-  startActiveSpan<T>(
-    name: string,
-    options: SpanOptions,
-    context: Context,
-    fn: (span: Span) => T,
-  ): T
+  startActiveSpan<T>(name: string, options: SpanOptions, context: Context, fn: (span: Span) => T): T
 }
 
 /**
