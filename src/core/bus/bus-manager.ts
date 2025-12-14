@@ -1,37 +1,95 @@
 import { BusConfigError } from './bus-errors'
 import { MessageBus, type BusOptions } from './message-bus'
 
-import type { MessageHandler, Serializable } from '../../types'
-import type { Bus, BusTelemetry } from '@/contracts/bus'
+import type { MessageHandler } from '../../types'
+import type {
+  Bus,
+  BusSchema,
+  BusTelemetry,
+  ChannelOf,
+  DefaultSchema,
+  PayloadOf,
+} from '@/contracts/bus'
 
 /**
  * Bus manager configuration.
+ *
  * @public
  */
-export interface BusManagerConfig<T extends Record<string, BusOptions>> {
+export interface BusManagerConfig<Transports extends Record<string, BusOptions>> {
   /** Default transport name */
-  default?: keyof T
+  default?: keyof Transports
+
   /** Transport configurations */
-  transports: T
+  transports: Transports
+
   /** Global telemetry configuration (can be overridden per transport) */
   telemetry?: BusTelemetry
 }
 
 /**
- * Orchestrates multiple buses with type-safe transport names.
+ * Orchestrates multiple buses with type-safe transport names and optional schema.
+ *
+ * @remarks
+ * When a Schema type is provided, all channel names and payload types are
+ * validated at compile time across all transports.
+ *
+ * @example
+ * ```typescript
+ * // Without schema (backward compatible)
+ * const manager = new BusManager({
+ *   default: 'main',
+ *   transports: {
+ *     main: { transport: redis() },
+ *     internal: { transport: memory() },
+ *   },
+ * })
+ *
+ * await manager.publish('any-channel', { any: 'data' })
+ *
+ * // With schema (type-safe)
+ * type AppSchema = {
+ *   'user:created': { id: string; email: string }
+ *   'order:placed': { orderId: string; total: number }
+ * }
+ *
+ * const manager = new BusManager<AppSchema>({
+ *   default: 'main',
+ *   transports: {
+ *     main: { transport: redis() },
+ *   },
+ * })
+ *
+ * await manager.publish('user:created', { id: '123', email: 'a@b.com' }) // OK
+ * await manager.publish('user:created', { id: 123 }) // TS Error
+ *
+ * await manager.subscribe('order:placed', (order) => {
+ *   console.log(order.total) // number - inferred!
+ * })
+ * ```
+ *
  * @public
  */
-export class BusManager<T extends Record<string, BusOptions>> {
-  #config: BusManagerConfig<T>
-  #buses = new Map<keyof T, Bus>()
+export class BusManager<
+  Schema extends BusSchema = DefaultSchema,
+  Transports extends Record<string, BusOptions> = Record<string, BusOptions>,
+> {
+  readonly #config: BusManagerConfig<Transports>
+  readonly #buses = new Map<keyof Transports, Bus<Schema>>()
 
-  constructor(config: BusManagerConfig<T>) {
+  constructor(config: BusManagerConfig<Transports>) {
     this.#config = config
   }
 
-  /** Get or create a bus instance (lazy). @throws \{BusConfigError\} */
-  use<K extends keyof T>(name?: K): Bus {
-    const busName = (name ?? this.#config.default) as keyof T
+  /**
+   * Get or create a bus instance (lazy instantiation).
+   *
+   * @param name - Transport name (defaults to configured default)
+   * @returns Bus instance with schema type safety
+   * @throws {BusConfigError} If transport not found
+   */
+  use<K extends keyof Transports>(name?: K): Bus<Schema> {
+    const busName = (name ?? this.#config.default) as keyof Transports
 
     if (!busName) {
       throw new BusConfigError('No bus name specified and no default configured')
@@ -55,26 +113,34 @@ export class BusManager<T extends Record<string, BusOptions>> {
       telemetry: busConfig.telemetry ?? this.#config.telemetry,
     }
 
-    const bus = new MessageBus(mergedConfig)
+    const bus = new MessageBus<Schema>(mergedConfig)
 
     this.#buses.set(busName, bus)
 
     return bus
   }
 
-  /** Start all buses (or specific one). @throws \{BusOperationError\} */
-  async start<K extends keyof T>(name?: K): Promise<void> {
+  /**
+   * Start all buses or a specific one.
+   *
+   * @param name - Optional transport name (starts all if omitted)
+   */
+  async start<K extends keyof Transports>(name?: K): Promise<void> {
     if (name) {
       await this.use(name).connect()
     } else {
-      const busNames = Object.keys(this.#config.transports) as Array<keyof T>
+      const busNames = Object.keys(this.#config.transports) as Array<keyof Transports>
 
       await Promise.all(busNames.map((busName) => this.use(busName).connect()))
     }
   }
 
-  /** Stop all buses (or specific one). @throws \{BusOperationError\} */
-  async stop<K extends keyof T>(name?: K): Promise<void> {
+  /**
+   * Stop all buses or a specific one.
+   *
+   * @param name - Optional transport name (stops all if omitted)
+   */
+  async stop<K extends keyof Transports>(name?: K): Promise<void> {
     if (name) {
       await this.use(name).disconnect()
     } else {
@@ -83,21 +149,42 @@ export class BusManager<T extends Record<string, BusOptions>> {
     }
   }
 
-  /** Publish to default bus. @throws \{BusConfigError\} @throws \{BusOperationError\} */
-  async publish<D extends Serializable>(channel: string, data: D): Promise<void> {
+  /**
+   * Publish to the default bus with type-safe payload.
+   *
+   * @param channel - Channel name (must exist in schema if schema is provided)
+   * @param data - Payload data (type inferred from schema)
+   */
+  async publish<C extends ChannelOf<Schema>>(
+    channel: C,
+    data: PayloadOf<Schema, C>,
+  ): Promise<void> {
     return this.use().publish(channel, data)
   }
 
-  /** Subscribe to default bus. @throws \{BusConfigError\} @throws \{BusOperationError\} */
-  async subscribe<D extends Serializable>(
-    channel: string,
-    handler: MessageHandler<D>,
+  /**
+   * Subscribe to the default bus with type-safe handler.
+   *
+   * @param channel - Channel name (must exist in schema if schema is provided)
+   * @param handler - Message handler (receives type from schema)
+   */
+  async subscribe<C extends ChannelOf<Schema>>(
+    channel: C,
+    handler: MessageHandler<PayloadOf<Schema, C>>,
   ): Promise<void> {
     return this.use().subscribe(channel, handler)
   }
 
-  /** Unsubscribe from default bus. @throws \{BusConfigError\} @throws \{BusOperationError\} */
-  async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
+  /**
+   * Unsubscribe from the default bus.
+   *
+   * @param channel - Channel name
+   * @param handler - Optional specific handler to remove
+   */
+  async unsubscribe<C extends ChannelOf<Schema>>(
+    channel: C,
+    handler?: MessageHandler<PayloadOf<Schema, C>>,
+  ): Promise<void> {
     return this.use().unsubscribe(channel, handler)
   }
 }

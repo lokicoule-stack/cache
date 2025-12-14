@@ -5,7 +5,7 @@ import { FakeTransport } from '@test/doubles'
 
 describe('BusManager', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let manager: BusManager<any>
+  let manager: BusManager<any, any>
 
   afterEach(async () => {
     await manager?.stop().catch(() => {})

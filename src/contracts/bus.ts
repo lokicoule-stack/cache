@@ -1,14 +1,69 @@
 import type { MessageHandler, Serializable } from '../types'
 
 /**
- * Message bus abstraction.
+ * Base schema type for bus channels.
+ * Maps channel names to their payload types.
+ *
+ * @example
+ * ```typescript
+ * type MySchema = {
+ *   'user:created': { id: string; email: string }
+ *   'order:placed': { orderId: string; total: number }
+ * }
+ * ```
+ *
+ * @public
+ */
+export type BusSchema = Record<string, Serializable>
+
+/**
+ * Default schema that allows any channel with any serializable payload.
+ * Used when no schema is provided for backward compatibility.
+ *
+ * @internal
+ */
+export type DefaultSchema = Record<string, Serializable>
+
+/**
+ * Extracts channel names from a schema.
+ *
+ * @internal
+ */
+export type ChannelOf<Schema extends BusSchema> = keyof Schema & string
+
+/**
+ * Extracts payload type for a specific channel.
+ *
+ * @internal
+ */
+export type PayloadOf<Schema extends BusSchema, Channel extends ChannelOf<Schema>> = Schema[Channel]
+
+/**
+ * Message bus abstraction with optional schema-based type safety.
  *
  * @remarks
  * Handles pub/sub messaging with codec abstraction and middleware support.
  *
+ * When a Schema type is provided, channel names and payload types are
+ * validated at compile time. Without a schema, any channel/payload is allowed.
+ *
+ * @example
+ * ```typescript
+ * // Without schema (backward compatible)
+ * const bus: Bus = new MessageBus({ transport: memory() })
+ * await bus.publish('any-channel', { any: 'data' })
+ *
+ * // With schema (type-safe)
+ * type MySchema = { 'orders': { id: string } }
+ * const bus: Bus<MySchema> = new MessageBus({ transport: memory() })
+ * await bus.publish('orders', { id: '123' }) // OK
+ * await bus.publish('orders', { id: 123 })   // Error: id must be string
+ * await bus.publish('invalid', {})           // Error: channel not in schema
+ * ```
+ *
  * @public
  */
-export interface Bus {
+export interface Bus<Schema extends BusSchema = DefaultSchema> {
   /** Establish connection */
   connect(): Promise<void>
 
@@ -16,13 +71,19 @@ export interface Bus {
   disconnect(): Promise<void>
 
   /** Publish message to channel */
-  publish<T extends Serializable>(channel: string, data: T): Promise<void>
+  publish<C extends ChannelOf<Schema>>(channel: C, data: PayloadOf<Schema, C>): Promise<void>
 
   /** Subscribe to channel messages */
-  subscribe<T extends Serializable>(channel: string, handler: MessageHandler<T>): Promise<void>
+  subscribe<C extends ChannelOf<Schema>>(
+    channel: C,
+    handler: MessageHandler<PayloadOf<Schema, C>>,
+  ): Promise<void>
 
   /** Unsubscribe from channel */
-  unsubscribe(channel: string, handler?: MessageHandler): Promise<void>
+  unsubscribe<C extends ChannelOf<Schema>>(
+    channel: C,
+    handler?: MessageHandler<PayloadOf<Schema, C>>,
+  ): Promise<void>
 }
 
 /**

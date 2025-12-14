@@ -1,10 +1,18 @@
 import { MessageDispatcher } from './internal/message-dispatcher'
 import { SubscriptionManager } from './internal/subscription-manager'
 
-import type { Bus, BusTelemetry, HandlerExecutionEvent } from '@/contracts/bus'
+import type {
+  Bus,
+  BusSchema,
+  BusTelemetry,
+  ChannelOf,
+  DefaultSchema,
+  HandlerExecutionEvent,
+  PayloadOf,
+} from '@/contracts/bus'
 import type { Codec, CodecOption } from '@/contracts/codec'
 import type { Transport } from '@/contracts/transport'
-import type { MessageHandler, Serializable } from '@/types'
+import type { MessageHandler } from '@/types'
 
 import { type MiddlewareConfig, composeMiddleware } from '@/core/middleware/middleware'
 import debug from '@/debug'
@@ -39,12 +47,40 @@ export interface BusOptions {
 }
 
 /**
- * Main message bus implementation.
+ * Main message bus implementation with optional schema-based type safety.
+ *
+ * @remarks
  * Coordinates between transport, codec, and subscription management.
+ *
+ * When a Schema type is provided, channel names and payload types are
+ * validated at compile time. Without a schema, any channel/payload is allowed
+ * (backward compatible behavior).
+ *
+ * @example
+ * ```typescript
+ * // Without schema (backward compatible)
+ * const bus = new MessageBus({ transport: memory() })
+ * await bus.publish('any-channel', { any: 'data' })
+ *
+ * // With schema (type-safe)
+ * type MySchema = {
+ *   'user:created': { id: string; email: string }
+ *   'order:placed': { orderId: string; total: number }
+ * }
+ *
+ * const bus = new MessageBus<MySchema>({ transport: redis() })
+ * await bus.publish('user:created', { id: '123', email: 'a@b.com' }) // OK
+ * await bus.publish('user:created', { id: 123 }) // TS Error
+ * await bus.publish('invalid', {}) // TS Error
+ *
+ * await bus.subscribe('order:placed', (order) => {
+ *   console.log(order.total) // number - inferred!
+ * })
+ * ```
  *
  * @public
  */
-export class MessageBus implements Bus {
+export class MessageBus<Schema extends BusSchema = DefaultSchema> implements Bus<Schema> {
   readonly #transport: Transport
   readonly #codec: Codec
   readonly #subscriptions: SubscriptionManager
@@ -96,13 +132,16 @@ export class MessageBus implements Bus {
   async disconnect(): Promise<void> {
     const channels = this.#subscriptions.getAllChannels()
 
-    await Promise.all(channels.map((channel) => this.unsubscribe(channel)))
+    await Promise.all(channels.map((channel) => this.unsubscribe(channel as ChannelOf<Schema>)))
     await this.#transport.disconnect()
     this.#connected = false
     this.#connecting = undefined
   }
 
-  async publish<T extends Serializable>(channel: string, data: T): Promise<void> {
+  async publish<C extends ChannelOf<Schema>>(
+    channel: C,
+    data: PayloadOf<Schema, C>,
+  ): Promise<void> {
     await this.#ensureConnected()
 
     const startTime = performance.now()
@@ -139,9 +178,9 @@ export class MessageBus implements Bus {
     }
   }
 
-  async subscribe<T extends Serializable>(
-    channel: string,
-    handler: MessageHandler<T>,
+  async subscribe<C extends ChannelOf<Schema>>(
+    channel: C,
+    handler: MessageHandler<PayloadOf<Schema, C>>,
   ): Promise<void> {
     await this.#ensureConnected()
 
@@ -182,7 +221,10 @@ export class MessageBus implements Bus {
     }
   }
 
-  async unsubscribe(channel: string, handler?: MessageHandler): Promise<void> {
+  async unsubscribe<C extends ChannelOf<Schema>>(
+    channel: C,
+    handler?: MessageHandler<PayloadOf<Schema, C>>,
+  ): Promise<void> {
     const subscription = this.#subscriptions.get(channel)
 
     if (!subscription) {
@@ -190,7 +232,7 @@ export class MessageBus implements Bus {
     }
 
     if (handler) {
-      subscription.removeHandler(handler)
+      subscription.removeHandler(handler as MessageHandler)
 
       const handlerCount = subscription.handlerCount
 

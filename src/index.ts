@@ -27,7 +27,7 @@ export type {
 // CONTRACTS (Interfaces)
 // ============================================================================
 
-export type { Bus } from './contracts/bus'
+export type { Bus, BusSchema } from './contracts/bus'
 export type { Transport } from './contracts/transport'
 export type { Codec, CodecType, CodecOption } from './contracts/codec'
 export type { Compression } from './contracts/compression'
