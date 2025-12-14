@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { IntegrityError, IntegrityErrorCode, IntegritySecurityError } from './integrity-errors'
 
@@ -63,14 +63,16 @@ export class HMACIntegrity implements Integrity {
 
   #constantTimeCompare(a: Uint8Array, b: Buffer): boolean {
     if (a.length !== b.length) {
-      return false
-    }
-    let result = 0
+      const maxLen = Math.max(a.length, b.length)
+      const aPadded = Buffer.alloc(maxLen)
+      const bPadded = Buffer.alloc(maxLen)
 
-    for (let i = 0; i < a.length; i++) {
-      result |= a[i] ^ b[i]
+      aPadded.set(a)
+      bPadded.set(b)
+
+      return timingSafeEqual(aPadded, bPadded)
     }
 
-    return result === 0
+    return timingSafeEqual(a, b)
   }
 }
