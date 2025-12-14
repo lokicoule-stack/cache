@@ -21,9 +21,9 @@ export enum IntegrityErrorCode {
  * @public
  */
 export interface IntegrityErrorContext {
+  [key: string]: unknown
   algorithm?: string
   operation?: 'sign' | 'verify'
-  [key: string]: unknown
 }
 
 /**

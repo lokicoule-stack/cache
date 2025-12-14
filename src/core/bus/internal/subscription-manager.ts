@@ -1,8 +1,5 @@
 import { ChannelSubscription } from './channel-subscription'
 
-/**
- * @internal
- */
 export class SubscriptionManager {
   readonly #subscriptions = new Map<string, ChannelSubscription>()
 

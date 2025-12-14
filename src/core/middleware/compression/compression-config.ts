@@ -1,9 +1,15 @@
 import type { Compression } from '@/contracts/compression'
 
-/** @public */
+/**
+ * Built-in compression algorithm types.
+ * @public
+ */
 export type CompressionType = 'gzip'
 
-/** @public */
+/**
+ * Configuration for gzip compression.
+ * @public
+ */
 export type GzipConfig =
   | {
       type: 'gzip'
@@ -19,7 +25,10 @@ export type GzipConfig =
       threshold?: number
     }
 
-/** @public */
+/**
+ * Compression configuration option - can be a type string, config object, custom implementation, or boolean.
+ * @public
+ */
 export type CompressionOption = CompressionType | GzipConfig | Compression | boolean
 
 /** @public */

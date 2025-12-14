@@ -23,7 +23,7 @@ export interface Integrity {
    * Sign data with authentication tag
    * @param data - Original data to sign
    * @returns Signed data (typically: signature + data)
-   * @throws {IntegrityError} on signing failure
+   * @throws \{IntegrityError\} on signing failure
    */
   sign(data: TransportData): TransportData
 
@@ -31,7 +31,7 @@ export interface Integrity {
    * Verify signature and extract original data
    * @param data - Signed data
    * @returns Original data if signature is valid
-   * @throws {IntegrityError} on verification failure (tampering detected)
+   * @throws \{IntegrityError\} on verification failure (tampering detected)
    */
   verify(data: TransportData): TransportData
 }

@@ -154,7 +154,8 @@ describe('Middleware Stack Integration', () => {
       ])
 
       await waitFor(
-        () => collectors.ch1.count() >= 1 && collectors.ch2.count() >= 1 && collectors.ch3.count() >= 1,
+        () =>
+          collectors.ch1.count() >= 1 && collectors.ch2.count() >= 1 && collectors.ch3.count() >= 1,
       )
 
       expect(collectors.ch1.getAll()[0]).toEqual(new Uint8Array([1]))

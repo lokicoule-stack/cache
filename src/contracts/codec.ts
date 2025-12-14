@@ -26,8 +26,14 @@ export interface Codec {
   decode<T extends Serializable>(data: TransportData): T
 }
 
-/** @public */
+/**
+ * Built-in codec types available in the bus.
+ * @public
+ */
 export type CodecType = 'json' | 'msgpack' | 'base64'
 
-/** @public */
+/**
+ * Codec configuration option - either a built-in codec type string or a custom Codec implementation.
+ * @public
+ */
 export type CodecOption = CodecType | Codec

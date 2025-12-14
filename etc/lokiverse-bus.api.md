@@ -19,52 +19,6 @@ export interface Bus {
 }
 
 // @public
-export class BusConfigError extends BusError {
-    constructor(message: string, options?: ErrorOptions & {
-        context?: BusErrorContext;
-    });
-}
-
-// @public
-export class BusError extends Error {
-    constructor(message: string, code?: BusErrorCode, options?: ErrorOptions & {
-        context?: BusErrorContext;
-    });
-    readonly code: BusErrorCode;
-    readonly context?: BusErrorContext;
-    // @internal (undocumented)
-    toJSON(): {
-        name: string;
-        message: string;
-        code: BusErrorCode;
-        context: BusErrorContext | undefined;
-        stack: string | undefined;
-    };
-}
-
-// @public
-export const BusErrorCode: {
-    readonly BUS_ERROR: "BUS_ERROR";
-    readonly NOT_CONNECTED: "NOT_CONNECTED";
-    readonly INVALID_CONFIG: "INVALID_CONFIG";
-    readonly HANDLER_FAILED: "HANDLER_FAILED";
-    readonly TRANSPORT_FAILED: "TRANSPORT_FAILED";
-    readonly CHANNEL_ERROR: "CHANNEL_ERROR";
-};
-
-// @public (undocumented)
-export type BusErrorCode = (typeof BusErrorCode)[keyof typeof BusErrorCode];
-
-// @public
-export interface BusErrorContext {
-    [key: string]: unknown;
-    channel?: string;
-    connected?: boolean;
-    operation?: string;
-    transport?: string;
-}
-
-// @public
 export class BusManager<T extends Record<string, BusOptions>> {
     constructor(config: BusManagerConfig<T>);
     publish<D extends Serializable>(channel: string, data: D): Promise<void>;
@@ -121,7 +75,7 @@ export const CodecErrorCode: {
     readonly INVALID_CODEC: "INVALID_CODEC";
 };
 
-// @public (undocumented)
+// @public
 export type CodecErrorCode = (typeof CodecErrorCode)[keyof typeof CodecErrorCode];
 
 // @public
@@ -131,22 +85,16 @@ export interface CodecErrorContext {
     operation?: 'encode' | 'decode';
 }
 
-// @public (undocumented)
+// @public
 export type CodecOption = CodecType | Codec;
 
-// @public (undocumented)
-export type CodecType = 'json' | 'msgpack';
-
 // @public
-export const compose: (...fns: MiddlewareWrapper[]) => MiddlewareWrapper;
-
-// @public
-export const composeMiddleware: (baseTransport: Transport, config?: MiddlewareConfig) => Transport;
+export type CodecType = 'json' | 'msgpack' | 'base64';
 
 // @public
 export interface Compression {
-    compress(data: TransportData): Promise<Uint8Array>;
-    decompress(data: Uint8Array): Promise<Uint8Array>;
+    compress(data: TransportData): Promise<TransportData>;
+    decompress(data: TransportData): Promise<TransportData>;
     readonly name: string;
 }
 
@@ -176,7 +124,7 @@ export const CompressionErrorCode: {
     readonly INVALID_CONFIG: "INVALID_CONFIG";
 };
 
-// @public (undocumented)
+// @public
 export type CompressionErrorCode = (typeof CompressionErrorCode)[keyof typeof CompressionErrorCode];
 
 // @public
@@ -189,70 +137,26 @@ export interface CompressionErrorContext {
     operation?: 'compress' | 'decompress' | 'detect';
 }
 
-// @public (undocumented)
+// @public
 export type CompressionOption = CompressionType | GzipConfig | Compression | boolean;
 
-// @public (undocumented)
+// @public
 export type CompressionType = 'gzip';
 
 // @public
-export class DeadLetterError extends QueueError {
+export class DeadLetterError extends Error {
     constructor(message: string, options?: ErrorOptions & {
-        context?: QueueErrorContext;
+        context?: RetryErrorContext;
     });
-}
-
-// @public
-export interface Encryption {
-    decrypt(data: Uint8Array): Uint8Array;
-    encrypt(data: TransportData): Uint8Array;
-    readonly name: string;
-}
-
-// @public
-export class EncryptionError extends Error {
-    constructor(message: string, code?: EncryptionErrorCode, options?: ErrorOptions & {
-        context?: EncryptionErrorContext;
-    });
-    // (undocumented)
-    readonly code: EncryptionErrorCode;
-    // (undocumented)
-    readonly context?: EncryptionErrorContext;
+    readonly context?: RetryErrorContext;
     // @internal (undocumented)
     toJSON(): {
         name: string;
         message: string;
-        code: EncryptionErrorCode;
-        context: EncryptionErrorContext | undefined;
+        context: RetryErrorContext | undefined;
         stack: string | undefined;
     };
 }
-
-// @public
-export const EncryptionErrorCode: {
-    readonly INVALID_CONFIG: "INVALID_CONFIG";
-    readonly ENCRYPTION_FAILED: "ENCRYPTION_FAILED";
-    readonly DECRYPTION_FAILED: "DECRYPTION_FAILED";
-    readonly INVALID_DATA: "INVALID_DATA";
-    readonly AUTHENTICATION_FAILED: "AUTHENTICATION_FAILED";
-};
-
-// @public (undocumented)
-export type EncryptionErrorCode = (typeof EncryptionErrorCode)[keyof typeof EncryptionErrorCode];
-
-// @public
-export interface EncryptionErrorContext {
-    [key: string]: unknown;
-    algorithm?: string;
-    field?: string;
-    operation?: 'encrypt' | 'decrypt' | 'verify' | 'derive';
-}
-
-// @public (undocumented)
-export type EncryptionOption = EncryptionType | HMACConfig | Encryption;
-
-// @public (undocumented)
-export type EncryptionType = 'base64' | 'hmac';
 
 // @public
 export const exponentialBackoff: RetryBackoff;
@@ -260,7 +164,7 @@ export const exponentialBackoff: RetryBackoff;
 // @public
 export const fibonacciBackoff: RetryBackoff;
 
-// @public (undocumented)
+// @public
 export type GzipConfig = {
     type: 'gzip';
     level?: number;
@@ -270,13 +174,71 @@ export type GzipConfig = {
     threshold?: number;
 };
 
-// @public (undocumented)
+// @public
 export interface HMACConfig {
-    // (undocumented)
-    key: Buffer | string;
+    key: string | Buffer;
     // (undocumented)
     type: 'hmac';
 }
+
+// @public
+export interface Integrity {
+    readonly name: string;
+    sign(data: TransportData): TransportData;
+    verify(data: TransportData): TransportData;
+}
+
+// @public
+export class IntegrityConfigError extends IntegrityError {
+    constructor(message: string, options?: {
+        context?: IntegrityErrorContext;
+        cause?: Error;
+    });
+}
+
+// @public
+export class IntegrityError extends Error {
+    constructor(message: string, code: IntegrityErrorCode, options?: {
+        context?: IntegrityErrorContext;
+        cause?: Error;
+    });
+    // (undocumented)
+    readonly code: IntegrityErrorCode;
+    // (undocumented)
+    readonly context?: IntegrityErrorContext;
+}
+
+// @public
+export enum IntegrityErrorCode {
+    INVALID_CONFIG = "INVALID_CONFIG",
+    INVALID_DATA = "INVALID_DATA",
+    SIGN_FAILED = "SIGN_FAILED",
+    VERIFICATION_FAILED = "VERIFICATION_FAILED"
+}
+
+// @public
+export interface IntegrityErrorContext {
+    // (undocumented)
+    [key: string]: unknown;
+    // (undocumented)
+    algorithm?: string;
+    // (undocumented)
+    operation?: 'sign' | 'verify';
+}
+
+// @public
+export type IntegrityOption = HMACConfig;
+
+// @public
+export class IntegritySecurityError extends IntegrityError {
+    constructor(message: string, options?: {
+        context?: IntegrityErrorContext;
+        cause?: Error;
+    });
+}
+
+// @public
+export type IntegrityType = 'hmac';
 
 // @public
 export const linearBackoff: RetryBackoff;
@@ -302,13 +264,18 @@ export class MemoryTransport implements Transport {
     unsubscribe(channel: string): Promise<void>;
 }
 
-// @public (undocumented)
+// @public
 export class MessageBus implements Bus {
     constructor(options: BusOptions);
+    // (undocumented)
     connect(): Promise<void>;
+    // (undocumented)
     disconnect(): Promise<void>;
+    // (undocumented)
     publish<T extends Serializable>(channel: string, data: T): Promise<void>;
+    // (undocumented)
     subscribe<T extends Serializable>(channel: string, handler: MessageHandler<T>): Promise<void>;
+    // (undocumented)
     unsubscribe(channel: string, handler?: MessageHandler): Promise<void>;
 }
 
@@ -323,61 +290,15 @@ export interface Middleware extends Transport {
 // @public
 export interface MiddlewareConfig {
     compression?: CompressionOption | false;
-    encryption?: EncryptionOption | false;
+    integrity?: IntegrityOption | false;
     retry?: RetryConfig | false;
 }
-
-// @public
-export type MiddlewareWrapper = (transport: Transport) => Transport;
 
 // @public
 export type OnDeadLetterCallback = (channel: string, data: TransportData, error: Error, attempts: number) => void | Promise<void>;
 
 // @public
 export type OnRetryCallback = (channel: string, data: TransportData, attempt: number) => void | Promise<void>;
-
-// @public
-export const pipe: <T>(value: T, ...fns: Array<(arg: T) => T>) => T;
-
-// @public
-export class QueueError extends Error {
-    constructor(message: string, code?: QueueErrorCode, options?: ErrorOptions & {
-        context?: QueueErrorContext;
-    });
-    readonly code: QueueErrorCode;
-    readonly context?: QueueErrorContext;
-    // @internal (undocumented)
-    toJSON(): {
-        name: string;
-        message: string;
-        code: QueueErrorCode;
-        context: QueueErrorContext | undefined;
-        stack: string | undefined;
-    };
-}
-
-// @public
-export const QueueErrorCode: {
-    readonly QUEUE_ERROR: "QUEUE_ERROR";
-    readonly QUEUE_FULL: "QUEUE_FULL";
-    readonly DEAD_LETTER: "DEAD_LETTER";
-    readonly INVALID_CONFIG: "INVALID_CONFIG";
-    readonly PROCESSING_TIMEOUT: "PROCESSING_TIMEOUT";
-};
-
-// @public (undocumented)
-export type QueueErrorCode = (typeof QueueErrorCode)[keyof typeof QueueErrorCode];
-
-// @public
-export interface QueueErrorContext {
-    [key: string]: unknown;
-    attempts?: number;
-    channel?: string;
-    currentSize?: number;
-    maxAttempts?: number;
-    maxSize?: number;
-    operation?: 'enqueue' | 'dequeue' | 'process' | 'retry';
-}
 
 // @public
 export function redis(config?: RedisTransportConfig | RedisTransportExternalConfig): RedisTransport;
@@ -426,15 +347,15 @@ export interface RetryConfigObject {
     maxAttempts?: number;
     onDeadLetter?: OnDeadLetterCallback;
     onRetry?: OnRetryCallback;
-    queue?: RetryQueueConfig;
 }
 
 // @public
-export interface RetryQueueConfig {
-    concurrency?: number;
-    intervalMs?: number;
-    maxSize?: number;
-    removeDuplicates?: boolean;
+export interface RetryErrorContext {
+    [key: string]: unknown;
+    attempts?: number;
+    channel?: string;
+    maxAttempts?: number;
+    operation?: 'retry';
 }
 
 // @public
@@ -525,19 +446,10 @@ export const TransportOperation: {
 export type TransportOperation = (typeof TransportOperation)[keyof typeof TransportOperation];
 
 // @public
-export const withCompression: (compression: CompressionOption) => MiddlewareWrapper;
-
-// @public
-export const withEncryption: (encryption: EncryptionOption) => MiddlewareWrapper;
-
-// @public
 export const withJitter: (backoff: RetryBackoff, jitterFactor?: number) => RetryBackoff;
 
 // @public
 export const withMaxDelay: (backoff: RetryBackoff, maxDelayMs: number) => RetryBackoff;
-
-// @public
-export const withRetry: (config: RetryConfig) => MiddlewareWrapper;
 
 // (No @packageDocumentation comment for this package)
 

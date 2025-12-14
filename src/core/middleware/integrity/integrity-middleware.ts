@@ -1,16 +1,12 @@
 import { TransportMiddleware } from '../base'
 
 import type { IntegrityConfig } from './integrity-config'
-
 import type { Integrity } from '@/contracts/integrity'
 import type { Transport } from '@/contracts/transport'
 import type { TransportData, TransportMessageHandler } from '@/types'
 
 import { createIntegrity } from '@/infrastructure/integrity'
 
-/**
- * @internal
- */
 export class IntegrityMiddleware extends TransportMiddleware {
   readonly #integrity: Integrity
 

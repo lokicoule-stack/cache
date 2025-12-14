@@ -31,39 +31,22 @@ export interface MiddlewareConfig {
   retry?: RetryConfig | false
 }
 
-/**
- * @internal
- */
 interface ResolvedMiddlewareConfig {
   compression: CompressionOption | false
   integrity: IntegrityOption | false
   retry: RetryConfig | false
 }
 
-/**
- * @internal
- */
 const DEFAULT_MIDDLEWARE_CONFIG: Readonly<ResolvedMiddlewareConfig> = {
   compression: false,
   integrity: false,
   retry: false,
 } as const
 
-/**
- * Middleware wrapper function type.
- * @public
- */
 export type MiddlewareWrapper = (transport: Transport) => Transport
 
-/**
- * @internal
- */
 const isDisabled = (value: unknown): value is false => value === false
 
-/**
- * Resolves middleware configuration by applying defaults.
- * @public
- */
 export const resolveMiddlewareConfig = (config?: MiddlewareConfig): ResolvedMiddlewareConfig => {
   if (!config) {
     return { ...DEFAULT_MIDDLEWARE_CONFIG }
@@ -76,55 +59,29 @@ export const resolveMiddlewareConfig = (config?: MiddlewareConfig): ResolvedMidd
   }
 }
 
-/**
- * Compose middleware wrappers (right to left).
- * @public
- */
 export const compose =
   (...fns: MiddlewareWrapper[]): MiddlewareWrapper =>
   (transport: Transport) =>
     fns.reduceRight((acc, fn) => fn(acc), transport)
 
-/**
- * Create compression middleware wrapper.
- * @public
- */
 export const withCompression =
   (compression: CompressionOption): MiddlewareWrapper =>
   (transport: Transport) =>
     new CompressionMiddleware(transport, { compression })
 
-/**
- * Create integrity middleware wrapper.
- * @public
- */
 export const withIntegrity =
   (integrity: IntegrityOption): MiddlewareWrapper =>
   (transport: Transport) =>
     new IntegrityMiddleware(transport, { integrity })
 
-/**
- * Create retry middleware wrapper.
- * @public
- */
 export const withRetry =
   (config: RetryConfig): MiddlewareWrapper =>
   (transport: Transport) =>
     new RetryMiddleware(transport, config)
 
-/**
- * Pipe operator for composing middleware in natural order (left to right).
- * @public
- */
 export const pipe = <T>(value: T, ...fns: Array<(arg: T) => T>): T =>
   fns.reduce((acc, fn) => fn(acc), value)
 
-/**
- * Compose middleware stack from configuration.
- *
- * Application order: retry (outer) -> integrity -> compression (inner).
- * @public
- */
 export const composeMiddleware = (
   baseTransport: Transport,
   config?: MiddlewareConfig,

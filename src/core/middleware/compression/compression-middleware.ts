@@ -7,9 +7,6 @@ import type { TransportData, TransportMessageHandler } from '@/types'
 
 import { createCompression } from '@/infrastructure/compression'
 
-/**
- * @internal
- */
 export class CompressionMiddleware extends TransportMiddleware {
   readonly #compression: Compression
 

@@ -5,7 +5,6 @@ import { CodecError, CodecErrorCode } from './codec-errors'
 import type { Codec } from '@/contracts/codec'
 import type { Serializable, TransportData } from '@/types'
 
-/** @internal */
 export class MsgPackCodec implements Codec {
   readonly name = 'msgpack'
 

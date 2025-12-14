@@ -1,4 +1,5 @@
 /**
+ * Error codes for compression-related failures.
  * @public
  */
 export const CompressionErrorCode = {
@@ -10,11 +11,13 @@ export const CompressionErrorCode = {
 } as const
 
 /**
+ * Type representing all possible compression error codes.
  * @public
  */
 export type CompressionErrorCode = (typeof CompressionErrorCode)[keyof typeof CompressionErrorCode]
 
 /**
+ * Contextual information for compression errors.
  * @public
  */
 export interface CompressionErrorContext {
@@ -38,6 +41,7 @@ export interface CompressionErrorContext {
 }
 
 /**
+ * Error thrown during compression or decompression operations.
  * @public
  */
 export class CompressionError extends Error {

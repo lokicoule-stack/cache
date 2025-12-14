@@ -1,9 +1,6 @@
 import type { Codec } from '@/contracts/codec'
 import type { Serializable, TransportData } from '@/types'
 
-/**
- * @internal
- */
 export class Base64Codec implements Codec {
   readonly name = 'base64'
 

@@ -12,7 +12,12 @@ describe('MessageBus', () => {
     await bus?.disconnect().catch(() => {})
   })
 
-  function createBus(options: { codec?: 'json' | 'msgpack' | Codec; onHandlerError?: (channel: string, error: Error) => void } = {}) {
+  function createBus(
+    options: {
+      codec?: 'json' | 'msgpack' | Codec
+      onHandlerError?: (channel: string, error: Error) => void
+    } = {},
+  ) {
     transport = new FakeTransport()
     bus = new MessageBus({
       transport,

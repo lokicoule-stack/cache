@@ -4,13 +4,9 @@ import { IntegrityConfigError } from './integrity-errors'
 import type { Integrity } from '@/contracts/integrity'
 import type { IntegrityOption } from '@/core/middleware/integrity/integrity-config'
 
-/**
- * Create integrity instance from configuration
- * @internal
- */
 export function createIntegrity(option: IntegrityOption): Integrity {
   if (typeof option === 'string') {
-    throw new IntegrityConfigError(`String integrity type not supported: "${option}"`, {
+    throw new IntegrityConfigError(`String integrity type not supported: "${option as string}"`, {
       context: { integrityType: option },
     })
   }
@@ -33,8 +29,11 @@ export function createIntegrity(option: IntegrityOption): Integrity {
     }
 
     default:
-      throw new IntegrityConfigError(`Unknown integrity type: ${(option as { type: string }).type}`, {
-        context: { integrityType: (option as { type: string }).type },
-      })
+      throw new IntegrityConfigError(
+        `Unknown integrity type: ${(option as { type: string }).type}`,
+        {
+          context: { integrityType: (option as { type: string }).type },
+        },
+      )
   }
 }

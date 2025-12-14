@@ -39,21 +39,12 @@ export type { Middleware } from './contracts/middleware'
 // ============================================================================
 
 // Middleware Configuration
-export type { MiddlewareConfig, MiddlewareWrapper } from './core/middleware/middleware'
-
-// Middleware Composition Functions
-export {
-  composeMiddleware,
-  pipe,
-  withCompression,
-  withIntegrity,
-  withRetry,
-  compose,
-} from './core/middleware/middleware'
+export type { MiddlewareConfig } from './core/middleware/middleware'
 
 // Retry Configuration & Errors
 export type { RetryConfig, RetryConfigObject } from './core/middleware/retry/retry-config'
 export { DeadLetterError } from './core/middleware/retry/retry-errors'
+export type { RetryErrorContext } from './core/middleware/retry/retry-errors'
 
 // Retry Backoff Functions & Types
 export type {

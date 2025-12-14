@@ -14,11 +14,6 @@ import type { TransportData } from '@/types'
 
 import { TransportError } from '@/infrastructure/transports/transport-errors'
 
-/**
- * Middleware that adds automatic retry capabilities to transports.
- *
- * @internal
- */
 export class RetryMiddleware extends TransportMiddleware {
   readonly #config: RetryConfigObject
   readonly #backoff: RetryBackoff

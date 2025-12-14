@@ -9,16 +9,13 @@ import type { TransportData } from '@/types'
 const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
 
-/** @internal */
 export const CompressionMarker = {
   UNCOMPRESSED: 0,
   GZIP: 1,
 } as const
 
-/** @internal */
 export type CompressionMarkerType = (typeof CompressionMarker)[keyof typeof CompressionMarker]
 
-/** @internal */
 export interface GzipCompressionConfig {
   /** Compression level 0-9 (default: 6) */
   level?: number
@@ -31,7 +28,6 @@ const DEFAULT_OPTIONS: Required<GzipCompressionConfig> = {
   threshold: 5120,
 }
 
-/** @internal */
 export class GzipCompression implements Compression {
   static readonly #MARKER_SIZE = 1
 

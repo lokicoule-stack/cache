@@ -40,9 +40,8 @@ describe('BusManager', () => {
         transports: { valid: { transport: new FakeTransport(), codec: 'json' } },
       })
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(() => manager.use('unknown' as any)).toThrow(BusConfigError)
-      expect(() => manager.use('unknown' as any)).toThrow("Transport 'unknown' not found")
+      expect(() => manager.use('unknown')).toThrow(BusConfigError)
+      expect(() => manager.use('unknown')).toThrow("Transport 'unknown' not found")
     })
   })
 
@@ -58,7 +57,6 @@ describe('BusManager', () => {
         },
       })
 
-      // Instantiate both buses
       manager.use('bus1')
       manager.use('bus2')
 

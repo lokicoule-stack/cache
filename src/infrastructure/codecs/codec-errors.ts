@@ -1,4 +1,5 @@
 /**
+ * Error codes for codec-related failures.
  * @public
  */
 export const CodecErrorCode = {
@@ -9,11 +10,13 @@ export const CodecErrorCode = {
 } as const
 
 /**
+ * Type representing all possible codec error codes.
  * @public
  */
 export type CodecErrorCode = (typeof CodecErrorCode)[keyof typeof CodecErrorCode]
 
 /**
+ * Contextual information for codec errors.
  * @public
  */
 export interface CodecErrorContext {
@@ -26,6 +29,7 @@ export interface CodecErrorContext {
 }
 
 /**
+ * Error thrown during encoding or decoding operations.
  * @public
  */
 export class CodecError extends Error {

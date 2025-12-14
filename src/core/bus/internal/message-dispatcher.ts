@@ -5,9 +5,6 @@ import type { Serializable, TransportData } from '@/types'
 import debug from '@/debug'
 import { CodecError } from '@/infrastructure/codecs/codec-errors'
 
-/**
- * @internal
- */
 export class MessageDispatcher {
   readonly #codec: Codec
   readonly #onHandlerError?: (channel: string, error: Error) => void

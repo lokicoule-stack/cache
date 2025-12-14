@@ -1,8 +1,5 @@
 import type { MessageHandler, Serializable } from '@/types'
 
-/**
- * @internal
- */
 export class ChannelSubscription {
   readonly #handlers = new Set<MessageHandler>()
 

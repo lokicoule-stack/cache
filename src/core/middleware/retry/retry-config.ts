@@ -20,7 +20,6 @@ export interface RetryConfigObject {
 /** @public */
 export type RetryConfig = false | true | number | RetryConfigObject
 
-/** @internal */
 export const DEFAULT_RETRY_CONFIG: Required<Omit<RetryConfigObject, 'onRetry' | 'onDeadLetter'>> = {
   maxAttempts: 10,
   delay: 1000,

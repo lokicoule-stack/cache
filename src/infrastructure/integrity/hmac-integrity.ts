@@ -7,7 +7,6 @@ import type { TransportData } from '@/types'
 
 import debug from '@/debug'
 
-/** @internal */
 export class HMACIntegrity implements Integrity {
   static readonly #SIGNATURE_LENGTH = 32 // SHA-256 = 32 bytes
 

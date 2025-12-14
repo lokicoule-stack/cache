@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { DeadLetterError } from '@/core/middleware/retry/retry-errors'
 import { CodecError, CodecErrorCode } from '@/infrastructure/codecs/codec-errors'
-import { CompressionError, CompressionErrorCode, CompressionConfigError } from '@/infrastructure/compression/compression-errors'
+import {
+  CompressionError,
+  CompressionErrorCode,
+  CompressionConfigError,
+} from '@/infrastructure/compression/compression-errors'
 import { BusError, BusErrorCode, BusConfigError } from '@/core/bus/bus-errors'
 
 describe('Error Serialization', () => {
@@ -36,7 +40,10 @@ describe('Error Serialization', () => {
     })
 
     it('serializes CompressionError with error code', () => {
-      const error = new CompressionError('Compression failed', CompressionErrorCode.COMPRESSION_FAILED)
+      const error = new CompressionError(
+        'Compression failed',
+        CompressionErrorCode.COMPRESSION_FAILED,
+      )
 
       const json = error.toJSON()
 
