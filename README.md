@@ -149,8 +149,8 @@ redis({
 })
 ```
 
-**Auto-reconnect:** When Redis reconnects, all channels are automatically re-subscribed. No messages
-are lost.
+**Auto-reconnect:** When Redis reconnects, all channels are automatically re-subscribed. Messages
+published during disconnection are lost (Redis Pub/Sub limitation).
 
 ### Memory (Testing)
 
