@@ -1,20 +1,22 @@
 import { LRUCache } from 'lru-cache'
 
 import type { CacheEntry } from '../entry'
-import type { SyncStore } from '../types'
+import type { SyncDriver } from '../types'
 
-export interface MemoryStoreConfig {
+export interface MemoryDriverConfig {
   maxItems?: number
   maxSize?: number
 }
 
-export class MemoryStore implements SyncStore {
+const DEFAULT_MAX_ITEMS = 10_000
+
+export class MemoryDriver implements SyncDriver {
   readonly name = 'memory'
   readonly #cache: LRUCache<string, CacheEntry>
 
-  constructor(config: MemoryStoreConfig = {}) {
+  constructor(config: MemoryDriverConfig = {}) {
     this.#cache = new LRUCache<string, CacheEntry>({
-      max: config.maxItems ?? 1000,
+      max: config.maxItems ?? DEFAULT_MAX_ITEMS,
       maxSize: config.maxSize,
       sizeCalculation: config.maxSize ? (entry) => JSON.stringify(entry).length * 2 : undefined,
     })
@@ -63,6 +65,10 @@ export class MemoryStore implements SyncStore {
   }
 }
 
-export function memoryStore(config?: MemoryStoreConfig): MemoryStore {
-  return new MemoryStore(config)
+export function memoryDriver(config?: MemoryDriverConfig): MemoryDriver {
+  return new MemoryDriver(config)
+}
+
+export function createDefaultMemory(): MemoryDriver {
+  return new MemoryDriver()
 }

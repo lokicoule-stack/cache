@@ -1,9 +1,9 @@
-import { CacheEntry, type SyncStore, type AsyncStore } from '@/index'
+import { CacheEntry, type SyncDriver, type AsyncDriver } from '@/index'
 
 /**
- * In-memory L1 store for testing.
+ * In-memory L1 driver for testing.
  */
-export class FakeL1Store implements SyncStore {
+export class FakeL1Store implements SyncDriver {
   readonly name = 'fake-l1'
   #data = new Map<string, CacheEntry>()
 
@@ -21,20 +21,6 @@ export class FakeL1Store implements SyncStore {
 
   has(key: string): boolean {
     return this.#data.has(key)
-  }
-
-  getMany(...keys: string[]): Map<string, CacheEntry | undefined> {
-    const results = new Map<string, CacheEntry | undefined>()
-    for (const key of keys) {
-      results.set(key, this.#data.get(key))
-    }
-    return results
-  }
-
-  setMany(...entries: [string, CacheEntry][]): void {
-    for (const [key, entry] of entries) {
-      this.#data.set(key, entry)
-    }
   }
 
   delete(...keys: string[]): number {
@@ -56,9 +42,9 @@ export class FakeL1Store implements SyncStore {
 }
 
 /**
- * In-memory L2 store for testing with failure simulation.
+ * In-memory L2 driver for testing with failure simulation.
  */
-export class FakeL2Store implements AsyncStore {
+export class FakeL2Store implements AsyncDriver {
   readonly name = 'fake-l2'
   #data = new Map<string, CacheEntry>()
   #shouldFail = false
@@ -116,28 +102,6 @@ export class FakeL2Store implements AsyncStore {
     }
     return Promise.resolve(this.#data.has(key))
   }
-
-  getMany(...keys: string[]): Promise<Map<string, CacheEntry | undefined>> {
-    if (this.#shouldFail) {
-      return this.#rejectWithFailure()
-    }
-    const results = new Map<string, CacheEntry | undefined>()
-    for (const key of keys) {
-      results.set(key, this.#data.get(key))
-    }
-    return Promise.resolve(results)
-  }
-
-  setMany(...entries: [string, CacheEntry][]): Promise<void> {
-    if (this.#shouldFail) {
-      return this.#rejectWithFailure()
-    }
-    for (const [key, entry] of entries) {
-      this.#data.set(key, entry)
-    }
-    return Promise.resolve()
-  }
-
 
   // Test helpers
   simulateFailure(fail: boolean): void {

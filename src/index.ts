@@ -2,20 +2,34 @@
 export { Cache, createCache } from './cache'
 export { CacheEntry } from './entry'
 export { CacheError } from './errors'
-export { CacheManager, type CacheManagerConfig } from './manager'
+export { CacheManager, createCacheManager } from './manager'
 
 // Bus
 export { createCacheBus, type CacheBus, type CacheBusConfig, type CacheBusSchema } from './bus/cache-bus'
 
-// Stores
-export { MemoryStore, memoryStore, type MemoryStoreConfig } from './stores/memory'
-export { RedisStore, redisStore, type RedisStoreConfig, type RedisStoreExternalConfig, type RedisInstance } from './stores/redis'
+// Drivers
+export {
+  MemoryDriver,
+  memoryDriver,
+  createDefaultMemory,
+  type MemoryDriverConfig,
+} from './drivers/memory'
+export {
+  RedisDriver,
+  redisDriver,
+  type RedisDriverConfig,
+  type RedisDriverExternalConfig,
+  type RedisInstance,
+} from './drivers/redis'
 
 // Types
 export type {
   Duration,
-  SyncStore,
-  AsyncStore,
+  SyncDriver,
+  AsyncDriver,
+  Driver,
+  StoreConfig,
+  CacheManagerConfig,
   CacheConfig,
   SetOptions,
   GetSetOptions,
@@ -28,5 +42,5 @@ export type {
   CacheErrorEvent,
 } from './types'
 
-// Duration parser (useful for custom stores)
+// Duration parser (useful for custom drivers)
 export { parseDuration, parseOptionalDuration } from './duration'

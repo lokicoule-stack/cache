@@ -4,17 +4,17 @@ import { createCache } from '@/index'
 import { FakeL1Store, FakeL2Store } from '@test/fake-store'
 
 describe('tag invalidation', () => {
-  let local: FakeL1Store
-  let remote: FakeL2Store
+  let l1: FakeL1Store
+  let l2: FakeL2Store
 
   beforeEach(async () => {
-    local = new FakeL1Store()
-    remote = new FakeL2Store()
-    await remote.connect()
+    l1 = new FakeL1Store()
+    l2 = new FakeL2Store()
+    await l2.connect()
   })
 
   it('invalidateTags removes entries from L1', async () => {
-    const cache = createCache({ local, staleTime: '1m' })
+    const cache = createCache({ l1, staleTime: '1m' })
 
     await cache.set('user:1', 'alice', { tags: ['users'] })
     await cache.set('user:2', 'bob', { tags: ['users'] })
@@ -28,20 +28,20 @@ describe('tag invalidation', () => {
   })
 
   it('invalidateTags removes entries from L1 and L2', async () => {
-    const cache = createCache({ local, remotes: [remote], staleTime: '1m' })
+    const cache = createCache({ l1, l2, staleTime: '1m' })
 
     await cache.set('user:1', 'alice', { tags: ['users'] })
-    expect(local.size).toBe(1)
-    expect(remote.size).toBe(1)
+    expect(l1.size).toBe(1)
+    expect(l2.size).toBe(1)
 
     await cache.invalidateTags(['users'])
 
-    expect(local.size).toBe(0)
-    expect(remote.size).toBe(0)
+    expect(l1.size).toBe(0)
+    expect(l2.size).toBe(0)
   })
 
   it('matches entry with any of multiple tags', async () => {
-    const cache = createCache({ local, staleTime: '1m' })
+    const cache = createCache({ l1, staleTime: '1m' })
 
     await cache.set('key', 'value', { tags: ['tag-a', 'tag-b'] })
 
@@ -51,7 +51,7 @@ describe('tag invalidation', () => {
   })
 
   it('works with namespaced keys', async () => {
-    const cache = createCache({ local, staleTime: '1m' })
+    const cache = createCache({ l1, staleTime: '1m' })
     const users = cache.namespace('users')
 
     await users.set('1', 'alice', { tags: ['admins'] })
@@ -64,7 +64,7 @@ describe('tag invalidation', () => {
   })
 
   it('returns count of invalidated entries', async () => {
-    const cache = createCache({ local, staleTime: '1m' })
+    const cache = createCache({ l1, staleTime: '1m' })
 
     await cache.set('a', 1, { tags: ['shared'] })
     await cache.set('b', 2, { tags: ['shared'] })

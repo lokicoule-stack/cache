@@ -8,35 +8,35 @@ import {
 import { CacheEntry, type SerializedEntry } from '../entry'
 import { CacheError } from '../errors'
 
-import type { AsyncStore } from '../types'
+import type { AsyncDriver } from '../types'
 
 export type RedisInstance = ReturnType<typeof createClient> | ReturnType<typeof createCluster>
 
-export type RedisStoreConfig = (RedisClientOptions | RedisClusterOptions) & {
+export type RedisDriverConfig = (RedisClientOptions | RedisClusterOptions) & {
   name?: string
 }
 
-export interface RedisStoreExternalConfig {
+export interface RedisDriverExternalConfig {
   client: RedisInstance
   name?: string
 }
 
-function isClusterConfig(config: RedisStoreConfig): config is RedisClusterOptions {
+function isClusterConfig(config: RedisDriverConfig): config is RedisClusterOptions {
   return 'rootNodes' in config
 }
 
 function isExternalConfig(
-  config: RedisStoreConfig | RedisStoreExternalConfig,
-): config is RedisStoreExternalConfig {
+  config: RedisDriverConfig | RedisDriverExternalConfig,
+): config is RedisDriverExternalConfig {
   return 'client' in config
 }
 
-export class RedisStore implements AsyncStore {
+export class RedisDriver implements AsyncDriver {
   readonly name: string
   #client?: RedisInstance
-  readonly #config: RedisStoreConfig | RedisStoreExternalConfig
+  readonly #config: RedisDriverConfig | RedisDriverExternalConfig
 
-  constructor(config: RedisStoreConfig | RedisStoreExternalConfig = {}) {
+  constructor(config: RedisDriverConfig | RedisDriverExternalConfig = {}) {
     this.#config = config
     this.name = config.name ?? 'redis'
   }
@@ -132,7 +132,7 @@ export class RedisStore implements AsyncStore {
 
   #ensureClient(): RedisInstance {
     if (!this.#client) {
-      throw new CacheError('NOT_CONNECTED', 'Store not connected. Call connect() first')
+      throw new CacheError('NOT_CONNECTED', 'Driver not connected. Call connect() first')
     }
 
     return this.#client
@@ -146,7 +146,7 @@ export class RedisStore implements AsyncStore {
         throw err
       }
       throw new CacheError(
-        'STORE_FAILED',
+        'DRIVER_FAILED',
         `${operation} failed: ${(err as Error).message}`,
         err as Error,
       )
@@ -154,6 +154,6 @@ export class RedisStore implements AsyncStore {
   }
 }
 
-export function redisStore(config?: RedisStoreConfig | RedisStoreExternalConfig): RedisStore {
-  return new RedisStore(config)
+export function redisDriver(config?: RedisDriverConfig | RedisDriverExternalConfig): RedisDriver {
+  return new RedisDriver(config)
 }

@@ -4,12 +4,12 @@ import { createCache, type Cache } from '@/index'
 import { FakeL1Store } from '../support/fake-store'
 
 describe('Cache', () => {
-  let local: FakeL1Store
+  let l1: FakeL1Store
   let cache: Cache
 
   beforeEach(() => {
-    local = new FakeL1Store()
-    cache = createCache({ local, staleTime: '1m' })
+    l1 = new FakeL1Store()
+    cache = createCache({ l1, staleTime: '1m' })
   })
 
   describe('get/set', () => {
@@ -81,7 +81,7 @@ describe('Cache', () => {
 
       await users.set('1', { name: 'Alice' })
 
-      expect(local.keys()).toContain('users:1')
+      expect(l1.keys()).toContain('users:1')
     })
 
     it('isolates namespaced caches', async () => {

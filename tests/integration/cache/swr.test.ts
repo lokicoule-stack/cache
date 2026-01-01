@@ -4,17 +4,17 @@ import { createCache, CacheEntry } from '@/index'
 import { FakeL1Store } from '@test/fake-store'
 
 describe('stale-while-revalidate', () => {
-  let local: FakeL1Store
+  let l1: FakeL1Store
 
   beforeEach(() => {
-    local = new FakeL1Store()
+    l1 = new FakeL1Store()
   })
 
   it('returns stale immediately with timeout: 0', async () => {
-    const cache = createCache({ local, staleTime: 50 })
+    const cache = createCache({ l1, staleTime: 50 })
 
     // Set value that will become stale quickly
-    local.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
+    l1.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
     await new Promise((r) => setTimeout(r, 10))
 
     const loader = vi.fn().mockImplementation(
@@ -28,9 +28,9 @@ describe('stale-while-revalidate', () => {
   })
 
   it('loader executes in background with timeout: 0', async () => {
-    const cache = createCache({ local, staleTime: 50 })
+    const cache = createCache({ l1, staleTime: 50 })
 
-    local.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
+    l1.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
     await new Promise((r) => setTimeout(r, 10))
 
     let loaderCompleted = false
@@ -51,9 +51,9 @@ describe('stale-while-revalidate', () => {
   })
 
   it('caches fresh value after background refresh', async () => {
-    const cache = createCache({ local, staleTime: 1000 })
+    const cache = createCache({ l1, staleTime: 1000 })
 
-    local.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
+    l1.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
     await new Promise((r) => setTimeout(r, 10))
 
     let resolveLoader: (v: string) => void
@@ -77,9 +77,9 @@ describe('stale-while-revalidate', () => {
   })
 
   it('waits for loader with timeout > 0 if fast enough', async () => {
-    const cache = createCache({ local, staleTime: 50 })
+    const cache = createCache({ l1, staleTime: 50 })
 
-    local.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
+    l1.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
     await new Promise((r) => setTimeout(r, 10))
 
     const loader = vi.fn().mockImplementation(async () => {
@@ -94,9 +94,9 @@ describe('stale-while-revalidate', () => {
   })
 
   it('returns stale when timeout exceeded', async () => {
-    const cache = createCache({ local, staleTime: 50 })
+    const cache = createCache({ l1, staleTime: 50 })
 
-    local.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
+    l1.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
     await new Promise((r) => setTimeout(r, 10))
 
     const loader = vi.fn().mockImplementation(
@@ -110,9 +110,9 @@ describe('stale-while-revalidate', () => {
   })
 
   it('waits for loader without timeout option', async () => {
-    const cache = createCache({ local, staleTime: 50 })
+    const cache = createCache({ l1, staleTime: 50 })
 
-    local.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
+    l1.set('key', CacheEntry.create('stale-value', { staleTime: 1, gcTime: 10000 }))
     await new Promise((r) => setTimeout(r, 10))
 
     const loader = vi.fn().mockImplementation(async () => {

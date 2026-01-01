@@ -16,11 +16,11 @@ describe('CacheStack', () => {
   beforeEach(() => {
     l1 = new FakeL1Store()
     l2 = new FakeL2Store()
-    stack = new CacheStack({ local: l1, remotes: [l2] })
+    stack = new CacheStack({ l1, l2: [l2] })
   })
 
   describe('get', () => {
-    it('returns from local if present', async () => {
+    it('returns from l1 if present', async () => {
       l1.set('key', entry('local'))
 
       const result = await stack.get('key')
@@ -29,7 +29,7 @@ describe('CacheStack', () => {
       expect(result.source).toBe('fake-l1')
     })
 
-    it('returns from remote if not in local', async () => {
+    it('returns from l2 if not in l1', async () => {
       await l2.set('key', entry('remote'))
 
       const result = await stack.get('key')
@@ -38,7 +38,7 @@ describe('CacheStack', () => {
       expect(result.source).toBe('fake-l2')
     })
 
-    it('backfills local from remote hit', async () => {
+    it('backfills l1 from l2 hit', async () => {
       await l2.set('key', entry('remote'))
 
       await stack.get('key')
@@ -54,7 +54,7 @@ describe('CacheStack', () => {
   })
 
   describe('set', () => {
-    it('writes to both local and remote', async () => {
+    it('writes to both l1 and l2', async () => {
       await stack.set('key', entry('value'))
 
       expect(l1.get('key')?.value).toBe('value')
@@ -63,7 +63,7 @@ describe('CacheStack', () => {
   })
 
   describe('delete', () => {
-    it('deletes from both local and remote', async () => {
+    it('deletes from both l1 and l2', async () => {
       await stack.set('key', entry('value'))
 
       await stack.delete('key')

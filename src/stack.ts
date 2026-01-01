@@ -2,24 +2,24 @@ import { createCircuitBreaker, type CircuitBreaker } from './utils/circuit-break
 import { TagIndex } from './utils/tags'
 
 import type { CacheEntry } from './entry'
-import type { SyncStore, AsyncStore } from './types'
+import type { SyncDriver, AsyncDriver } from './types'
 
 const DEFAULT_CIRCUIT_BREAK_DURATION = 30_000
 
 export interface StackConfig {
-  local?: SyncStore
-  remotes?: AsyncStore[]
+  l1?: SyncDriver
+  l2?: AsyncDriver[]
   prefix?: string
   circuitBreakerDuration?: number
 }
 
 interface Remote {
-  store: AsyncStore
+  driver: AsyncDriver
   cb: CircuitBreaker
 }
 
 interface InternalConfig {
-  local?: SyncStore
+  l1?: SyncDriver
   remotes: Remote[]
   prefix: string
   tags: TagIndex
@@ -33,7 +33,7 @@ export interface LookupResult {
 }
 
 export class CacheStack {
-  readonly #local?: SyncStore
+  readonly #l1?: SyncDriver
   readonly #remotes: Remote[]
   readonly #prefix: string
   readonly #tags: TagIndex
@@ -45,7 +45,7 @@ export class CacheStack {
     if (isInternal) {
       const internal = config as InternalConfig
 
-      this.#local = internal.local
+      this.#l1 = internal.l1
       this.#remotes = internal.remotes
       this.#prefix = internal.prefix
       this.#tags = internal.tags
@@ -53,37 +53,35 @@ export class CacheStack {
     } else {
       const external = config as StackConfig
 
-      this.#local = external.local
+      this.#l1 = external.l1
       this.#prefix = external.prefix ?? ''
       this.#tags = new TagIndex()
       this.#cbDuration = external.circuitBreakerDuration ?? DEFAULT_CIRCUIT_BREAK_DURATION
-      this.#remotes = (external.remotes ?? []).map((store) => ({
-        store,
+      this.#remotes = (external.l2 ?? []).map((driver) => ({
+        driver,
         cb: createCircuitBreaker(this.#cbDuration),
       }))
     }
   }
 
-  get storeNames(): { local?: string; remotes: string[] } {
+  get driverNames(): { l1?: string; l2: string[] } {
     return {
-      local: this.#local?.name,
-      remotes: this.#remotes.map((r) => r.store.name),
+      l1: this.#l1?.name,
+      l2: this.#remotes.map((r) => r.driver.name),
     }
   }
 
   async get(key: string): Promise<LookupResult> {
     const k = this.#key(key)
 
-    // Check local first (sync)
-    if (this.#local) {
-      const entry = this.#local.get(k)
+    if (this.#l1) {
+      const entry = this.#l1.get(k)
 
       if (entry && !entry.isGced()) {
-        return { entry, source: this.#local.name, graced: entry.isStale() }
+        return { entry, source: this.#l1.name, graced: entry.isStale() }
       }
     }
 
-    // Check remotes in order
     for (let i = 0; i < this.#remotes.length; i++) {
       const remote = this.#remotes[i]
 
@@ -92,13 +90,12 @@ export class CacheStack {
       }
 
       try {
-        const entry = await remote.store.get(k)
+        const entry = await remote.driver.get(k)
 
         if (entry && !entry.isGced()) {
-          // Backfill local and previous remotes
           this.#backfill(k, entry, i)
 
-          return { entry, source: remote.store.name, graced: entry.isStale() }
+          return { entry, source: remote.driver.name, graced: entry.isStale() }
         }
       } catch {
         remote.cb.open()
@@ -111,22 +108,19 @@ export class CacheStack {
   async set(key: string, entry: CacheEntry): Promise<void> {
     const k = this.#key(key)
 
-    // Register tags
     if (entry.tags.length > 0) {
       this.#tags.register(k, entry.tags)
     }
 
-    // Set local (sync)
-    this.#local?.set(k, entry)
+    this.#l1?.set(k, entry)
 
-    // Set all remotes in parallel
     await Promise.all(
       this.#remotes.map(async (remote) => {
         if (remote.cb.isOpen()) {
           return
         }
         try {
-          await remote.store.set(k, entry)
+          await remote.driver.set(k, entry)
         } catch {
           remote.cb.open()
         }
@@ -141,22 +135,19 @@ export class CacheStack {
 
     const prefixedKeys = keys.map((k) => this.#key(k))
 
-    // Unregister tags
     for (const k of prefixedKeys) {
       this.#tags.unregister(k)
     }
 
-    // Delete from local
-    let count = this.#local?.delete(...prefixedKeys) ?? 0
+    let count = this.#l1?.delete(...prefixedKeys) ?? 0
 
-    // Delete from all remotes in parallel
     const results = await Promise.all(
       this.#remotes.map(async (remote) => {
         if (remote.cb.isOpen()) {
           return 0
         }
         try {
-          return await remote.store.delete(...prefixedKeys)
+          return await remote.driver.delete(...prefixedKeys)
         } catch {
           remote.cb.open()
 
@@ -165,7 +156,6 @@ export class CacheStack {
       }),
     )
 
-    // Return max count from any layer
     for (const r of results) {
       if (r > count) {
         count = r
@@ -178,7 +168,7 @@ export class CacheStack {
   async has(key: string): Promise<boolean> {
     const k = this.#key(key)
 
-    if (this.#local?.has(k)) {
+    if (this.#l1?.has(k)) {
       return true
     }
 
@@ -187,7 +177,7 @@ export class CacheStack {
         continue
       }
       try {
-        if (await remote.store.has(k)) {
+        if (await remote.driver.has(k)) {
           return true
         }
       } catch {
@@ -200,7 +190,7 @@ export class CacheStack {
 
   async clear(): Promise<void> {
     this.#tags.clear()
-    this.#local?.clear()
+    this.#l1?.clear()
 
     await Promise.all(
       this.#remotes.map(async (remote) => {
@@ -208,7 +198,7 @@ export class CacheStack {
           return
         }
         try {
-          await remote.store.clear()
+          await remote.driver.clear()
         } catch {
           remote.cb.open()
         }
@@ -223,25 +213,23 @@ export class CacheStack {
       return 0
     }
 
-    // Keys are already prefixed in TagIndex
-    // But delete() adds prefix, so we need to strip it
     const unprefixed = this.#prefix ? keys.map((k) => k.slice(this.#prefix.length + 1)) : keys
 
     return this.delete(...unprefixed)
   }
 
-  deleteLocal(...keys: string[]): number {
-    if (!this.#local || keys.length === 0) {
+  deleteL1(...keys: string[]): number {
+    if (!this.#l1 || keys.length === 0) {
       return 0
     }
 
     const prefixedKeys = keys.map((k) => this.#key(k))
 
-    return this.#local.delete(...prefixedKeys)
+    return this.#l1.delete(...prefixedKeys)
   }
 
-  clearLocal(): void {
-    this.#local?.clear()
+  clearL1(): void {
+    this.#l1?.clear()
   }
 
   namespace(prefix: string): CacheStack {
@@ -249,7 +237,7 @@ export class CacheStack {
 
     return new CacheStack(
       {
-        local: this.#local,
+        l1: this.#l1,
         remotes: this.#remotes,
         prefix: newPrefix,
         tags: this.#tags,
@@ -260,23 +248,23 @@ export class CacheStack {
   }
 
   async connect(): Promise<void> {
-    await Promise.all(this.#remotes.map((r) => r.store.connect?.()))
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    await Promise.all(this.#remotes.map((r) => r.driver.connect?.()))
   }
 
   async disconnect(): Promise<void> {
-    await Promise.all(this.#remotes.map((r) => r.store.disconnect?.()))
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    await Promise.all(this.#remotes.map((r) => r.driver.disconnect?.()))
   }
 
   #backfill(key: string, entry: CacheEntry, sourceIndex: number): void {
-    // Backfill local
-    this.#local?.set(key, entry)
+    this.#l1?.set(key, entry)
 
-    // Backfill previous remotes (fire-and-forget)
     for (let i = 0; i < sourceIndex; i++) {
       const remote = this.#remotes[i]
 
       if (!remote.cb.isOpen()) {
-        remote.store.set(key, entry).catch(() => remote.cb.open())
+        remote.driver.set(key, entry).catch(() => remote.cb.open())
       }
     }
   }

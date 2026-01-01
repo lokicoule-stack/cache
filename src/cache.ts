@@ -8,7 +8,7 @@ import { withSwr } from './utils/swr'
 
 import type { CacheConfig, SetOptions, GetSetOptions, Loader, CacheEventType } from './types'
 
-const DEFAULT_STALE_TIME = 60_000 // 1 minute
+const DEFAULT_STALE_TIME = 60_000
 
 interface InternalConfig {
   stack: CacheStack
@@ -42,8 +42,8 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
       const gcTime = parseOptionalDuration(external.gcTime) ?? staleTime
 
       this.#stack = new CacheStack({
-        local: external.local,
-        remotes: external.remotes,
+        l1: external.l1,
+        l2: external.l2 ? [external.l2] : undefined,
         prefix: external.prefix,
         circuitBreakerDuration: parseOptionalDuration(external.circuitBreakerDuration),
       })
@@ -54,8 +54,8 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     }
   }
 
-  get stores() {
-    return this.#stack.storeNames
+  get drivers() {
+    return this.#stack.driverNames
   }
 
   async get<K extends keyof T & string>(key: K): Promise<T[K] | undefined> {
@@ -90,26 +90,22 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     loader: Loader<T[K]>,
     options?: GetSetOptions,
   ): Promise<T[K]> {
-    // Force fresh: skip cache entirely
     if (options?.fresh) {
       return this.#dedup(key, () => this.#loadAndStore(key, loader, options))
     }
 
     const result = await this.#stack.get(key)
 
-    // Fresh hit (not stale)
     if (result.entry && !result.entry.isStale()) {
       this.#emit('hit', { key, source: result.source ?? 'unknown', graced: false })
 
       return result.entry.value as T[K]
     }
 
-    // Stale hit with SWR
     if (result.entry && !result.entry.isGced()) {
       return this.#handleSwr(key, result.entry, loader, options)
     }
 
-    // Miss: load fresh
     return this.#dedup(key, () => this.#loadAndStore(key, loader, options))
   }
 
@@ -157,12 +153,12 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     return this.#stack.invalidateTags(tags)
   }
 
-  deleteLocal(...keys: string[]): number {
-    return this.#stack.deleteLocal(...keys)
+  deleteL1(...keys: string[]): number {
+    return this.#stack.deleteL1(...keys)
   }
 
-  clearLocal(): void {
-    this.#stack.clearLocal()
+  clearL1(): void {
+    this.#stack.clearL1()
   }
 
   namespace(prefix: string): Cache<T> {

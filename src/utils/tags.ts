@@ -7,10 +7,8 @@ export class TagIndex {
       return
     }
 
-    // Track tags for this key
     this.#keyToTags.set(key, new Set(tags))
 
-    // Add key to each tag's set
     for (const tag of tags) {
       let keys = this.#tagToKeys.get(tag)
 
@@ -29,7 +27,6 @@ export class TagIndex {
       return
     }
 
-    // Remove key from each tag's set
     for (const tag of tags) {
       const keys = this.#tagToKeys.get(tag)
 

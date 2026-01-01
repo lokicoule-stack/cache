@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 import { MessageBus, MemoryTransport } from '@lokiverse/bus'
-import { CacheManager, type CacheBusSchema } from '@/index'
-import { FakeL1Store, FakeL2Store } from '@test/fake-store'
+import { createCacheManager, CacheManager, createDefaultMemory, type CacheBusSchema } from '@/index'
+import { FakeL2Store } from '@test/fake-store'
 
 describe('cache bus integration', () => {
   let transport: MemoryTransport
@@ -10,9 +10,9 @@ describe('cache bus integration', () => {
   let bus2: MessageBus<CacheBusSchema>
   let manager1: CacheManager
   let manager2: CacheManager
-  let local1: FakeL1Store
-  let local2: FakeL1Store
-  let remote: FakeL2Store
+  let memory1: ReturnType<typeof createDefaultMemory>
+  let memory2: ReturnType<typeof createDefaultMemory>
+  let sharedL2: FakeL2Store
 
   beforeEach(async () => {
     // Shared transport for cross-instance communication
@@ -23,22 +23,30 @@ describe('cache bus integration', () => {
     bus2 = new MessageBus<CacheBusSchema>({ transport })
 
     // Shared L2, separate L1s (simulates distributed cache)
-    remote = new FakeL2Store()
-    local1 = new FakeL1Store()
-    local2 = new FakeL1Store()
+    sharedL2 = new FakeL2Store()
+    memory1 = createDefaultMemory()
+    memory2 = createDefaultMemory()
 
-    await remote.connect()
+    await sharedL2.connect()
 
     // Two cache managers connected via bus
-    manager1 = new CacheManager({
-      default: 'main',
-      stores: { main: { local: local1, remotes: [remote], staleTime: '1m' } },
+    manager1 = createCacheManager({
+      drivers: {
+        memory: memory1,
+        redis: sharedL2,
+      },
+      stores: { main: ['redis'] },
+      staleTime: '1m',
       bus: bus1,
     })
 
-    manager2 = new CacheManager({
-      default: 'main',
-      stores: { main: { local: local2, remotes: [remote], staleTime: '1m' } },
+    manager2 = createCacheManager({
+      drivers: {
+        memory: memory2,
+        redis: sharedL2,
+      },
+      stores: { main: ['redis'] },
+      staleTime: '1m',
       bus: bus2,
     })
 
@@ -59,8 +67,8 @@ describe('cache bus integration', () => {
     await cache1.set('shared-key', 'value')
     await cache2.getOrSet('shared-key', () => 'should-not-call')
 
-    expect(local1.size).toBe(1)
-    expect(local2.size).toBe(1)
+    expect(memory1.get('main:shared-key')).toBeDefined()
+    expect(memory2.get('main:shared-key')).toBeDefined()
 
     // Instance 1 deletes (triggers bus event)
     await manager1.delete('shared-key')
@@ -69,7 +77,7 @@ describe('cache bus integration', () => {
     await new Promise((r) => setTimeout(r, 50))
 
     // Instance 2's L1 should be cleared
-    expect(local2.size).toBe(0)
+    expect(memory2.get('main:shared-key')).toBeUndefined()
   })
 
   it('publishClear clears L1 on all instances', async () => {
@@ -80,8 +88,8 @@ describe('cache bus integration', () => {
     await cache1.set('key-1', 'value-1')
     await cache2.set('key-2', 'value-2')
 
-    expect(local1.size).toBe(1)
-    expect(local2.size).toBe(1)
+    expect(memory1.get('main:key-1')).toBeDefined()
+    expect(memory2.get('main:key-2')).toBeDefined()
 
     // Clear from instance 1
     await manager1.clear()
@@ -90,8 +98,8 @@ describe('cache bus integration', () => {
     await new Promise((r) => setTimeout(r, 50))
 
     // Both L1s should be cleared
-    expect(local1.size).toBe(0)
-    expect(local2.size).toBe(0)
+    expect(memory1.get('main:key-1')).toBeUndefined()
+    expect(memory2.get('main:key-2')).toBeUndefined()
   })
 
   it('publishInvalidateTags invalidates tagged entries on other instance', async () => {
@@ -102,8 +110,8 @@ describe('cache bus integration', () => {
     await cache1.set('user:1', 'alice', { tags: ['users'] })
     await cache2.set('user:1', 'alice', { tags: ['users'] })
 
-    expect(local1.size).toBe(1)
-    expect(local2.size).toBe(1)
+    expect(memory1.get('main:user:1')).toBeDefined()
+    expect(memory2.get('main:user:1')).toBeDefined()
 
     // Instance 1 invalidates tags
     await manager1.invalidateTags(['users'])
@@ -112,6 +120,6 @@ describe('cache bus integration', () => {
     await new Promise((r) => setTimeout(r, 50))
 
     // Instance 2's tagged entries should be cleared
-    expect(local2.size).toBe(0)
+    expect(memory2.get('main:user:1')).toBeUndefined()
   })
 })

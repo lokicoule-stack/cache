@@ -4,17 +4,17 @@ import { createCache } from '@/index'
 import { FakeL1Store, FakeL2Store } from '@test/fake-store'
 
 describe('concurrent access', () => {
-  let local: FakeL1Store
-  let remote: FakeL2Store
+  let l1: FakeL1Store
+  let l2: FakeL2Store
 
   beforeEach(async () => {
-    local = new FakeL1Store()
-    remote = new FakeL2Store()
-    await remote.connect()
+    l1 = new FakeL1Store()
+    l2 = new FakeL2Store()
+    await l2.connect()
   })
 
   it('deduplicates concurrent getOrSet for same key', async () => {
-    const cache = createCache({ local, remotes: [remote], staleTime: '1m' })
+    const cache = createCache({ l1, l2, staleTime: '1m' })
 
     const loader = vi.fn().mockImplementation(async () => {
       await new Promise((r) => setTimeout(r, 50))
@@ -32,7 +32,7 @@ describe('concurrent access', () => {
   })
 
   it('does not deduplicate different keys', async () => {
-    const cache = createCache({ local, staleTime: '1m' })
+    const cache = createCache({ l1, staleTime: '1m' })
 
     const loader = vi.fn().mockResolvedValue('value')
 
@@ -46,14 +46,14 @@ describe('concurrent access', () => {
   })
 
   it('concurrent sets do not corrupt state', async () => {
-    const cache = createCache({ local, remotes: [remote], staleTime: '1m' })
+    const cache = createCache({ l1, l2, staleTime: '1m' })
 
     await Promise.all(
       Array.from({ length: 100 }, (_, i) => cache.set(`key-${i}`, `value-${i}`)),
     )
 
-    expect(local.size).toBe(100)
-    expect(remote.size).toBe(100)
+    expect(l1.size).toBe(100)
+    expect(l2.size).toBe(100)
 
     for (let i = 0; i < 100; i++) {
       expect(await cache.get(`key-${i}`)).toBe(`value-${i}`)
@@ -61,7 +61,7 @@ describe('concurrent access', () => {
   })
 
   it('concurrent deletes work correctly', async () => {
-    const cache = createCache({ local, remotes: [remote], staleTime: '1m' })
+    const cache = createCache({ l1, l2, staleTime: '1m' })
 
     // Set up data
     await Promise.all(
@@ -73,12 +73,12 @@ describe('concurrent access', () => {
       Array.from({ length: 50 }, (_, i) => cache.delete(`key-${i}`)),
     )
 
-    expect(local.size).toBe(0)
-    expect(remote.size).toBe(0)
+    expect(l1.size).toBe(0)
+    expect(l2.size).toBe(0)
   })
 
   it('clears pending dedup after loader completes', async () => {
-    const cache = createCache({ local, staleTime: '1m' })
+    const cache = createCache({ l1, staleTime: '1m' })
 
     const loader1 = vi.fn().mockResolvedValue('first')
     const loader2 = vi.fn().mockResolvedValue('second')
