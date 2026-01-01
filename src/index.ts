@@ -5,7 +5,7 @@ export { CacheError } from './errors'
 export { CacheManager, createCacheManager } from './manager'
 
 // Bus
-export { createCacheBus, type CacheBus, type CacheBusConfig, type CacheBusSchema } from './bus/cache-bus'
+export { type CacheBusSchema } from './manager'
 
 // Drivers
 export {
@@ -35,6 +35,7 @@ export type {
   GetSetOptions,
   Loader,
   CacheEventType,
+  CacheEventMap,
   CacheHitEvent,
   CacheMissEvent,
   CacheSetEvent,

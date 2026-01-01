@@ -6,6 +6,7 @@ export interface SwrResult<T> {
 export interface SwrOptions<T> {
   staleValue?: T
   timeout?: number
+  backgroundRefresh?: () => Promise<unknown>
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -14,7 +15,7 @@ export async function withSwr<T>(
   fn: (signal: AbortSignal) => Promise<T>,
   options: SwrOptions<T> = {},
 ): Promise<SwrResult<T>> {
-  const { staleValue, timeout } = options
+  const { staleValue, timeout, backgroundRefresh } = options
   const hasStale = 'staleValue' in options
 
   if (!hasStale) {
@@ -22,7 +23,9 @@ export async function withSwr<T>(
   }
 
   if (timeout === 0) {
-    void fn(new AbortController().signal).catch(() => {})
+    if (backgroundRefresh) {
+      void backgroundRefresh().catch(() => {})
+    }
 
     return { value: staleValue as T, stale: true }
   }
@@ -37,7 +40,9 @@ export async function withSwr<T>(
       return { value: result.value, stale: false }
     }
 
-    void fn(new AbortController().signal).catch(() => {})
+    if (backgroundRefresh) {
+      void backgroundRefresh().catch(() => {})
+    }
 
     return { value: staleValue as T, stale: true }
   }

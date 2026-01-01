@@ -41,7 +41,22 @@ export class TagIndex {
     this.#keyToTags.delete(key)
   }
 
-  getKeysByTags(tags: string[]): Set<string> {
+  invalidate(tags: string[]): Set<string> {
+    const keys = this.#getKeysByTags(tags)
+
+    for (const key of keys) {
+      this.unregister(key)
+    }
+
+    return keys
+  }
+
+  clear(): void {
+    this.#tagToKeys.clear()
+    this.#keyToTags.clear()
+  }
+
+  #getKeysByTags(tags: string[]): Set<string> {
     const result = new Set<string>()
 
     for (const tag of tags) {
@@ -55,10 +70,5 @@ export class TagIndex {
     }
 
     return result
-  }
-
-  clear(): void {
-    this.#tagToKeys.clear()
-    this.#keyToTags.clear()
   }
 }

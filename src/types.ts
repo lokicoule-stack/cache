@@ -87,9 +87,10 @@ export interface CacheErrorEvent {
   operation: string
 }
 
-export type CacheEvent =
-  | { type: 'hit'; data: CacheHitEvent }
-  | { type: 'miss'; data: CacheMissEvent }
-  | { type: 'set'; data: CacheSetEvent }
-  | { type: 'delete'; data: CacheDeleteEvent }
-  | { type: 'error'; data: CacheErrorEvent }
+export interface CacheEventMap {
+  hit: CacheHitEvent
+  miss: CacheMissEvent
+  set: CacheSetEvent
+  delete: CacheDeleteEvent
+  error: CacheErrorEvent
+}

@@ -80,15 +80,8 @@ export class RedisDriver implements AsyncDriver {
       }
 
       const parsed = JSON.parse(data) as SerializedEntry
-      const entry = CacheEntry.deserialize(parsed)
 
-      if (entry.isGced()) {
-        await this.#ensureClient().del(key)
-
-        return undefined
-      }
-
-      return entry
+      return CacheEntry.deserialize(parsed)
     })
   }
 

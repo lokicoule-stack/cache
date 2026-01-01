@@ -1,4 +1,5 @@
-import { createCacheBus, type CacheBus, type CacheBusSchema } from './bus/cache-bus'
+import { MessageBus, type BusOptions, type BusSchema } from '@lokiverse/bus'
+
 import { Cache } from './cache'
 import { createDefaultMemory } from './drivers/memory'
 import { parseOptionalDuration } from './duration'
@@ -8,42 +9,49 @@ import { createDedup } from './utils/dedup'
 import { createEventEmitter } from './utils/events'
 
 import type { CacheManagerConfig, SyncDriver, AsyncDriver, StoreConfig } from './types'
-import type { Bus } from '@lokiverse/bus'
 
 const DEFAULT_STALE_TIME = 60_000
+
+export interface CacheBusSchema extends BusSchema {
+  'cache:invalidate': { keys: string[] }
+  'cache:invalidate:tags': { tags: string[] }
+  'cache:clear': Record<string, never>
+}
 
 export class CacheManager {
   readonly #stores = new Map<string, Cache>()
   readonly #defaultStoreName: string
-  readonly #bus?: CacheBus
+  readonly #bus?: MessageBus<CacheBusSchema>
 
   constructor(
     config: CacheManagerConfig & {
       stores?: Record<string, StoreConfig<string>>
-      bus?: Bus<CacheBusSchema>
+      bus?: BusOptions
     } = {},
   ) {
     const globalMemory = config.memory !== false
     const staleTime = parseOptionalDuration(config.staleTime) ?? DEFAULT_STALE_TIME
     const gcTime = parseOptionalDuration(config.gcTime) ?? staleTime
-    const memory = (config.drivers as Record<string, SyncDriver> | undefined)?.memory ?? createDefaultMemory()
+    const memory = config.drivers?.memory ?? createDefaultMemory()
     const drivers = (config.drivers ?? {}) as Record<string, AsyncDriver>
 
-    // External drivers (excluding memory)
     const externalDrivers = Object.keys(drivers).filter((n) => n !== 'memory')
 
     if (externalDrivers.length === 0) {
-      // Memory-only mode
       this.#defaultStoreName = 'default'
-      this.#stores.set('default', this.#createCache('default', globalMemory ? memory : undefined, [], staleTime, gcTime))
+      this.#stores.set(
+        'default',
+        this.#createCache('default', globalMemory ? memory : undefined, [], staleTime, gcTime),
+      )
     } else {
-      // With external drivers
       const storeConfigs = config.stores ?? { default: externalDrivers }
 
       this.#defaultStoreName = Object.keys(storeConfigs)[0]
 
       for (const [name, storeConfig] of Object.entries(storeConfigs)) {
-        const useMemory = Array.isArray(storeConfig) ? globalMemory : (storeConfig.memory ?? globalMemory)
+        const useMemory = Array.isArray(storeConfig)
+          ? globalMemory
+          : (storeConfig.memory ?? globalMemory)
         const driverNames = Array.isArray(storeConfig) ? storeConfig : storeConfig.drivers
 
         const l2 = driverNames.map((n) => {
@@ -56,18 +64,15 @@ export class CacheManager {
           return driver
         })
 
-        this.#stores.set(name, this.#createCache(name, useMemory ? memory : undefined, l2, staleTime, gcTime))
+        this.#stores.set(
+          name,
+          this.#createCache(name, useMemory ? memory : undefined, l2, staleTime, gcTime),
+        )
       }
     }
 
-    // Setup bus if provided
     if (config.bus) {
-      this.#bus = createCacheBus({
-        bus: config.bus,
-        onInvalidate: (keys) => this.#invalidateL1All(keys),
-        onInvalidateTags: (tags) => this.#invalidateTagsAll(tags),
-        onClear: () => this.#clearL1All(),
-      })
+      this.#bus = new MessageBus<CacheBusSchema>(config.bus)
     }
   }
 
@@ -107,7 +112,9 @@ export class CacheManager {
       Array.from(this.#stores.values()).map((cache) => cache.delete(...keys)),
     )
 
-    await this.#bus?.publishInvalidate(keys)
+    if (this.#bus && keys.length > 0) {
+      await this.#bus.publish('cache:invalidate', { keys })
+    }
 
     return Math.max(...results, 0)
   }
@@ -117,24 +124,43 @@ export class CacheManager {
       Array.from(this.#stores.values()).map((cache) => cache.invalidateTags(tags)),
     )
 
-    await this.#bus?.publishInvalidateTags(tags)
+    if (this.#bus && tags.length > 0) {
+      await this.#bus.publish('cache:invalidate:tags', { tags })
+    }
 
     return results.reduce((a, b) => a + b, 0)
   }
 
   async clear(): Promise<void> {
     await Promise.all(Array.from(this.#stores.values()).map((cache) => cache.clear()))
-    await this.#bus?.publishClear()
+
+    if (this.#bus) {
+      await this.#bus.publish('cache:clear', {})
+    }
   }
 
   async connect(): Promise<void> {
-    await this.#bus?.connect()
+    if (this.#bus) {
+      await this.#bus.connect()
+      await this.#bus.subscribe('cache:invalidate', (data) => this.#invalidateL1All(data.keys))
+      await this.#bus.subscribe('cache:invalidate:tags', (data) =>
+        this.#invalidateTagsAll(data.tags),
+      )
+      await this.#bus.subscribe('cache:clear', () => this.#clearL1All())
+    }
+
     await Promise.all(Array.from(this.#stores.values()).map((cache) => cache.connect()))
   }
 
   async disconnect(): Promise<void> {
     await Promise.all(Array.from(this.#stores.values()).map((cache) => cache.disconnect()))
-    await this.#bus?.disconnect()
+
+    if (this.#bus) {
+      await this.#bus.unsubscribe('cache:invalidate')
+      await this.#bus.unsubscribe('cache:invalidate:tags')
+      await this.#bus.unsubscribe('cache:clear')
+      await this.#bus.disconnect()
+    }
   }
 
   #createCache(
@@ -178,7 +204,7 @@ export class CacheManager {
 export function createCacheManager(
   config?: CacheManagerConfig & {
     stores?: Record<string, StoreConfig<string>>
-    bus?: Bus<CacheBusSchema>
+    bus?: BusOptions
   },
 ): CacheManager {
   return new CacheManager(config)

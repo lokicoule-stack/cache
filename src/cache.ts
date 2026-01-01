@@ -6,7 +6,7 @@ import { createEventEmitter, type EventEmitter } from './utils/events'
 import { withRetry } from './utils/retry'
 import { withSwr } from './utils/swr'
 
-import type { CacheConfig, SetOptions, GetSetOptions, Loader, CacheEventType } from './types'
+import type { CacheConfig, SetOptions, GetSetOptions, Loader, CacheEventType, CacheEventMap } from './types'
 
 const DEFAULT_STALE_TIME = 60_000
 
@@ -182,15 +182,15 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     await this.#stack.disconnect()
   }
 
-  on(event: CacheEventType, fn: (data: unknown) => void): void {
-    this.#events.on(event, fn)
+  on<E extends CacheEventType>(event: E, fn: (data: CacheEventMap[E]) => void): void {
+    this.#events.on(event, fn as (data: unknown) => void)
   }
 
-  off(event: CacheEventType, fn: (data: unknown) => void): void {
-    this.#events.off(event, fn)
+  off<E extends CacheEventType>(event: E, fn: (data: CacheEventMap[E]) => void): void {
+    this.#events.off(event, fn as (data: unknown) => void)
   }
 
-  #emit(event: CacheEventType, data: unknown): void {
+  #emit<E extends CacheEventType>(event: E, data: CacheEventMap[E]): void {
     this.#events.emit(event, data)
   }
 
@@ -204,7 +204,11 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
 
     const result = await withSwr(
       (signal) => this.#loadAndStore(key, loader, options, signal),
-      { staleValue: staleEntry.value as T[K], timeout },
+      {
+        staleValue: staleEntry.value as T[K],
+        timeout,
+        backgroundRefresh: () => this.#dedup(key, () => this.#loadAndStore(key, loader, options)),
+      },
     )
 
     if (result.stale) {

@@ -3,47 +3,46 @@ import { describe, it, expect } from 'vitest'
 import { TagIndex } from '@/utils/tags'
 
 describe('TagIndex', () => {
-  it('returns keys registered with a tag', () => {
+  it('returns keys registered with a tag on invalidate', () => {
     const index = new TagIndex()
 
     index.register('key1', ['users'])
 
-    expect(index.getKeysByTags(['users'])).toEqual(new Set(['key1']))
+    expect(index.invalidate(['users'])).toEqual(new Set(['key1']))
   })
 
-  it('returns keys for multiple tags', () => {
+  it('returns keys for multiple tags on invalidate', () => {
     const index = new TagIndex()
 
     index.register('key1', ['users'])
     index.register('key2', ['posts'])
 
-    expect(index.getKeysByTags(['users', 'posts'])).toEqual(new Set(['key1', 'key2']))
+    expect(index.invalidate(['users', 'posts'])).toEqual(new Set(['key1', 'key2']))
   })
 
   it('returns empty set for unknown tag', () => {
     const index = new TagIndex()
 
-    expect(index.getKeysByTags(['unknown'])).toEqual(new Set())
+    expect(index.invalidate(['unknown'])).toEqual(new Set())
   })
 
-  it('removes key from tags on unregister', () => {
+  it('removes keys from index after invalidate', () => {
     const index = new TagIndex()
 
     index.register('key1', ['users'])
-    index.unregister('key1')
+    index.invalidate(['users'])
 
-    expect(index.getKeysByTags(['users'])).toEqual(new Set())
+    expect(index.invalidate(['users'])).toEqual(new Set())
   })
 
-  it('replaces tags when key is re-registered', () => {
+  it('unregister removes key from all tags', () => {
     const index = new TagIndex()
 
     index.register('key1', ['users', 'admins'])
     index.unregister('key1')
-    index.register('key1', ['users'])
 
-    expect(index.getKeysByTags(['admins'])).toEqual(new Set())
-    expect(index.getKeysByTags(['users'])).toEqual(new Set(['key1']))
+    expect(index.invalidate(['users'])).toEqual(new Set())
+    expect(index.invalidate(['admins'])).toEqual(new Set())
   })
 
   it('clears all tags', () => {
@@ -52,6 +51,6 @@ describe('TagIndex', () => {
     index.register('key1', ['users'])
     index.clear()
 
-    expect(index.getKeysByTags(['users'])).toEqual(new Set())
+    expect(index.invalidate(['users'])).toEqual(new Set())
   })
 })

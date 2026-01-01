@@ -207,15 +207,40 @@ export class CacheStack {
   }
 
   async invalidateTags(tags: string[]): Promise<number> {
-    const keys = [...this.#tags.getKeysByTags(tags)]
+    const keys = [...this.#tags.invalidate(tags)]
 
     if (keys.length === 0) {
       return 0
     }
 
-    const unprefixed = this.#prefix ? keys.map((k) => k.slice(this.#prefix.length + 1)) : keys
+    return this.#deleteKeys(keys)
+  }
 
-    return this.delete(...unprefixed)
+  async #deleteKeys(prefixedKeys: string[]): Promise<number> {
+    let count = this.#l1?.delete(...prefixedKeys) ?? 0
+
+    const results = await Promise.all(
+      this.#remotes.map(async (remote) => {
+        if (remote.cb.isOpen()) {
+          return 0
+        }
+        try {
+          return await remote.driver.delete(...prefixedKeys)
+        } catch {
+          remote.cb.open()
+
+          return 0
+        }
+      }),
+    )
+
+    for (const r of results) {
+      if (r > count) {
+        count = r
+      }
+    }
+
+    return count
   }
 
   deleteL1(...keys: string[]): number {
@@ -248,13 +273,19 @@ export class CacheStack {
   }
 
   async connect(): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    await Promise.all(this.#remotes.map((r) => r.driver.connect?.()))
+    await Promise.all(
+      this.#remotes
+        .map((r) => r.driver.connect?.())
+        .filter((p): p is Promise<void> => p !== undefined),
+    )
   }
 
   async disconnect(): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    await Promise.all(this.#remotes.map((r) => r.driver.disconnect?.()))
+    await Promise.all(
+      this.#remotes
+        .map((r) => r.driver.disconnect?.())
+        .filter((p): p is Promise<void> => p !== undefined),
+    )
   }
 
   #backfill(key: string, entry: CacheEntry, sourceIndex: number): void {
