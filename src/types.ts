@@ -32,6 +32,7 @@ export interface CacheConfig {
   staleTime?: Duration
   gcTime?: Duration
   prefix?: string
+  circuitBreakerDuration?: Duration
 }
 
 // Set options

@@ -45,6 +45,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
         local: external.local,
         remotes: external.remotes,
         prefix: external.prefix,
+        circuitBreakerDuration: parseOptionalDuration(external.circuitBreakerDuration),
       })
       this.#events = createEventEmitter()
       this.#dedup = createDedup()
