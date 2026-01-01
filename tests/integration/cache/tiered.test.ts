@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
 import { GenericContainer, type StartedTestContainer } from 'testcontainers'
 
 import { createCache, MemoryStore, RedisStore, CacheEntry } from '@/index'
