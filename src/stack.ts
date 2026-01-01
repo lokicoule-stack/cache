@@ -216,33 +216,6 @@ export class CacheStack {
     return this.#deleteKeys(keys)
   }
 
-  async #deleteKeys(prefixedKeys: string[]): Promise<number> {
-    let count = this.#l1?.delete(...prefixedKeys) ?? 0
-
-    const results = await Promise.all(
-      this.#remotes.map(async (remote) => {
-        if (remote.cb.isOpen()) {
-          return 0
-        }
-        try {
-          return await remote.driver.delete(...prefixedKeys)
-        } catch {
-          remote.cb.open()
-
-          return 0
-        }
-      }),
-    )
-
-    for (const r of results) {
-      if (r > count) {
-        count = r
-      }
-    }
-
-    return count
-  }
-
   deleteL1(...keys: string[]): number {
     if (!this.#l1 || keys.length === 0) {
       return 0
@@ -302,5 +275,32 @@ export class CacheStack {
 
   #key(key: string): string {
     return this.#prefix ? `${this.#prefix}:${key}` : key
+  }
+
+  async #deleteKeys(prefixedKeys: string[]): Promise<number> {
+    let count = this.#l1?.delete(...prefixedKeys) ?? 0
+
+    const results = await Promise.all(
+      this.#remotes.map(async (remote) => {
+        if (remote.cb.isOpen()) {
+          return 0
+        }
+        try {
+          return await remote.driver.delete(...prefixedKeys)
+        } catch {
+          remote.cb.open()
+
+          return 0
+        }
+      }),
+    )
+
+    for (const r of results) {
+      if (r > count) {
+        count = r
+      }
+    }
+
+    return count
   }
 }

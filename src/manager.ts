@@ -51,7 +51,7 @@ export class CacheManager {
       for (const [name, storeConfig] of Object.entries(storeConfigs)) {
         const useMemory = Array.isArray(storeConfig)
           ? globalMemory
-          : (storeConfig.memory ?? globalMemory)
+          : storeConfig.memory ?? globalMemory
         const driverNames = Array.isArray(storeConfig) ? storeConfig : storeConfig.drivers
 
         const l2 = driverNames.map((n) => {

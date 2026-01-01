@@ -6,7 +6,14 @@ import { createEventEmitter, type EventEmitter } from './utils/events'
 import { withRetry } from './utils/retry'
 import { withSwr } from './utils/swr'
 
-import type { CacheConfig, SetOptions, GetSetOptions, Loader, CacheEventType, CacheEventMap } from './types'
+import type {
+  CacheConfig,
+  SetOptions,
+  GetSetOptions,
+  Loader,
+  CacheEventType,
+  CacheEventMap,
+} from './types'
 
 const DEFAULT_STALE_TIME = 60_000
 
@@ -202,14 +209,11 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
   ): Promise<T[K]> {
     const timeout = parseOptionalDuration(options?.timeout)
 
-    const result = await withSwr(
-      (signal) => this.#loadAndStore(key, loader, options, signal),
-      {
-        staleValue: staleEntry.value as T[K],
-        timeout,
-        backgroundRefresh: () => this.#dedup(key, () => this.#loadAndStore(key, loader, options)),
-      },
-    )
+    const result = await withSwr((signal) => this.#loadAndStore(key, loader, options, signal), {
+      staleValue: staleEntry.value as T[K],
+      timeout,
+      backgroundRefresh: () => this.#dedup(key, () => this.#loadAndStore(key, loader, options)),
+    })
 
     if (result.stale) {
       this.#emit('hit', { key, source: 'stale', graced: true })
@@ -236,7 +240,11 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     return value
   }
 
-  async #executeLoader<V>(loader: Loader<V>, options?: GetSetOptions, signal?: AbortSignal): Promise<V> {
+  async #executeLoader<V>(
+    loader: Loader<V>,
+    options?: GetSetOptions,
+    signal?: AbortSignal,
+  ): Promise<V> {
     const retries = options?.retries ?? 0
     const loaderSignal = signal ?? new AbortController().signal
     const fn = () => Promise.resolve(loader(loaderSignal))
