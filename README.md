@@ -1,435 +1,194 @@
 # @lokiverse/cache
 
-Type-safe multi-layer cache for TypeScript. It works.
+Multi-layer cache for TypeScript. It works.
 
-[![npm](https://img.shields.io/npm/v/@lokiverse/cache)](https://www.npmjs.com/package/@lokiverse/cache)
-[![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-
-## Philosophy: 退屈 (Taikutsu)
-
-In Japanese culture, there exists a concept opposite to **改善 (Kaizen)** — the relentless pursuit
-of continuous improvement. We embrace **退屈 (Taikutsu)**: boring, unchanging stability.
-
-**Boring is a feature, not a bug.**
-
-This library doesn't aim to revolutionize caching. It doesn't compete with anything. It exists
-in its own space, quietly doing one thing: reliable multi-layer cache with types.
-
-No innovation. No disruption. No "10x better than X". Just predictable behavior that you can trust
-at 3 AM when something breaks.
-
-The best tools are the ones you forget exist because they never cause problems. That's our goal.
+> **退屈 (Taikutsu)** — In Japanese, the opposite of Kaizen (continuous improvement). While others
+> chase innovation, we choose boring stability. This library won't revolutionize caching. It just
+> works, quietly, so you can forget it exists.
 
 ## Install
 
 ```bash
 npm install @lokiverse/cache
-npm install redis          # optional, for Redis L2 store
-npm install @lokiverse/bus # optional, for multi-instance sync
 ```
 
-## Use It
+## Quick Start
 
 ```typescript
-import { createCache, memoryStore, redisStore } from '@lokiverse/cache'
+import { createCacheManager } from '@lokiverse/cache'
 
-type CacheSchema = {
-  'user:{id}': { id: string; name: string; email: string }
-  'config:global': { theme: string; locale: string }
-}
+// Memory-only cache (10k LRU built-in)
+const cache = createCacheManager()
 
-const cache = createCache<CacheSchema>({
-  l1: memoryStore({ maxItems: 10_000 }),
-  l2: redisStore({ url: 'redis://localhost:6379' }),
-  ttl: '5m',
-  grace: '1h',
+const user = await cache.getOrSet('user:123', async () => {
+  return db.users.findById('123')
+})
+```
+
+## Multi-tier with Redis
+
+```typescript
+import { createCacheManager, redisDriver } from '@lokiverse/cache'
+
+const cache = createCacheManager({
+  drivers: {
+    redis: redisDriver({ url: 'redis://localhost:6379' }),
+  },
+  staleTime: '5m',
+  gcTime: '1h',
 })
 
 await cache.connect()
 
-const user = await cache.getOrSet(
-  'user:123',
-  async () => db.users.findById('123'), // Only called on cache miss
-  { tags: ['users'] }
-)
+// Memory L1 (implicit) -> Redis L2 -> loader -> backfill L1
+const user = await cache.getOrSet('user:123', () => fetchUser('123'))
 
 await cache.disconnect()
 ```
 
-## Configuration
-
-### Development
+## Named Stores
 
 ```typescript
-const cache = createCache({
-  l1: memoryStore({ maxItems: 1000 }),
-  ttl: '1m',
-})
-```
+import { createCacheManager, redisDriver } from '@lokiverse/cache'
 
-### Production
-
-```typescript
-const cache = createCache({
-  l1: memoryStore({ maxItems: 50_000 }),
-  l2: redisStore({
-    url: process.env.REDIS_URL,
-    serializer: 'json', // default, debuggable
-  }),
-  ttl: '10m',
-  grace: '6h',
-  circuitBreaker: {
-    failureThreshold: 3,
-    resetTimeout: 30_000,
+const cache = createCacheManager({
+  drivers: {
+    redis: redisDriver({ url: 'redis://localhost:6379' }),
+    postgres: postgresDriver({ connectionString: '...' }),
+  },
+  stores: {
+    sessions: ['redis'],           // fast, volatile
+    analytics: ['postgres'],       // persistent
+    default: ['redis', 'postgres'], // multi-tier
   },
 })
+
+// Use specific stores
+const sessions = cache.use('sessions')
+await sessions.set('token:abc', { userId: '123' })
+
+const analytics = cache.use('analytics')
+await analytics.set('events:daily', aggregatedData)
 ```
 
-## Features
-
-| Feature                   | Works |
-| ------------------------- | ----- |
-| Multi-layer L1/L2         | ✅    |
-| TypeScript type safety    | ✅    |
-| Stale-While-Revalidate    | ✅    |
-| Stampede protection       | ✅    |
-| Tag-based invalidation    | ✅    |
-| Namespaces                | ✅    |
-| Circuit breaker (L2)      | ✅    |
-| Grace periods             | ✅    |
-| Soft/Hard timeouts        | ✅    |
-| Adaptive TTL              | ✅    |
-| OpenTelemetry tracing     | ✅    |
-| Multi-instance sync (bus) | ✅    |
-
-## Architecture
-
-```
-Request: cache.getOrSet('user:123', factory)
-    │
-    ▼
-┌─────────────────────────────────────────┐
-│  L1 (Memory)  ──  2000-5000x faster     │
-│      │                                   │
-│      ▼ (miss)                           │
-│  L2 (Redis)   ──  with circuit breaker  │
-│      │                                   │
-│      ▼ (miss)                           │
-│  Factory      ──  with deduplication    │
-│      │                                   │
-│      ▼                                   │
-│  Bus notify   ──  sync other instances  │
-└─────────────────────────────────────────┘
-```
-
-## Type Safety
-
-Define your schema once:
+## Store Configuration
 
 ```typescript
-type AppCache = {
-  'user:{id}': User
-  'session:{token}': Session
-  'config:global': AppConfig
+// Short form: driver names as array
+stores: {
+  sessions: ['redis'],
 }
 
-const cache = createCache<AppCache>({ /* ... */ })
-
-// TypeScript catches mistakes
-await cache.set('user:123', { id: '123', name: 'John' })     // ✅
-await cache.set('user:123', { invalid: true })               // ❌ TypeScript error
-await cache.get('typo:key')                                  // ❌ TypeScript error
-
-const user = await cache.get('user:123')
-// user is typed as User | undefined
-```
-
-## Stores
-
-### Memory L1 (Local)
-
-```typescript
-import { memoryStore } from '@lokiverse/cache'
-
-memoryStore({
-  maxItems: 10_000,           // LRU eviction
-  maxSize: 50 * 1024 * 1024,  // 50MB max
-})
-```
-
-Uses `lru-cache` under the hood. Synchronous operations for maximum performance.
-
-### Redis L2 (Remote)
-
-```typescript
-import { redisStore } from '@lokiverse/cache'
-
-// Standalone
-redisStore({ url: 'redis://localhost:6379' })
-
-// Cluster
-redisStore({
-  rootNodes: [
-    { url: 'redis://node1:6379' },
-    { url: 'redis://node2:6379' },
-  ],
-})
-
-// External client (shared with bus)
-import { createClient } from 'redis'
-const redis = createClient({ url: process.env.REDIS_URL })
-await redis.connect()
-
-redisStore({ client: redis })
-```
-
-## Core Patterns
-
-### Stale-While-Revalidate (SWR)
-
-Return stale data immediately, refresh in background:
-
-```typescript
-const user = await cache.getOrSet(
-  'user:123',
-  async () => fetchUser('123'),
-  {
-    ttl: '5m',           // Fresh for 5 minutes
-    grace: '1h',         // Stale but available for 1 hour
-    softTimeout: '200ms' // Return stale if factory > 200ms
-  }
-)
-```
-
-### Stampede Protection
-
-Multiple concurrent requests for the same key? Only one factory executes:
-
-```typescript
-// 1000 concurrent requests for 'user:123'
-// → 1 database query
-// → 999 requests wait and share the result
-await Promise.all(
-  Array.from({ length: 1000 }, () =>
-    cache.getOrSet('user:123', () => db.users.findById('123'))
-  )
-)
-```
-
-### Tag-Based Invalidation
-
-Group entries for bulk invalidation:
-
-```typescript
-await cache.set('user:1', user1, { tags: ['users', 'user:1'] })
-await cache.set('user:2', user2, { tags: ['users', 'user:2'] })
-await cache.set('post:1', post1, { tags: ['posts', 'user:1'] })
-
-// Invalidate all users
-await cache.deleteByTag('users')
-
-// Invalidate everything for user:1
-await cache.deleteByTag('user:1')
-```
-
-### Adaptive Caching
-
-Set TTL and tags based on the fetched value:
-
-```typescript
-const token = await cache.getOrSet('oauth:token', async (ctx) => {
-  const token = await fetchAccessToken()
-
-  // Dynamic TTL based on token expiry
-  ctx.setTtl(token.expiresIn - 60)
-  ctx.setTags(['oauth', `user:${token.userId}`])
-
-  // Skip caching if temporary
-  if (token.isTemporary) {
-    ctx.skip()
-  }
-
-  return token
-})
-```
-
-### Namespaces
-
-Prefix-based key grouping:
-
-```typescript
-const userCache = cache.namespace('users')
-
-await userCache.set('123', user)      // Key: users:123
-await userCache.get('123')            // Key: users:123
-await userCache.clear()               // Clears only users:*
-```
-
-## Circuit Breaker
-
-Protect against L2 failures:
-
-```typescript
-const cache = createCache({
-  l1: memoryStore(),
-  l2: redisStore({ url: process.env.REDIS_URL }),
-  circuitBreaker: {
-    failureThreshold: 3,   // Open after 3 failures
-    resetTimeout: 30_000,  // Try again after 30s
-    successThreshold: 1,   // Close after 1 success in half-open
+// Long form: with options
+stores: {
+  sessions: {
+    drivers: ['redis'],
+    memory: false,  // disable L1 memory for this store
   },
-})
-```
-
-States: `CLOSED` → `OPEN` → `HALF_OPEN` → `CLOSED`
-
-When open, L2 is bypassed — L1 + factory continue working.
-
-## Multi-Instance Sync
-
-Sync L1 caches across instances using `@lokiverse/bus`:
-
-```typescript
-import { createCache, memoryStore, redisStore, CacheBusAdapter } from '@lokiverse/cache'
-import { MessageBus, redis } from '@lokiverse/bus'
-
-const bus = new MessageBus({ transport: redis() })
-const busAdapter = new CacheBusAdapter({ bus })
-
-const cache = createCache({
-  l1: memoryStore(),
-  l2: redisStore(),
-  bus: busAdapter,
-})
-
-await cache.connect()
-
-// Instance A sets a value
-await cache.set('user:123', user)
-// → L1 updated on Instance A
-// → L2 updated
-// → Bus publishes 'SET user:123'
-// → Instance B receives message, invalidates L1
-```
-
-## Serializers
-
-| Serializer | Size      | Use Case            |
-| ---------- | --------- | ------------------- |
-| json       | baseline  | Default, debuggable |
-| msgpack    | ~30% less | High-volume caches  |
-
-```typescript
-redisStore({ serializer: 'json' })    // default
-redisStore({ serializer: 'msgpack' }) // compact
-```
-
-## Middleware
-
-Apply cross-cutting concerns to stores:
-
-```typescript
-import {
-  memoryStore,
-  loggingMiddleware,
-  tracingMiddleware,
-  composeMiddleware,
-} from '@lokiverse/cache'
-import { trace } from '@opentelemetry/api'
-
-const store = composeMiddleware(
-  loggingMiddleware(),
-  tracingMiddleware({ tracer: trace.getTracer('cache') }),
-)(memoryStore())
-```
-
-## Error Handling
-
-```typescript
-import { CacheError, StoreError, FactoryTimeoutError } from '@lokiverse/cache'
-
-try {
-  await cache.getOrSet('key', factory, { hardTimeout: '5s' })
-} catch (error) {
-  if (error instanceof FactoryTimeoutError) {
-    // Factory took too long
-  }
-  if (error instanceof StoreError) {
-    // Redis down, connection failed, etc.
-    console.log(error.code)    // 'CONNECTION_FAILED'
-    console.log(error.context) // { store: 'redis', operation: 'get', retryable: true }
-  }
 }
 ```
 
-## Telemetry
+## Low-level API
 
 ```typescript
+import { createCache, memoryDriver, redisDriver } from '@lokiverse/cache'
+
 const cache = createCache({
-  l1: memoryStore(),
-  telemetry: {
-    onHit: ({ key, layer, graced, duration }) => {
-      metrics.increment('cache.hit', { layer, graced })
-    },
-    onMiss: ({ key, duration }) => {
-      metrics.increment('cache.miss')
-    },
-    onError: ({ operation, key, error }) => {
-      logger.error(`Cache ${operation} failed`, { key, error })
-    },
-  },
+  l1: memoryDriver({ maxItems: 10_000 }),
+  l2: redisDriver({ url: 'redis://localhost:6379' }),
+  staleTime: '5m',
 })
 ```
 
-Hooks: `onHit`, `onMiss`, `onSet`, `onDelete`, `onError`
+## Patterns
 
-## API Reference
-
-### Cache Methods
+### Stale-While-Revalidate
 
 ```typescript
-cache.get(key, options?)                    // Get value
-cache.set(key, value, options?)             // Set value
-cache.getOrSet(key, factory, options?)      // Get or compute
-cache.has(key)                              // Check existence
-cache.delete(key)                           // Delete key
-cache.deleteMany(keys)                      // Delete multiple
-cache.deleteByTag(tags)                     // Invalidate by tags
-cache.expire(key)                           // Mark stale (grace period)
-cache.pull(key)                             // Get and delete
-cache.clear()                               // Clear all
-cache.namespace(prefix)                     // Create namespaced view
-cache.connect()                             // Connect L2 + bus
-cache.disconnect()                          // Disconnect all
+// timeout: 0 -> return stale immediately, refresh in background
+const user = await cache.getOrSet('user:123', fetchUser, { timeout: 0 })
+
+// timeout: 100 -> wait up to 100ms for fresh, else return stale
+const user = await cache.getOrSet('user:123', fetchUser, { timeout: 100 })
 ```
+
+### Tags
+
+```typescript
+await cache.set('user:1', alice, { tags: ['users'] })
+await cache.set('user:2', bob, { tags: ['users'] })
+await cache.set('post:1', post, { tags: ['posts'] })
+
+await cache.invalidateTags(['users']) // removes user:1, user:2
+```
+
+### Namespace
+
+```typescript
+const users = cache.namespace('users')
+
+await users.set('123', alice) // key: users:123
+await users.get('123') // key: users:123
+await users.clear() // clears users:* only
+```
+
+## API
+
+### CacheManager Config
+
+| Option                   | Type                          | Default     | Description                   |
+| ------------------------ | ----------------------------- | ----------- | ----------------------------- |
+| `drivers`                | `Record<string, Driver>`      | -           | Named drivers (redis, etc.)   |
+| `stores`                 | `Record<string, StoreConfig>` | -           | Named store compositions      |
+| `memory`                 | `boolean`                     | `true`      | Enable built-in memory L1     |
+| `staleTime`              | `Duration`                    | `'1m'`      | Time until stale              |
+| `gcTime`                 | `Duration`                    | `staleTime` | Time until garbage collected  |
+| `prefix`                 | `string`                      | -           | Key prefix                    |
+| `circuitBreakerDuration` | `Duration`                    | `'30s'`     | L2 circuit breaker reset time |
+
+### Cache Config (low-level)
+
+| Option                   | Type          | Default     | Description                   |
+| ------------------------ | ------------- | ----------- | ----------------------------- |
+| `l1`                     | `SyncDriver`  | -           | L1 memory driver              |
+| `l2`                     | `AsyncDriver` | -           | L2 driver (Redis, etc.)       |
+| `staleTime`              | `Duration`    | `'1m'`      | Time until stale              |
+| `gcTime`                 | `Duration`    | `staleTime` | Time until garbage collected  |
+| `prefix`                 | `string`      | -           | Key prefix                    |
+| `circuitBreakerDuration` | `Duration`    | `'30s'`     | L2 circuit breaker reset time |
+
+### Methods
+
+| Method                            | Description           |
+| --------------------------------- | --------------------- |
+| `get(key)`                        | Get value             |
+| `set(key, value, options?)`       | Set value             |
+| `getOrSet(key, loader, options?)` | Get or compute        |
+| `delete(...keys)`                 | Delete keys           |
+| `has(key)`                        | Check existence       |
+| `clear()`                         | Clear all             |
+| `invalidateTags(tags)`            | Delete by tags        |
+| `namespace(prefix)`               | Create prefixed view  |
+| `use(name?)`                      | Get named store       |
+| `connect()`                       | Connect remote stores |
+| `disconnect()`                    | Disconnect            |
+| `on(event, fn)`                   | Subscribe to events   |
 
 ### Options
 
-```typescript
-// SetOptions
-{ ttl?: '5m', tags?: ['users'] }
+| Option      | Type       | Description                       |
+| ----------- | ---------- | --------------------------------- |
+| `staleTime` | `Duration` | Override default stale time       |
+| `gcTime`    | `Duration` | Override default gc time          |
+| `tags`      | `string[]` | Tags for invalidation             |
+| `timeout`   | `Duration` | SWR timeout (0 = immediate stale) |
+| `retries`   | `number`   | Loader retry count                |
+| `fresh`     | `boolean`  | Skip cache, force loader          |
 
-// GetSetOptions
-{
-  ttl?: '5m',
-  grace?: '1h',
-  tags?: ['users'],
-  softTimeout?: '200ms',
-  hardTimeout?: '5s',
-  suppressL2Errors?: true,
-}
-```
+### Duration
 
-## Contributing
-
-Pull requests welcome. Keep it boring.
+`number` (ms) or string: `'100ms'`, `'5s'`, `'1m'`, `'1h'`, `'1d'`
 
 ## License
 
 MIT
-
-## Final Note
-
-**退屈 (Taikutsu)** — Boring is not a limitation. It's a philosophy.
-
-The software that ages well is the software that doesn't try to be clever.
