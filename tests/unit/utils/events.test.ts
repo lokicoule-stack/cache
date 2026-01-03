@@ -8,9 +8,14 @@ describe('createEventEmitter', () => {
     const listener = vi.fn()
 
     emitter.on('hit', listener)
-    emitter.emit('hit', { key: 'foo' })
+    emitter.emit('hit', { key: 'foo', store: 'default', driver: 'memory', graced: false })
 
-    expect(listener).toHaveBeenCalledWith({ key: 'foo' })
+    expect(listener).toHaveBeenCalledWith({
+      key: 'foo',
+      store: 'default',
+      driver: 'memory',
+      graced: false,
+    })
   })
 
   it('does not call listener for different event', () => {
@@ -18,7 +23,7 @@ describe('createEventEmitter', () => {
     const listener = vi.fn()
 
     emitter.on('hit', listener)
-    emitter.emit('miss', { key: 'foo' })
+    emitter.emit('miss', { key: 'foo', store: 'default' })
 
     expect(listener).not.toHaveBeenCalled()
   })
@@ -29,7 +34,7 @@ describe('createEventEmitter', () => {
 
     emitter.on('hit', listener)
     emitter.off('hit', listener)
-    emitter.emit('hit', { key: 'foo' })
+    emitter.emit('hit', { key: 'foo', store: 'default', driver: 'memory', graced: false })
 
     expect(listener).not.toHaveBeenCalled()
   })
@@ -41,7 +46,7 @@ describe('createEventEmitter', () => {
 
     emitter.on('hit', listener1)
     emitter.on('hit', listener2)
-    emitter.emit('hit', { key: 'foo' })
+    emitter.emit('hit', { key: 'foo', store: 'default', driver: 'memory', graced: false })
 
     expect(listener1).toHaveBeenCalledOnce()
     expect(listener2).toHaveBeenCalledOnce()

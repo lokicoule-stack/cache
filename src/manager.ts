@@ -1,4 +1,4 @@
-import { MessageBus, type BusOptions, type BusSchema } from '@lokiverse/bus'
+import { MessageBus, type BusSchema } from '@lokiverse/bus'
 
 import { Cache } from './cache'
 import { createDefaultMemory } from './drivers/memory'
@@ -6,9 +6,9 @@ import { parseOptionalDuration } from './duration'
 import { CacheError } from './errors'
 import { CacheStack } from './stack'
 import { createDedup } from './utils/dedup'
-import { createEventEmitter } from './utils/events'
+import { createEventEmitter, type EventEmitter } from './utils/events'
 
-import type { CacheManagerConfig, SyncDriver, AsyncDriver, StoreConfig } from './types'
+import type { CacheManagerConfig, SyncDriver, AsyncDriver } from './types'
 
 const DEFAULT_STALE_TIME = 60_000
 
@@ -19,16 +19,14 @@ export interface CacheBusSchema extends BusSchema {
 }
 
 export class CacheManager {
+  readonly emitter: EventEmitter
   readonly #stores = new Map<string, Cache>()
   readonly #defaultStoreName: string
   readonly #bus?: MessageBus<CacheBusSchema>
 
-  constructor(
-    config: CacheManagerConfig & {
-      stores?: Record<string, StoreConfig<string>>
-      bus?: BusOptions
-    } = {},
-  ) {
+  constructor(config: CacheManagerConfig = {}) {
+    this.emitter = config.emitter ?? createEventEmitter()
+
     const globalMemory = config.memory !== false
     const staleTime = parseOptionalDuration(config.staleTime) ?? DEFAULT_STALE_TIME
     const gcTime = parseOptionalDuration(config.gcTime) ?? staleTime
@@ -114,6 +112,7 @@ export class CacheManager {
 
     if (this.#bus && keys.length > 0) {
       await this.#bus.publish('cache:invalidate', { keys })
+      this.emitter.emit('bus:published', { channel: 'cache:invalidate' })
     }
 
     return Math.max(...results, 0)
@@ -126,6 +125,7 @@ export class CacheManager {
 
     if (this.#bus && tags.length > 0) {
       await this.#bus.publish('cache:invalidate:tags', { tags })
+      this.emitter.emit('bus:published', { channel: 'cache:invalidate:tags' })
     }
 
     return results.reduce((a, b) => a + b, 0)
@@ -136,17 +136,25 @@ export class CacheManager {
 
     if (this.#bus) {
       await this.#bus.publish('cache:clear', {})
+      this.emitter.emit('bus:published', { channel: 'cache:clear' })
     }
   }
 
   async connect(): Promise<void> {
     if (this.#bus) {
       await this.#bus.connect()
-      await this.#bus.subscribe('cache:invalidate', (data) => this.#invalidateL1All(data.keys))
-      await this.#bus.subscribe('cache:invalidate:tags', (data) =>
-        this.#invalidateTagsAll(data.tags),
-      )
-      await this.#bus.subscribe('cache:clear', () => this.#clearL1All())
+      await this.#bus.subscribe('cache:invalidate', (data) => {
+        this.emitter.emit('bus:received', { channel: 'cache:invalidate' })
+        this.#invalidateL1All(data.keys)
+      })
+      await this.#bus.subscribe('cache:invalidate:tags', (data) => {
+        this.emitter.emit('bus:received', { channel: 'cache:invalidate:tags' })
+        this.#invalidateTagsAll(data.tags)
+      })
+      await this.#bus.subscribe('cache:clear', () => {
+        this.emitter.emit('bus:received', { channel: 'cache:clear' })
+        this.#clearL1All()
+      })
     }
 
     await Promise.all(Array.from(this.#stores.values()).map((cache) => cache.connect()))
@@ -164,7 +172,7 @@ export class CacheManager {
   }
 
   #createCache(
-    prefix: string,
+    storeName: string,
     l1: SyncDriver | undefined,
     l2: AsyncDriver[],
     staleTime: number,
@@ -172,11 +180,12 @@ export class CacheManager {
   ): Cache {
     return new Cache(
       {
-        stack: new CacheStack({ l1, l2, prefix }),
-        events: createEventEmitter(),
+        stack: new CacheStack({ l1, l2, prefix: storeName }),
+        emitter: this.emitter,
         dedup: createDedup(),
         defaultStaleTime: staleTime,
         defaultGcTime: gcTime,
+        storeName,
       },
       true,
     )
@@ -184,7 +193,7 @@ export class CacheManager {
 
   #invalidateL1All(keys: string[]): void {
     for (const cache of this.#stores.values()) {
-      cache.deleteL1(...keys)
+      cache.invalidateL1(...keys)
     }
   }
 
@@ -201,11 +210,6 @@ export class CacheManager {
   }
 }
 
-export function createCacheManager(
-  config?: CacheManagerConfig & {
-    stores?: Record<string, StoreConfig<string>>
-    bus?: BusOptions
-  },
-): CacheManager {
+export function createCacheManager(config?: CacheManagerConfig): CacheManager {
   return new CacheManager(config)
 }

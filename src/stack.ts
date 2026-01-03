@@ -71,6 +71,24 @@ export class CacheStack {
     }
   }
 
+  get l1(): SyncDriver | undefined {
+    return this.#l1
+  }
+
+  invalidateL1(...keys: string[]): void {
+    if (!this.#l1 || keys.length === 0) {
+      return
+    }
+
+    const prefixedKeys = keys.map((k) => this.#key(k))
+
+    this.#l1.delete(...prefixedKeys)
+  }
+
+  clearL1(): void {
+    this.#l1?.clear()
+  }
+
   async get(key: string): Promise<LookupResult> {
     const k = this.#key(key)
 
@@ -214,20 +232,6 @@ export class CacheStack {
     }
 
     return this.#deleteKeys(keys)
-  }
-
-  deleteL1(...keys: string[]): number {
-    if (!this.#l1 || keys.length === 0) {
-      return 0
-    }
-
-    const prefixedKeys = keys.map((k) => this.#key(k))
-
-    return this.#l1.delete(...prefixedKeys)
-  }
-
-  clearL1(): void {
-    this.#l1?.clear()
   }
 
   namespace(prefix: string): CacheStack {

@@ -22,6 +22,9 @@ export {
   type RedisInstance,
 } from './drivers/redis'
 
+// Events
+export { type Emitter, type EventEmitter } from './utils/events'
+
 // Types
 export type {
   Duration,
@@ -40,7 +43,9 @@ export type {
   CacheMissEvent,
   CacheSetEvent,
   CacheDeleteEvent,
-  CacheErrorEvent,
+  CacheClearEvent,
+  BusPublishedEvent,
+  BusReceivedEvent,
 } from './types'
 
 // Duration parser (useful for custom drivers)

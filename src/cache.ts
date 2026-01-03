@@ -6,31 +6,26 @@ import { createEventEmitter, type EventEmitter } from './utils/events'
 import { withRetry } from './utils/retry'
 import { withSwr } from './utils/swr'
 
-import type {
-  CacheConfig,
-  SetOptions,
-  GetSetOptions,
-  Loader,
-  CacheEventType,
-  CacheEventMap,
-} from './types'
+import type { CacheConfig, SetOptions, GetSetOptions, Loader } from './types'
 
 const DEFAULT_STALE_TIME = 60_000
 
 interface InternalConfig {
   stack: CacheStack
-  events: EventEmitter
+  emitter: EventEmitter
   dedup: ReturnType<typeof createDedup>
   defaultStaleTime: number
   defaultGcTime: number
+  storeName: string
 }
 
 export class Cache<T extends Record<string, unknown> = Record<string, unknown>> {
   readonly #stack: CacheStack
-  readonly #events: EventEmitter
+  readonly #emitter: EventEmitter
   readonly #dedup: ReturnType<typeof createDedup>
   readonly #defaultStaleTime: number
   readonly #defaultGcTime: number
+  readonly #storeName: string
 
   constructor(config: CacheConfig)
   constructor(internal: InternalConfig, isInternal: true)
@@ -39,10 +34,11 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
       const internal = config as InternalConfig
 
       this.#stack = internal.stack
-      this.#events = internal.events
+      this.#emitter = internal.emitter
       this.#dedup = internal.dedup
       this.#defaultStaleTime = internal.defaultStaleTime
       this.#defaultGcTime = internal.defaultGcTime
+      this.#storeName = internal.storeName
     } else {
       const external = config as CacheConfig
       const staleTime = parseOptionalDuration(external.staleTime) ?? DEFAULT_STALE_TIME
@@ -54,10 +50,11 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
         prefix: external.prefix,
         circuitBreakerDuration: parseOptionalDuration(external.circuitBreakerDuration),
       })
-      this.#events = createEventEmitter()
+      this.#emitter = createEventEmitter()
       this.#dedup = createDedup()
       this.#defaultStaleTime = staleTime
       this.#defaultGcTime = gcTime
+      this.#storeName = 'default'
     }
   }
 
@@ -65,18 +62,27 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     return this.#stack.driverNames
   }
 
+  invalidateL1(...keys: string[]): void {
+    this.#stack.invalidateL1(...keys)
+  }
+
+  clearL1(): void {
+    this.#stack.clearL1()
+  }
+
   async get<K extends keyof T & string>(key: K): Promise<T[K] | undefined> {
     const result = await this.#stack.get(key)
 
     if (!result.entry || result.entry.isGced()) {
-      this.#emit('miss', { key })
+      this.#emitter.emit('miss', { key, store: this.#storeName })
 
       return undefined
     }
 
-    this.#emit('hit', {
+    this.#emitter.emit('hit', {
       key,
-      source: result.source ?? 'unknown',
+      store: this.#storeName,
+      driver: result.source ?? 'unknown',
       graced: result.entry.isStale(),
     })
 
@@ -89,7 +95,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     const entry = CacheEntry.create(value, { staleTime, gcTime, tags: options?.tags })
 
     await this.#stack.set(key, entry)
-    this.#emit('set', { key, staleTime })
+    this.#emitter.emit('set', { key, store: this.#storeName })
   }
 
   async getOrSet<K extends keyof T & string>(
@@ -104,7 +110,12 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     const result = await this.#stack.get(key)
 
     if (result.entry && !result.entry.isStale()) {
-      this.#emit('hit', { key, source: result.source ?? 'unknown', graced: false })
+      this.#emitter.emit('hit', {
+        key,
+        store: this.#storeName,
+        driver: result.source ?? 'unknown',
+        graced: false,
+      })
 
       return result.entry.value as T[K]
     }
@@ -142,7 +153,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     const count = await this.#stack.delete(...keys)
 
     for (const key of keys) {
-      this.#emit('delete', { key, count })
+      this.#emitter.emit('delete', { key, store: this.#storeName })
     }
 
     return count
@@ -154,28 +165,22 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
 
   async clear(): Promise<void> {
     await this.#stack.clear()
+    this.#emitter.emit('clear', { store: this.#storeName })
   }
 
   async invalidateTags(tags: string[]): Promise<number> {
     return this.#stack.invalidateTags(tags)
   }
 
-  deleteL1(...keys: string[]): number {
-    return this.#stack.deleteL1(...keys)
-  }
-
-  clearL1(): void {
-    this.#stack.clearL1()
-  }
-
   namespace(prefix: string): Cache<T> {
     return new Cache<T>(
       {
         stack: this.#stack.namespace(prefix),
-        events: this.#events,
+        emitter: this.#emitter,
         dedup: this.#dedup,
         defaultStaleTime: this.#defaultStaleTime,
         defaultGcTime: this.#defaultGcTime,
+        storeName: this.#storeName,
       },
       true,
     )
@@ -187,18 +192,6 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
 
   async disconnect(): Promise<void> {
     await this.#stack.disconnect()
-  }
-
-  on<E extends CacheEventType>(event: E, fn: (data: CacheEventMap[E]) => void): void {
-    this.#events.on(event, fn as (data: unknown) => void)
-  }
-
-  off<E extends CacheEventType>(event: E, fn: (data: CacheEventMap[E]) => void): void {
-    this.#events.off(event, fn as (data: unknown) => void)
-  }
-
-  #emit<E extends CacheEventType>(event: E, data: CacheEventMap[E]): void {
-    this.#events.emit(event, data)
   }
 
   async #handleSwr<K extends keyof T & string>(
@@ -216,7 +209,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     })
 
     if (result.stale) {
-      this.#emit('hit', { key, source: 'stale', graced: true })
+      this.#emitter.emit('hit', { key, store: this.#storeName, driver: 'stale', graced: true })
     }
 
     return result.value
@@ -235,7 +228,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     const entry = CacheEntry.create(value, { staleTime, gcTime, tags: options?.tags })
 
     await this.#stack.set(key, entry)
-    this.#emit('set', { key, staleTime })
+    this.#emitter.emit('set', { key, store: this.#storeName })
 
     return value
   }

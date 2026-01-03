@@ -1,4 +1,6 @@
 import type { CacheEntry } from './entry'
+import type { BusOptions } from '@lokiverse/bus'
+import type EventEmitter from 'events'
 
 export type Duration = number | string
 
@@ -27,6 +29,8 @@ export type Driver = SyncDriver | AsyncDriver
 export type StoreConfig<D extends string = string> = D[] | { drivers: D[]; memory?: boolean }
 
 export interface CacheManagerConfig<D extends Record<string, Driver> = Record<string, Driver>> {
+  bus?: BusOptions
+  emitter?: EventEmitter
   drivers?: D & { memory?: SyncDriver }
   stores?: Record<string, StoreConfig<Exclude<keyof D, 'memory'> & string>>
   memory?: boolean
@@ -60,31 +64,40 @@ export interface GetSetOptions extends SetOptions {
 
 export type Loader<T> = (signal: AbortSignal) => Promise<T> | T
 
-export type CacheEventType = 'hit' | 'miss' | 'set' | 'delete' | 'error'
+export type CacheEventType = keyof CacheEventMap
 
 export interface CacheHitEvent {
   key: string
-  source: string
+  store: string
+  driver: string
   graced: boolean
 }
 
 export interface CacheMissEvent {
   key: string
+  store: string
 }
 
 export interface CacheSetEvent {
   key: string
-  staleTime: number
+  store: string
 }
 
 export interface CacheDeleteEvent {
   key: string
-  count: number
+  store: string
 }
 
-export interface CacheErrorEvent {
-  error: Error
-  operation: string
+export interface CacheClearEvent {
+  store: string
+}
+
+export interface BusPublishedEvent {
+  channel: string
+}
+
+export interface BusReceivedEvent {
+  channel: string
 }
 
 export interface CacheEventMap {
@@ -92,5 +105,7 @@ export interface CacheEventMap {
   miss: CacheMissEvent
   set: CacheSetEvent
   delete: CacheDeleteEvent
-  error: CacheErrorEvent
+  clear: CacheClearEvent
+  'bus:published': BusPublishedEvent
+  'bus:received': BusReceivedEvent
 }
