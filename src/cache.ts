@@ -106,6 +106,10 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     const result = await this.#stack.get(key)
 
     if (result.entry && !result.entry.isStale()) {
+      if (options?.eagerRefresh && result.entry.isNearExpiration(options.eagerRefresh)) {
+        void this.#dedup(key, () => this.#loadAndStore(key, loader, options)).catch(() => {})
+      }
+
       this.#emitter.emit('hit', {
         key,
         store: this.#storeName,
@@ -201,6 +205,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     const result = await withSwr((signal) => this.#loadAndStore(key, loader, options, signal), {
       staleValue: staleEntry.value as T[K],
       timeout,
+      abortOnTimeout: options?.abortOnTimeout,
       backgroundRefresh: () => this.#dedup(key, () => this.#loadAndStore(key, loader, options)),
     })
 

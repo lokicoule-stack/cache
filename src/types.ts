@@ -62,8 +62,12 @@ export interface SetOptions {
 export interface GetSetOptions extends SetOptions {
   /** SWR timeout in ms. 0 = return stale immediately, refresh in background */
   timeout?: Duration
+  /** If true, abort fetch on timeout. If false (default), let it continue in background */
+  abortOnTimeout?: boolean
   retries?: number
   fresh?: boolean
+  /** Ratio (0-1) of TTL elapsed to trigger background refresh. Default: disabled */
+  eagerRefresh?: number
 }
 
 export type Loader<T> = (signal: AbortSignal) => Promise<T> | T

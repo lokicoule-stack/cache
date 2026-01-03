@@ -62,6 +62,16 @@ export class CacheEntry {
     return Date.now() >= this.gcAt
   }
 
+  /**
+   * @param ratio 0-1, e.g. 0.8 = 80% of lifetime elapsed
+   */
+  isNearExpiration(ratio: number = 0.8): boolean {
+    const lifetime = this.staleAt - this.createdAt
+    const elapsed = Date.now() - this.createdAt
+
+    return elapsed >= lifetime * ratio
+  }
+
   serialize(): SerializedEntry {
     return {
       v: this.value,
