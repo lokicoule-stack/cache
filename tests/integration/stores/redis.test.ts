@@ -64,12 +64,12 @@ describe.skipIf(!dockerAvailable)('RedisDriver', () => {
       expect(result?.value).toEqual({ nested: { data: [1, 2, 3] } })
     })
 
-    it('deletes multiple keys', async () => {
+    it('deleteMany removes multiple keys', async () => {
       await driver.set('batch:1', createEntry(1))
       await driver.set('batch:2', createEntry(2))
       await driver.set('batch:3', createEntry(3))
 
-      const deleted = await driver.delete('batch:1', 'batch:3')
+      const deleted = await driver.deleteMany(['batch:1', 'batch:3'])
       expect(deleted).toBe(2)
 
       expect(await driver.get('batch:2')).toBeDefined()

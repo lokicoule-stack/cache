@@ -99,13 +99,46 @@ export class RedisDriver implements AsyncDriver {
     })
   }
 
-  async delete(...keys: string[]): Promise<number> {
+  async delete(key: string): Promise<boolean> {
+    return this.#exec('delete', async () => {
+      const count = await this.#ensureClient().del(key)
+
+      return count > 0
+    })
+  }
+
+  async deleteMany(keys: string[]): Promise<number> {
     if (keys.length === 0) {
       return 0
     }
 
-    return this.#exec('delete', async () => {
+    return this.#exec('deleteMany', async () => {
       return await this.#ensureClient().del(keys)
+    })
+  }
+
+  async getMany(keys: string[]): Promise<Map<string, CacheEntry>> {
+    if (keys.length === 0) {
+      return new Map()
+    }
+
+    return this.#exec('getMany', async () => {
+      const values = await this.#ensureClient().mGet(keys)
+      const result = new Map<string, CacheEntry>()
+
+      for (let i = 0; i < keys.length; i++) {
+        const data = values[i]
+
+        if (data) {
+          const entry = CacheEntry.deserialize(JSON.parse(data) as SerializedEntry)
+
+          if (!entry.isGced()) {
+            result.set(keys[i], entry)
+          }
+        }
+      }
+
+      return result
     })
   }
 

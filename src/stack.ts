@@ -13,14 +13,14 @@ export interface StackConfig {
   circuitBreakerDuration?: number
 }
 
-interface Remote {
+interface L2Remote {
   driver: AsyncDriver
   cb: CircuitBreaker
 }
 
 interface InternalConfig {
   l1?: SyncDriver
-  remotes: Remote[]
+  l2: L2Remote[]
   prefix: string
   tags: TagIndex
   cbDuration: number
@@ -34,7 +34,7 @@ export interface LookupResult {
 
 export class CacheStack {
   readonly #l1?: SyncDriver
-  readonly #remotes: Remote[]
+  readonly #l2: L2Remote[]
   readonly #prefix: string
   readonly #tags: TagIndex
   readonly #cbDuration: number
@@ -46,7 +46,7 @@ export class CacheStack {
       const internal = config as InternalConfig
 
       this.#l1 = internal.l1
-      this.#remotes = internal.remotes
+      this.#l2 = internal.l2
       this.#prefix = internal.prefix
       this.#tags = internal.tags
       this.#cbDuration = internal.cbDuration
@@ -57,7 +57,7 @@ export class CacheStack {
       this.#prefix = external.prefix ?? ''
       this.#tags = new TagIndex()
       this.#cbDuration = external.circuitBreakerDuration ?? DEFAULT_CIRCUIT_BREAK_DURATION
-      this.#remotes = (external.l2 ?? []).map((driver) => ({
+      this.#l2 = (external.l2 ?? []).map((driver) => ({
         driver,
         cb: createCircuitBreaker(this.#cbDuration),
       }))
@@ -67,12 +67,8 @@ export class CacheStack {
   get driverNames(): { l1?: string; l2: string[] } {
     return {
       l1: this.#l1?.name,
-      l2: this.#remotes.map((r) => r.driver.name),
+      l2: this.#l2.map((r) => r.driver.name),
     }
-  }
-
-  get l1(): SyncDriver | undefined {
-    return this.#l1
   }
 
   invalidateL1(...keys: string[]): void {
@@ -82,7 +78,7 @@ export class CacheStack {
 
     const prefixedKeys = keys.map((k) => this.#key(k))
 
-    this.#l1.delete(...prefixedKeys)
+    this.#syncDeleteFallback(prefixedKeys)
   }
 
   clearL1(): void {
@@ -100,8 +96,8 @@ export class CacheStack {
       }
     }
 
-    for (let i = 0; i < this.#remotes.length; i++) {
-      const remote = this.#remotes[i]
+    for (let i = 0; i < this.#l2.length; i++) {
+      const remote = this.#l2[i]
 
       if (remote.cb.isOpen()) {
         continue
@@ -123,6 +119,68 @@ export class CacheStack {
     return {}
   }
 
+  async getMany(keys: string[]): Promise<Map<string, LookupResult>> {
+    const results = new Map<string, LookupResult>()
+
+    if (keys.length === 0) {
+      return results
+    }
+
+    const prefixedKeys = keys.map((k) => this.#key(k))
+    const keyMap = new Map(keys.map((k, i) => [prefixedKeys[i], k]))
+    let pending = [...prefixedKeys]
+
+    // L1
+    if (this.#l1 && pending.length > 0) {
+      const hits = this.#l1.getMany?.(pending) ?? this.#syncGetFallback(pending)
+
+      for (const [pk, entry] of hits) {
+        if (!entry.isGced()) {
+          const originalKey = keyMap.get(pk)
+
+          if (originalKey) {
+            results.set(originalKey, { entry, source: this.#l1.name, graced: entry.isStale() })
+            pending = pending.filter((k) => k !== pk)
+          }
+        }
+      }
+    }
+
+    // L2
+    for (let i = 0; i < this.#l2.length && pending.length > 0; i++) {
+      const remote = this.#l2[i]
+
+      if (remote.cb.isOpen()) {
+        continue
+      }
+
+      try {
+        const hits = await (remote.driver.getMany?.(pending) ??
+          this.#asyncGetFallback(remote.driver, pending))
+
+        for (const [pk, entry] of hits) {
+          if (!entry.isGced()) {
+            const originalKey = keyMap.get(pk)
+
+            if (originalKey) {
+              results.set(originalKey, {
+                entry,
+                source: remote.driver.name,
+                graced: entry.isStale(),
+              })
+              this.#backfill(pk, entry, i)
+              pending = pending.filter((k) => k !== pk)
+            }
+          }
+        }
+      } catch {
+        remote.cb.open()
+      }
+    }
+
+    return results
+  }
+
   async set(key: string, entry: CacheEntry): Promise<void> {
     const k = this.#key(key)
 
@@ -133,7 +191,7 @@ export class CacheStack {
     this.#l1?.set(k, entry)
 
     await Promise.all(
-      this.#remotes.map(async (remote) => {
+      this.#l2.map(async (remote) => {
         if (remote.cb.isOpen()) {
           return
         }
@@ -157,30 +215,7 @@ export class CacheStack {
       this.#tags.unregister(k)
     }
 
-    let count = this.#l1?.delete(...prefixedKeys) ?? 0
-
-    const results = await Promise.all(
-      this.#remotes.map(async (remote) => {
-        if (remote.cb.isOpen()) {
-          return 0
-        }
-        try {
-          return await remote.driver.delete(...prefixedKeys)
-        } catch {
-          remote.cb.open()
-
-          return 0
-        }
-      }),
-    )
-
-    for (const r of results) {
-      if (r > count) {
-        count = r
-      }
-    }
-
-    return count
+    return this.#deleteKeys(prefixedKeys)
   }
 
   async has(key: string): Promise<boolean> {
@@ -190,7 +225,7 @@ export class CacheStack {
       return true
     }
 
-    for (const remote of this.#remotes) {
+    for (const remote of this.#l2) {
       if (remote.cb.isOpen()) {
         continue
       }
@@ -211,7 +246,7 @@ export class CacheStack {
     this.#l1?.clear()
 
     await Promise.all(
-      this.#remotes.map(async (remote) => {
+      this.#l2.map(async (remote) => {
         if (remote.cb.isOpen()) {
           return
         }
@@ -240,7 +275,7 @@ export class CacheStack {
     return new CacheStack(
       {
         l1: this.#l1,
-        remotes: this.#remotes,
+        l2: this.#l2,
         prefix: newPrefix,
         tags: this.#tags,
         cbDuration: this.#cbDuration,
@@ -251,15 +286,13 @@ export class CacheStack {
 
   async connect(): Promise<void> {
     await Promise.all(
-      this.#remotes
-        .map((r) => r.driver.connect?.())
-        .filter((p): p is Promise<void> => p !== undefined),
+      this.#l2.map((r) => r.driver.connect?.()).filter((p): p is Promise<void> => p !== undefined),
     )
   }
 
   async disconnect(): Promise<void> {
     await Promise.all(
-      this.#remotes
+      this.#l2
         .map((r) => r.driver.disconnect?.())
         .filter((p): p is Promise<void> => p !== undefined),
     )
@@ -269,7 +302,7 @@ export class CacheStack {
     this.#l1?.set(key, entry)
 
     for (let i = 0; i < sourceIndex; i++) {
-      const remote = this.#remotes[i]
+      const remote = this.#l2[i]
 
       if (!remote.cb.isOpen()) {
         remote.driver.set(key, entry).catch(() => remote.cb.open())
@@ -282,15 +315,16 @@ export class CacheStack {
   }
 
   async #deleteKeys(prefixedKeys: string[]): Promise<number> {
-    let count = this.#l1?.delete(...prefixedKeys) ?? 0
+    let count = this.#syncDeleteFallback(prefixedKeys)
 
     const results = await Promise.all(
-      this.#remotes.map(async (remote) => {
+      this.#l2.map(async (remote) => {
         if (remote.cb.isOpen()) {
           return 0
         }
+
         try {
-          return await remote.driver.delete(...prefixedKeys)
+          return await this.#asyncDeleteFallback(remote.driver, prefixedKeys)
         } catch {
           remote.cb.open()
 
@@ -306,5 +340,64 @@ export class CacheStack {
     }
 
     return count
+  }
+
+  #syncGetFallback(keys: string[]): Map<string, CacheEntry> {
+    const result = new Map<string, CacheEntry>()
+
+    for (const k of keys) {
+      const entry = this.#l1?.get(k)
+
+      if (entry) {
+        result.set(k, entry)
+      }
+    }
+
+    return result
+  }
+
+  async #asyncGetFallback(driver: AsyncDriver, keys: string[]): Promise<Map<string, CacheEntry>> {
+    const entries = await Promise.all(keys.map((k) => driver.get(k)))
+    const result = new Map<string, CacheEntry>()
+
+    for (let i = 0; i < keys.length; i++) {
+      const entry = entries[i]
+
+      if (entry) {
+        result.set(keys[i], entry)
+      }
+    }
+
+    return result
+  }
+
+  #syncDeleteFallback(keys: string[]): number {
+    if (!this.#l1) {
+      return 0
+    }
+
+    if (this.#l1.deleteMany) {
+      return this.#l1.deleteMany(keys)
+    }
+
+    let count = 0
+
+    for (const k of keys) {
+      if (this.#l1.delete(k)) {
+        count++
+      }
+    }
+
+    return count
+  }
+
+  async #asyncDeleteFallback(driver: AsyncDriver, keys: string[]): Promise<number> {
+    if (driver.deleteMany) {
+      return await driver.deleteMany(keys)
+    }
+
+    const deleted = await Promise.all(keys.map((k) => driver.delete(k)))
+
+    return deleted.filter(Boolean).length
   }
 }

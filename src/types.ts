@@ -7,8 +7,10 @@ export type Duration = number | string
 export interface SyncDriver {
   readonly name: string
   get(key: string): CacheEntry | undefined
+  getMany?(keys: string[]): Map<string, CacheEntry>
   set(key: string, entry: CacheEntry): void
-  delete(...keys: string[]): number
+  delete(key: string): boolean
+  deleteMany?(keys: string[]): number
   has(key: string): boolean
   clear(): void
 }
@@ -16,8 +18,10 @@ export interface SyncDriver {
 export interface AsyncDriver {
   readonly name: string
   get(key: string): Promise<CacheEntry | undefined>
+  getMany?(keys: string[]): Promise<Map<string, CacheEntry>>
   set(key: string, entry: CacheEntry): Promise<void>
-  delete(...keys: string[]): Promise<number>
+  delete(key: string): Promise<boolean>
+  deleteMany?(keys: string[]): Promise<number>
   has(key: string): Promise<boolean>
   clear(): Promise<void>
   connect?(): Promise<void>

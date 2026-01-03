@@ -23,7 +23,11 @@ export class FakeL1Store implements SyncDriver {
     return this.#data.has(key)
   }
 
-  delete(...keys: string[]): number {
+  delete(key: string): boolean {
+    return this.#data.delete(key)
+  }
+
+  deleteMany(keys: string[]): number {
     let count = 0
     for (const k of keys) {
       if (this.#data.delete(k)) count++
@@ -76,7 +80,14 @@ export class FakeL2Store implements AsyncDriver {
     return Promise.resolve()
   }
 
-  delete(...keys: string[]): Promise<number> {
+  delete(key: string): Promise<boolean> {
+    if (this.#shouldFail) {
+      return this.#rejectWithFailure()
+    }
+    return Promise.resolve(this.#data.delete(key))
+  }
+
+  deleteMany(keys: string[]): Promise<number> {
     if (this.#shouldFail) {
       return this.#rejectWithFailure()
     }

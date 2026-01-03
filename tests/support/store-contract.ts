@@ -35,14 +35,14 @@ export function runSyncDriverContract(name: string, createDriver: () => SyncDriv
       expect(driver.get('key')?.value).toBe('second')
     })
 
-    it('delete returns 1 for existing key', () => {
+    it('delete returns true for existing key', () => {
       driver.set('key', createTestEntry('value'))
-      expect(driver.delete('key')).toBe(1)
+      expect(driver.delete('key')).toBe(true)
       expect(driver.get('key')).toBeUndefined()
     })
 
-    it('delete returns 0 for missing key', () => {
-      expect(driver.delete('missing')).toBe(0)
+    it('delete returns false for missing key', () => {
+      expect(driver.delete('missing')).toBe(false)
     })
 
     it('clear removes all entries', () => {
@@ -60,6 +60,24 @@ export function runSyncDriverContract(name: string, createDriver: () => SyncDriv
 
     it('has returns false for missing key', () => {
       expect(driver.has('missing')).toBe(false)
+    })
+
+    it('deleteMany removes multiple keys', () => {
+      driver.set('a', createTestEntry(1))
+      driver.set('b', createTestEntry(2))
+      driver.set('c', createTestEntry(3))
+      const count = driver.deleteMany?.(['a', 'c', 'missing']) ?? 0
+      expect(count).toBe(2)
+      expect(driver.get('b')).toBeDefined()
+    })
+
+    it('getMany returns multiple entries', () => {
+      driver.set('a', createTestEntry(1))
+      driver.set('b', createTestEntry(2))
+      const results = driver.getMany?.(['a', 'b', 'missing']) ?? undefined
+      expect(results?.size).toBe(2)
+      expect(results?.get('a')?.value).toBe(1)
+      expect(results?.get('b')?.value).toBe(2)
     })
   })
 }
@@ -107,14 +125,14 @@ export function runAsyncDriverContract(
       expect((await driver.get('key'))?.value).toBe('second')
     })
 
-    it('delete returns 1 for existing key', async () => {
+    it('delete returns true for existing key', async () => {
       await driver.set('key', createTestEntry('value'))
-      expect(await driver.delete('key')).toBe(1)
+      expect(await driver.delete('key')).toBe(true)
       expect(await driver.get('key')).toBeUndefined()
     })
 
-    it('delete returns 0 for missing key', async () => {
-      expect(await driver.delete('missing')).toBe(0)
+    it('delete returns false for missing key', async () => {
+      expect(await driver.delete('missing')).toBe(false)
     })
 
     it('clear removes all entries', async () => {
@@ -134,13 +152,22 @@ export function runAsyncDriverContract(
       expect(await driver.has('missing')).toBe(false)
     })
 
-    it('delete removes multiple keys', async () => {
+    it('deleteMany removes multiple keys', async () => {
       await driver.set('a', createTestEntry(1))
       await driver.set('b', createTestEntry(2))
       await driver.set('c', createTestEntry(3))
-      const count = await driver.delete('a', 'c', 'missing')
+      const count = (await driver.deleteMany?.(['a', 'c', 'missing'])) ?? 0
       expect(count).toBe(2)
       expect(await driver.get('b')).toBeDefined()
+    })
+
+    it('getMany returns multiple entries', async () => {
+      await driver.set('a', createTestEntry(1))
+      await driver.set('b', createTestEntry(2))
+      const results = (await driver.getMany?.(['a', 'b', 'missing'])) ?? undefined
+      expect(results?.size).toBe(2)
+      expect(results?.get('a')?.value).toBe(1)
+      expect(results?.get('b')?.value).toBe(2)
     })
   })
 }

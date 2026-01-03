@@ -42,7 +42,11 @@ export class MemoryDriver implements SyncDriver {
     this.#cache.set(key, entry, { ttl })
   }
 
-  delete(...keys: string[]): number {
+  delete(key: string): boolean {
+    return this.#cache.delete(key)
+  }
+
+  deleteMany(keys: string[]): number {
     let count = 0
 
     for (const key of keys) {
@@ -52,6 +56,20 @@ export class MemoryDriver implements SyncDriver {
     }
 
     return count
+  }
+
+  getMany(keys: string[]): Map<string, CacheEntry> {
+    const result = new Map<string, CacheEntry>()
+
+    for (const key of keys) {
+      const entry = this.get(key)
+
+      if (entry) {
+        result.set(key, entry)
+      }
+    }
+
+    return result
   }
 
   has(key: string): boolean {

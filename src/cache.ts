@@ -58,10 +58,6 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     }
   }
 
-  get drivers() {
-    return this.#stack.driverNames
-  }
-
   invalidateL1(...keys: string[]): void {
     this.#stack.invalidateL1(...keys)
   }
