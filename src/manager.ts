@@ -85,8 +85,8 @@ export class CacheManager {
     return cache
   }
 
-  async get<T>(key: string): Promise<T | undefined> {
-    return this.use().get(key) as Promise<T | undefined>
+  async get<T>(key: string, options?: Parameters<Cache['get']>[1]): Promise<T | undefined> {
+    return this.use().get(key, options) as Promise<T | undefined>
   }
 
   async set<T>(key: string, value: T, options?: Parameters<Cache['set']>[2]): Promise<void> {

@@ -150,4 +150,59 @@ describe('Cache', () => {
       expect(await cache.get('post:1')).toBe('hello')
     })
   })
+
+  describe('clone option', () => {
+    it('should mutate cache when clone is false (default)', async () => {
+      const obj = { name: 'John', nested: { age: 30 } }
+      await cache.set('user', obj)
+
+      const retrieved = await cache.get('user') as { name: string; nested: { age: number } }
+      retrieved.name = 'Jane'
+      retrieved.nested.age = 40
+
+      const again = await cache.get('user')
+      expect(again.name).toBe('Jane')
+      expect(again.nested.age).toBe(40)
+    })
+
+    it('should NOT mutate cache when clone is true', async () => {
+      const obj = { name: 'John', nested: { age: 30 } }
+      await cache.set('user', obj)
+
+      const retrieved = await cache.get('user', { clone: true })
+      retrieved.name = 'Jane'
+      retrieved.nested.age = 40
+
+      const again = await cache.get('user')
+      expect(again.name).toBe('John')
+      expect(again.nested.age).toBe(30)
+    })
+
+    it('should clone arrays', async () => {
+      await cache.set('items', [1, 2, 3])
+      const arr = await cache.get('items', { clone: true })
+      arr.push(4)
+
+      const original = await cache.get('items')
+      expect(original).toEqual([1, 2, 3])
+    })
+
+    it('should clone in getOrSet', async () => {
+      const loaded = await cache.getOrSet('key', () => ({ name: 'Alice' }), {
+        clone: true,
+      })
+      loaded.name = 'Bob'
+
+      const cached = await cache.get('key')
+      expect(cached.name).toBe('Alice')
+    })
+
+    it('should fallback to original if cloning fails', async () => {
+      const fn = () => 'test'
+      await cache.set('fn', fn)
+
+      const result = await cache.get('fn', { clone: true })
+      expect(result).toBe(fn)
+    })
+  })
 })

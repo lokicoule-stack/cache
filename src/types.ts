@@ -59,7 +59,12 @@ export interface SetOptions {
   tags?: string[]
 }
 
-export interface GetSetOptions extends SetOptions {
+export interface GetOptions {
+  /** If true, return a deep clone of the cached value to prevent mutations */
+  clone?: boolean
+}
+
+export interface GetSetOptions extends SetOptions, GetOptions {
   /** SWR timeout in ms. 0 = return stale immediately, refresh in background */
   timeout?: Duration
   /** If true, abort fetch on timeout. If false (default), let it continue in background */

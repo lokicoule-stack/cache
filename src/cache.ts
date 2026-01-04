@@ -6,7 +6,7 @@ import { createEventEmitter, type EventEmitter } from './utils/events'
 import { withRetry } from './utils/retry'
 import { withSwr } from './utils/swr'
 
-import type { CacheConfig, SetOptions, GetSetOptions, Loader } from './types'
+import type { CacheConfig, SetOptions, GetOptions, GetSetOptions, Loader } from './types'
 
 const DEFAULT_STALE_TIME = 60_000
 
@@ -66,7 +66,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     this.#stack.clearL1()
   }
 
-  async get<K extends keyof T & string>(key: K): Promise<T[K] | undefined> {
+  async get<K extends keyof T & string>(key: K, options?: GetOptions): Promise<T[K] | undefined> {
     const result = await this.#stack.get(key)
 
     if (!result.entry || result.entry.isGced()) {
@@ -82,7 +82,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
       graced: result.entry.isStale(),
     })
 
-    return result.entry.value as T[K]
+    return this.#maybeClone(result.entry.value as T[K], options?.clone)
   }
 
   async set<K extends keyof T & string>(key: K, value: T[K], options?: SetOptions): Promise<void> {
@@ -99,32 +99,34 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     loader: Loader<T[K]>,
     options?: GetSetOptions,
   ): Promise<T[K]> {
+    let value: T[K]
+
     if (options?.fresh) {
-      return this.#dedup(key, () => this.#loadAndStore(key, loader, options))
-    }
+      value = await this.#dedup(key, () => this.#loadAndStore(key, loader, options))
+    } else {
+      const result = await this.#stack.get(key)
 
-    const result = await this.#stack.get(key)
+      if (result.entry && !result.entry.isStale()) {
+        if (options?.eagerRefresh && result.entry.isNearExpiration(options.eagerRefresh)) {
+          void this.#dedup(key, () => this.#loadAndStore(key, loader, options)).catch(() => {})
+        }
 
-    if (result.entry && !result.entry.isStale()) {
-      if (options?.eagerRefresh && result.entry.isNearExpiration(options.eagerRefresh)) {
-        void this.#dedup(key, () => this.#loadAndStore(key, loader, options)).catch(() => {})
+        this.#emitter.emit('hit', {
+          key,
+          store: this.#storeName,
+          driver: result.source ?? 'unknown',
+          graced: false,
+        })
+
+        value = result.entry.value as T[K]
+      } else if (result.entry && !result.entry.isGced()) {
+        value = await this.#handleSwr(key, result.entry, loader, options)
+      } else {
+        value = await this.#dedup(key, () => this.#loadAndStore(key, loader, options))
       }
-
-      this.#emitter.emit('hit', {
-        key,
-        store: this.#storeName,
-        driver: result.source ?? 'unknown',
-        graced: false,
-      })
-
-      return result.entry.value as T[K]
     }
 
-    if (result.entry && !result.entry.isGced()) {
-      return this.#handleSwr(key, result.entry, loader, options)
-    }
-
-    return this.#dedup(key, () => this.#loadAndStore(key, loader, options))
+    return this.#maybeClone(value, options?.clone)
   }
 
   async pull<K extends keyof T & string>(key: K): Promise<T[K] | undefined> {
@@ -244,6 +246,17 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
     const fn = () => Promise.resolve(loader(loaderSignal))
 
     return retries > 0 ? withRetry(fn, retries) : fn()
+  }
+
+  #maybeClone<V>(value: V, clone?: boolean): V {
+    if (!clone) {
+      return value
+    }
+    try {
+      return structuredClone(value)
+    } catch {
+      return value
+    }
   }
 }
 
