@@ -8,12 +8,12 @@ export async function withRetry<T>(fn: () => Promise<T>, retries: number): Promi
     try {
       return await fn()
     } catch (err) {
-      lastError = err as Error
+      lastError = err instanceof Error ? err : new Error(String(err))
       if (attempt < maxAttempts - 1) {
         await sleep(100 * Math.pow(2, attempt))
       }
     }
   }
 
-  throw lastError
+  throw lastError ?? new Error('Retry failed without error')
 }

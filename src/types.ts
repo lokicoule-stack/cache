@@ -77,6 +77,14 @@ export interface GetSetOptions extends SetOptions, GetOptions {
 
 export type Loader<T> = (signal: AbortSignal) => Promise<T> | T
 
+export type InferLoaderReturn<L> = L extends Loader<infer R> ? Awaited<R> : never
+
+/**
+ * Returns K only if K is NOT in keyof T (for specific schemas).
+ * For generic schemas (Record<string, unknown>), allows any string key.
+ */
+export type StrictKey<T, K extends string> = string extends keyof T ? K : K extends keyof T ? never : K
+
 export type CacheEventType = keyof CacheEventMap
 
 export interface CacheHitEvent {

@@ -1,5 +1,6 @@
 // Core
 export { Cache, createCache } from './cache'
+export { CacheBackplane } from './backplane'
 export { CacheEntry } from './entry'
 export { CacheError } from './errors'
 export { CacheManager, createCacheManager } from './manager'

@@ -4,6 +4,10 @@ import { TagIndex } from './utils/tags'
 import type { CacheEntry } from './entry'
 import type { SyncDriver, AsyncDriver } from './types'
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
 const DEFAULT_CIRCUIT_BREAK_DURATION = 30_000
 
 export interface StackConfig {
@@ -13,31 +17,243 @@ export interface StackConfig {
   circuitBreakerDuration?: number
 }
 
-interface L2Remote {
-  driver: AsyncDriver
-  cb: CircuitBreaker
-}
-
-interface InternalConfig {
-  l1?: SyncDriver
-  l2: L2Remote[]
-  prefix: string
-  tags: TagIndex
-  cbDuration: number
-}
-
 export interface LookupResult {
   entry?: CacheEntry
   source?: string
   graced?: boolean
 }
 
+interface SyncLayer {
+  readonly name: string
+  get(key: string): CacheEntry | undefined
+  getMany(keys: string[]): Map<string, CacheEntry>
+  set(key: string, entry: CacheEntry): void
+  delete(key: string): boolean
+  deleteMany(keys: string[]): number
+  has(key: string): boolean
+  clear(): void
+}
+
+interface AsyncLayer {
+  readonly name: string
+  readonly driver: AsyncDriver
+  get(key: string): Promise<CacheEntry | undefined>
+  getMany(keys: string[]): Promise<Map<string, CacheEntry>>
+  set(key: string, entry: CacheEntry): Promise<void>
+  delete(key: string): Promise<boolean>
+  deleteMany(keys: string[]): Promise<number>
+  has(key: string): Promise<boolean>
+  clear(): Promise<void>
+}
+
+interface GuardedLayer {
+  layer: AsyncLayer
+  cb: CircuitBreaker
+}
+
+interface InternalConfig {
+  l1?: SyncLayer
+  layers: GuardedLayer[]
+  prefix: string
+  tags: TagIndex
+  cbDuration: number
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Wraps a SyncDriver to provide a consistent interface with batch operations
+ */
+function wrapSyncDriver(driver: SyncDriver): SyncLayer {
+  return {
+    name: driver.name,
+
+    get(key) {
+      return driver.get(key)
+    },
+
+    getMany(keys) {
+      if (driver.getMany) {
+        return driver.getMany(keys)
+      }
+
+      const result = new Map<string, CacheEntry>()
+
+      for (const k of keys) {
+        const entry = driver.get(k)
+
+        if (entry) {
+          result.set(k, entry)
+        }
+      }
+
+      return result
+    },
+
+    set(key, entry) {
+      driver.set(key, entry)
+    },
+
+    delete(key) {
+      return driver.delete(key)
+    },
+
+    deleteMany(keys) {
+      if (driver.deleteMany) {
+        return driver.deleteMany(keys)
+      }
+
+      let count = 0
+
+      for (const k of keys) {
+        if (driver.delete(k)) {
+          count++
+        }
+      }
+
+      return count
+    },
+
+    has(key) {
+      return driver.has(key)
+    },
+
+    clear() {
+      driver.clear()
+    },
+  }
+}
+
+/**
+ * Wraps an AsyncDriver to provide a consistent interface with batch operations
+ */
+function wrapAsyncDriver(driver: AsyncDriver): AsyncLayer {
+  return {
+    name: driver.name,
+    driver,
+
+    async get(key) {
+      return driver.get(key)
+    },
+
+    async getMany(keys) {
+      if (driver.getMany) {
+        return driver.getMany(keys)
+      }
+
+      const entries = await Promise.all(keys.map((k) => driver.get(k)))
+      const result = new Map<string, CacheEntry>()
+
+      for (let i = 0; i < keys.length; i++) {
+        const entry = entries[i]
+
+        if (entry) {
+          result.set(keys[i], entry)
+        }
+      }
+
+      return result
+    },
+
+    async set(key, entry) {
+      await driver.set(key, entry)
+    },
+
+    async delete(key) {
+      return driver.delete(key)
+    },
+
+    async deleteMany(keys) {
+      if (driver.deleteMany) {
+        return driver.deleteMany(keys)
+      }
+
+      const deleted = await Promise.all(keys.map((k) => driver.delete(k)))
+
+      return deleted.filter(Boolean).length
+    },
+
+    async has(key) {
+      return driver.has(key)
+    },
+
+    async clear() {
+      await driver.clear()
+    },
+  }
+}
+
+/**
+ * Executes an async operation with circuit breaker protection
+ * Returns fallback value if circuit is open or operation fails
+ */
+async function guardedCall<T>(
+  cb: CircuitBreaker,
+  fn: () => Promise<T>,
+  fallback: T,
+): Promise<T> {
+  if (cb.isOpen()) {
+    return fallback
+  }
+
+  try {
+    return await fn()
+  } catch {
+    cb.open()
+
+    return fallback
+  }
+}
+
+/**
+ * Creates a backfill function that populates upper layers when a hit occurs in a lower layer
+ */
+function createBackfill(l1: SyncLayer | undefined, layers: GuardedLayer[]) {
+  return (key: string, entry: CacheEntry, sourceIndex: number): void => {
+    // Backfill L1 if exists and source is not L1
+    if (l1 && sourceIndex > 0) {
+      l1.set(key, entry)
+    }
+
+    // Backfill L2 layers above the source
+    const l2StartIndex = l1 ? 1 : 0
+
+    for (let i = l2StartIndex; i < sourceIndex; i++) {
+      const guarded = layers[i - l2StartIndex]
+
+      if (!guarded.cb.isOpen()) {
+        void guardedCall(guarded.cb, () => guarded.layer.set(key, entry), undefined)
+      }
+    }
+  }
+}
+
+// ============================================================================
+// CACHE STACK
+// ============================================================================
+
+/**
+ * Multi-layer cache storage stack with L1 (sync) and L2 (async) tiers.
+ *
+ * Features:
+ * - L1: Fast synchronous memory layer
+ * - L2: Multiple async storage drivers (Redis, etc.)
+ * - Automatic backfill from lower to upper layers on cache hit
+ * - Circuit breaker protection for L2 layer failures
+ * - Tag-based invalidation tracking
+ *
+ * @internal
+ * This class is primarily used internally by Cache and CacheManager.
+ */
 export class CacheStack {
-  readonly #l1?: SyncDriver
-  readonly #l2: L2Remote[]
+  readonly #l1?: SyncLayer
+  readonly #layers: GuardedLayer[]
   readonly #prefix: string
   readonly #tags: TagIndex
   readonly #cbDuration: number
+  readonly #backfill: ReturnType<typeof createBackfill>
 
   constructor(config: StackConfig)
   constructor(internal: InternalConfig, isInternal: true)
@@ -46,31 +262,48 @@ export class CacheStack {
       const internal = config as InternalConfig
 
       this.#l1 = internal.l1
-      this.#l2 = internal.l2
+      this.#layers = internal.layers
       this.#prefix = internal.prefix
       this.#tags = internal.tags
       this.#cbDuration = internal.cbDuration
     } else {
       const external = config as StackConfig
+      const cbDuration = external.circuitBreakerDuration ?? DEFAULT_CIRCUIT_BREAK_DURATION
 
-      this.#l1 = external.l1
+      this.#l1 = external.l1 ? wrapSyncDriver(external.l1) : undefined
+      this.#layers = []
+
+      for (const driver of external.l2 ?? []) {
+        this.#layers.push({
+          layer: wrapAsyncDriver(driver),
+          cb: createCircuitBreaker(cbDuration),
+        })
+      }
+
       this.#prefix = external.prefix ?? ''
       this.#tags = new TagIndex()
-      this.#cbDuration = external.circuitBreakerDuration ?? DEFAULT_CIRCUIT_BREAK_DURATION
-      this.#l2 = (external.l2 ?? []).map((driver) => ({
-        driver,
-        cb: createCircuitBreaker(this.#cbDuration),
-      }))
+      this.#cbDuration = cbDuration
     }
+
+    this.#backfill = createBackfill(this.#l1, this.#layers)
   }
 
+  /**
+   * Get names of all configured drivers.
+   * Useful for debugging and telemetry.
+   */
   get driverNames(): { l1?: string; l2: string[] } {
     return {
       l1: this.#l1?.name,
-      l2: this.#l2.map((r) => r.driver.name),
+      l2: this.#layers.map((g) => g.layer.name),
     }
   }
 
+  /**
+   * Invalidate specific keys from L1 (memory) layer only.
+   *
+   * @param keys - Keys to invalidate (without prefix)
+   */
   invalidateL1(...keys: string[]): void {
     if (!this.#l1 || keys.length === 0) {
       return
@@ -78,16 +311,29 @@ export class CacheStack {
 
     const prefixedKeys = keys.map((k) => this.#key(k))
 
-    this.#syncDeleteFallback(prefixedKeys)
+    this.#l1.deleteMany(prefixedKeys)
   }
 
+  /**
+   * Clear entire L1 (memory) layer.
+   */
   clearL1(): void {
-    this.#l1?.clear()
+    if (this.#l1) {
+      this.#l1.clear()
+    }
   }
 
+  /**
+   * Get entry from cache layers (L1 then L2).
+   * Automatically backfills upper layers on lower-layer hit.
+   *
+   * @param key - Cache key (without prefix)
+   * @returns Lookup result with entry, source, and graced status
+   */
   async get(key: string): Promise<LookupResult> {
     const k = this.#key(key)
 
+    // Check L1 (sync)
     if (this.#l1) {
       const entry = this.#l1.get(k)
 
@@ -96,29 +342,30 @@ export class CacheStack {
       }
     }
 
-    for (let i = 0; i < this.#l2.length; i++) {
-      const remote = this.#l2[i]
+    // Check L2 layers (async)
+    for (let i = 0; i < this.#layers.length; i++) {
+      const guarded = this.#layers[i]
+      const entry = await guardedCall(guarded.cb, () => guarded.layer.get(k), undefined)
 
-      if (remote.cb.isOpen()) {
-        continue
-      }
+      if (entry && !entry.isGced()) {
+        const sourceIndex = (this.#l1 ? 1 : 0) + i
 
-      try {
-        const entry = await remote.driver.get(k)
+        this.#backfill(k, entry, sourceIndex)
 
-        if (entry && !entry.isGced()) {
-          this.#backfill(k, entry, i)
-
-          return { entry, source: remote.driver.name, graced: entry.isStale() }
-        }
-      } catch {
-        remote.cb.open()
+        return { entry, source: guarded.layer.name, graced: entry.isStale() }
       }
     }
 
     return {}
   }
 
+  /**
+   * Get multiple entries from cache layers (batch operation).
+   * More efficient than calling get() multiple times.
+   *
+   * @param keys - Cache keys (without prefix)
+   * @returns Map of key to lookup result
+   */
   async getMany(keys: string[]): Promise<Map<string, LookupResult>> {
     const results = new Map<string, LookupResult>()
 
@@ -130,57 +377,67 @@ export class CacheStack {
     const keyMap = new Map(keys.map((k, i) => [prefixedKeys[i], k]))
     let pending = [...prefixedKeys]
 
-    // L1
+    // Check L1 (sync)
     if (this.#l1 && pending.length > 0) {
-      const hits = this.#l1.getMany?.(pending) ?? this.#syncGetFallback(pending)
+      const hits = this.#l1.getMany(pending)
 
       for (const [pk, entry] of hits) {
         if (!entry.isGced()) {
           const originalKey = keyMap.get(pk)
 
           if (originalKey) {
-            results.set(originalKey, { entry, source: this.#l1.name, graced: entry.isStale() })
+            results.set(originalKey, {
+              entry,
+              source: this.#l1.name,
+              graced: entry.isStale(),
+            })
+
             pending = pending.filter((k) => k !== pk)
           }
         }
       }
     }
 
-    // L2
-    for (let i = 0; i < this.#l2.length && pending.length > 0; i++) {
-      const remote = this.#l2[i]
+    // Check L2 layers (async)
+    for (let i = 0; i < this.#layers.length && pending.length > 0; i++) {
+      const guarded = this.#layers[i]
+      const hits = await guardedCall(
+        guarded.cb,
+        () => guarded.layer.getMany(pending),
+        new Map<string, CacheEntry>(),
+      )
 
-      if (remote.cb.isOpen()) {
-        continue
-      }
+      for (const [pk, entry] of hits.entries()) {
+        if (!entry.isGced()) {
+          const originalKey = keyMap.get(pk)
 
-      try {
-        const hits = await (remote.driver.getMany?.(pending) ??
-          this.#asyncGetFallback(remote.driver, pending))
+          if (originalKey) {
+            const sourceIndex = (this.#l1 ? 1 : 0) + i
 
-        for (const [pk, entry] of hits) {
-          if (!entry.isGced()) {
-            const originalKey = keyMap.get(pk)
+            results.set(originalKey, {
+              entry,
+              source: guarded.layer.name,
+              graced: entry.isStale(),
+            })
 
-            if (originalKey) {
-              results.set(originalKey, {
-                entry,
-                source: remote.driver.name,
-                graced: entry.isStale(),
-              })
-              this.#backfill(pk, entry, i)
-              pending = pending.filter((k) => k !== pk)
-            }
+            this.#backfill(pk, entry, sourceIndex)
+
+            pending = pending.filter((k) => k !== pk)
           }
         }
-      } catch {
-        remote.cb.open()
       }
     }
 
     return results
   }
 
+  /**
+   * Set entry in all cache layers (L1 and L2).
+   * Registers tags for invalidation tracking.
+   *
+   * @param key - Cache key (without prefix)
+   * @param entry - Cache entry to store
+   */
   async set(key: string, entry: CacheEntry): Promise<void> {
     const k = this.#key(key)
 
@@ -188,22 +445,25 @@ export class CacheStack {
       this.#tags.register(k, entry.tags)
     }
 
-    this.#l1?.set(k, entry)
+    // Set in L1 (sync)
+    if (this.#l1) {
+      this.#l1.set(k, entry)
+    }
 
+    // Set in L2 layers (async, fire-and-forget)
     await Promise.all(
-      this.#l2.map(async (remote) => {
-        if (remote.cb.isOpen()) {
-          return
-        }
-        try {
-          await remote.driver.set(k, entry)
-        } catch {
-          remote.cb.open()
-        }
-      }),
+      this.#layers.map((guarded) =>
+        guardedCall(guarded.cb, () => guarded.layer.set(k, entry), undefined),
+      ),
     )
   }
 
+  /**
+   * Delete keys from all cache layers.
+   *
+   * @param keys - Keys to delete (without prefix)
+   * @returns Maximum deletion count across all layers
+   */
   async delete(...keys: string[]): Promise<number> {
     if (keys.length === 0) {
       return 0
@@ -215,50 +475,75 @@ export class CacheStack {
       this.#tags.unregister(k)
     }
 
-    return this.#deleteKeys(prefixedKeys)
+    const counts: number[] = []
+
+    // Delete from L1 (sync)
+    if (this.#l1) {
+      counts.push(this.#l1.deleteMany(prefixedKeys))
+    }
+
+    // Delete from L2 layers (async)
+    const l2Counts = await Promise.all(
+      this.#layers.map((guarded) =>
+        guardedCall(guarded.cb, () => guarded.layer.deleteMany(prefixedKeys), 0),
+      ),
+    )
+
+    counts.push(...l2Counts)
+
+    return Math.max(...counts, 0)
   }
 
+  /**
+   * Check if key exists in any cache layer.
+   *
+   * @param key - Cache key (without prefix)
+   * @returns true if key exists in L1 or any L2 layer
+   */
   async has(key: string): Promise<boolean> {
     const k = this.#key(key)
 
-    if (this.#l1?.has(k)) {
+    // Check L1 (sync)
+    if (this.#l1 && this.#l1.has(k)) {
       return true
     }
 
-    for (const remote of this.#l2) {
-      if (remote.cb.isOpen()) {
-        continue
-      }
-      try {
-        if (await remote.driver.has(k)) {
-          return true
-        }
-      } catch {
-        remote.cb.open()
+    // Check L2 layers (async)
+    for (const guarded of this.#layers) {
+      const exists = await guardedCall(guarded.cb, () => guarded.layer.has(k), false)
+
+      if (exists) {
+        return true
       }
     }
 
     return false
   }
 
+  /**
+   * Clear all entries from all cache layers.
+   * Removes all keys and tag index.
+   */
   async clear(): Promise<void> {
     this.#tags.clear()
-    this.#l1?.clear()
 
+    // Clear L1 (sync)
+    if (this.#l1) {
+      this.#l1.clear()
+    }
+
+    // Clear L2 layers (async)
     await Promise.all(
-      this.#l2.map(async (remote) => {
-        if (remote.cb.isOpen()) {
-          return
-        }
-        try {
-          await remote.driver.clear()
-        } catch {
-          remote.cb.open()
-        }
-      }),
+      this.#layers.map((guarded) => guardedCall(guarded.cb, () => guarded.layer.clear(), undefined)),
     )
   }
 
+  /**
+   * Invalidate all entries with specified tags.
+   *
+   * @param tags - Tags to invalidate
+   * @returns Maximum deletion count across all layers
+   */
   async invalidateTags(tags: string[]): Promise<number> {
     const keys = [...this.#tags.invalidate(tags)]
 
@@ -266,16 +551,37 @@ export class CacheStack {
       return 0
     }
 
-    return this.#deleteKeys(keys)
+    const counts: number[] = []
+
+    // Delete from L1 (sync)
+    if (this.#l1) {
+      counts.push(this.#l1.deleteMany(keys))
+    }
+
+    // Delete from L2 layers (async)
+    const l2Counts = await Promise.all(
+      this.#layers.map((guarded) => guardedCall(guarded.cb, () => guarded.layer.deleteMany(keys), 0)),
+    )
+
+    counts.push(...l2Counts)
+
+    return Math.max(...counts, 0)
   }
 
+  /**
+   * Create a namespaced stack that shares the same storage layers.
+   * Keys are prefixed with the namespace to avoid collisions.
+   *
+   * @param prefix - Namespace prefix
+   * @returns New CacheStack instance with prefixed keys
+   */
   namespace(prefix: string): CacheStack {
     const newPrefix = this.#prefix ? `${this.#prefix}:${prefix}` : prefix
 
     return new CacheStack(
       {
         l1: this.#l1,
-        l2: this.#l2,
+        layers: this.#layers,
         prefix: newPrefix,
         tags: this.#tags,
         cbDuration: this.#cbDuration,
@@ -284,120 +590,33 @@ export class CacheStack {
     )
   }
 
+  /**
+   * Connect to all L2 drivers.
+   * L1 memory layer doesn't require connection.
+   */
   async connect(): Promise<void> {
+    // L2 layers only (L1 memory doesn't need connection)
     await Promise.all(
-      this.#l2.map((r) => r.driver.connect?.()).filter((p): p is Promise<void> => p !== undefined),
-    )
-  }
-
-  async disconnect(): Promise<void> {
-    await Promise.all(
-      this.#l2
-        .map((r) => r.driver.disconnect?.())
+      this.#layers
+        .map((g) => g.layer.driver.connect?.())
         .filter((p): p is Promise<void> => p !== undefined),
     )
   }
 
-  #backfill(key: string, entry: CacheEntry, sourceIndex: number): void {
-    this.#l1?.set(key, entry)
-
-    for (let i = 0; i < sourceIndex; i++) {
-      const remote = this.#l2[i]
-
-      if (!remote.cb.isOpen()) {
-        remote.driver.set(key, entry).catch(() => remote.cb.open())
-      }
-    }
+  /**
+   * Disconnect from all L2 drivers.
+   * L1 memory layer doesn't require disconnection.
+   */
+  async disconnect(): Promise<void> {
+    // L2 layers only (L1 memory doesn't need disconnection)
+    await Promise.all(
+      this.#layers
+        .map((g) => g.layer.driver.disconnect?.())
+        .filter((p): p is Promise<void> => p !== undefined),
+    )
   }
 
   #key(key: string): string {
     return this.#prefix ? `${this.#prefix}:${key}` : key
-  }
-
-  async #deleteKeys(prefixedKeys: string[]): Promise<number> {
-    let count = this.#syncDeleteFallback(prefixedKeys)
-
-    const results = await Promise.all(
-      this.#l2.map(async (remote) => {
-        if (remote.cb.isOpen()) {
-          return 0
-        }
-
-        try {
-          return await this.#asyncDeleteFallback(remote.driver, prefixedKeys)
-        } catch {
-          remote.cb.open()
-
-          return 0
-        }
-      }),
-    )
-
-    for (const r of results) {
-      if (r > count) {
-        count = r
-      }
-    }
-
-    return count
-  }
-
-  #syncGetFallback(keys: string[]): Map<string, CacheEntry> {
-    const result = new Map<string, CacheEntry>()
-
-    for (const k of keys) {
-      const entry = this.#l1?.get(k)
-
-      if (entry) {
-        result.set(k, entry)
-      }
-    }
-
-    return result
-  }
-
-  async #asyncGetFallback(driver: AsyncDriver, keys: string[]): Promise<Map<string, CacheEntry>> {
-    const entries = await Promise.all(keys.map((k) => driver.get(k)))
-    const result = new Map<string, CacheEntry>()
-
-    for (let i = 0; i < keys.length; i++) {
-      const entry = entries[i]
-
-      if (entry) {
-        result.set(keys[i], entry)
-      }
-    }
-
-    return result
-  }
-
-  #syncDeleteFallback(keys: string[]): number {
-    if (!this.#l1) {
-      return 0
-    }
-
-    if (this.#l1.deleteMany) {
-      return this.#l1.deleteMany(keys)
-    }
-
-    let count = 0
-
-    for (const k of keys) {
-      if (this.#l1.delete(k)) {
-        count++
-      }
-    }
-
-    return count
-  }
-
-  async #asyncDeleteFallback(driver: AsyncDriver, keys: string[]): Promise<number> {
-    if (driver.deleteMany) {
-      return await driver.deleteMany(keys)
-    }
-
-    const deleted = await Promise.all(keys.map((k) => driver.delete(k)))
-
-    return deleted.filter(Boolean).length
   }
 }
