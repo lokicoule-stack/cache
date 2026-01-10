@@ -20,29 +20,14 @@ interface InternalConfig {
 }
 
 /**
- * Core cache instance with L1/L2 tiered storage.
+ * Internal cache implementation (runtime layer).
  *
- * Features:
- * - Multi-layer caching (L1 sync memory + L2 async drivers)
- * - Stale-while-revalidate (SWR) pattern
- * - Request deduplication
- * - Tag-based invalidation
- * - Circuit breaker protection for L2 failures
+ * This class is type-agnostic and manipulates `unknown` values only.
+ * Type safety is provided via interface projection (Cache<T> / GenericCache).
  *
- * @example
- * ```ts
- * const cache = new Cache({
- *   l1: memoryDriver(),
- *   l2: redisDriver({ host: 'localhost' }),
- *   staleTime: '5m',
- *   gcTime: '1h'
- * })
- *
- * await cache.set('user:1', { name: 'Alice' })
- * const user = await cache.get('user:1')
- * ```
+ * @internal This class is not exported - use createCache() factory instead.
  */
-export class Cache<T extends Record<string, unknown> = Record<string, unknown>> {
+export class InternalCache {
   readonly #stack: CacheStack
   readonly #emitter: EventEmitter
   readonly #dedup: ReturnType<typeof createDedup>
@@ -112,8 +97,6 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
    * const clonedUser = await cache.get('user:1', { clone: true })
    * ```
    */
-  async get<K extends keyof T & string>(key: K, options?: GetOptions): Promise<T[K] | undefined>
-  async get<V>(key: string, options?: GetOptions): Promise<V | undefined>
   async get(key: string, options?: GetOptions): Promise<unknown> {
     const result = await this.#stack.get(key)
 
@@ -146,8 +129,6 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
    * await cache.set('user:1', user, { staleTime: '5m', tags: ['user'] })
    * ```
    */
-  async set<K extends keyof T & string>(key: K, value: T[K], options?: SetOptions): Promise<void>
-  async set<V>(key: string, value: V, options?: SetOptions): Promise<void>
   async set(key: string, value: unknown, options?: SetOptions): Promise<void> {
     const staleTime = parseOptionalDuration(options?.staleTime) ?? this.#defaultStaleTime
     const gcTime = parseOptionalDuration(options?.gcTime) ?? this.#defaultGcTime
@@ -177,13 +158,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
    * }, { staleTime: '5m', retries: 2 })
    * ```
    */
-  async getOrSet<K extends keyof T & string>(
-    key: K,
-    loader: Loader<T[K]>,
-    options?: GetSetOptions,
-  ): Promise<T[K]>
-  async getOrSet<V>(key: string, loader: Loader<V>, options?: GetSetOptions): Promise<V>
-  async getOrSet(key: string, loader: Loader<unknown>, options?: GetSetOptions) {
+  async getOrSet(key: string, loader: Loader<unknown>, options?: GetSetOptions): Promise<unknown> {
     let value: unknown
 
     if (options?.fresh) {
@@ -225,8 +200,6 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
    * const token = await cache.pull('one-time-token:abc')
    * ```
    */
-  async pull<K extends keyof T & string>(key: K): Promise<T[K] | undefined>
-  async pull<V>(key: string): Promise<V | undefined>
   async pull(key: string): Promise<unknown> {
     const value = await this.get(key)
 
@@ -317,7 +290,7 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
    * Keys are prefixed with the namespace to avoid collisions.
    *
    * @param prefix - Namespace prefix
-   * @returns New Cache instance with prefixed keys
+   * @returns New InternalCache instance with prefixed keys
    *
    * @example
    * ```ts
@@ -325,8 +298,8 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
    * await userCache.set('1', { name: 'Alice' }) // Stored as 'users:1'
    * ```
    */
-  namespace(prefix: string): Cache<T> {
-    return new Cache<T>(
+  namespace(prefix: string): InternalCache {
+    return new InternalCache(
       {
         stack: this.#stack.namespace(prefix),
         emitter: this.#emitter,
@@ -419,8 +392,84 @@ export class Cache<T extends Record<string, unknown> = Record<string, unknown>> 
   }
 }
 
-export function createCache<T extends Record<string, unknown> = Record<string, unknown>>(
+// ============================================================================
+// PUBLIC API - Type Projections
+// ============================================================================
+
+/**
+ * Typed cache interface with schema-based type safety.
+ * Keys and values are typed based on the provided schema.
+ */
+export interface Cache<T extends Record<string, unknown>> {
+  get<K extends keyof T & string>(key: K, options?: GetOptions): Promise<T[K] | undefined>
+  set<K extends keyof T & string>(key: K, value: T[K], options?: SetOptions): Promise<void>
+  getOrSet<K extends keyof T & string>(
+    key: K,
+    loader: Loader<T[K]>,
+    options?: GetSetOptions,
+  ): Promise<T[K]>
+  pull<K extends keyof T & string>(key: K): Promise<T[K] | undefined>
+
+  expire(key: string): Promise<boolean>
+  delete(...keys: string[]): Promise<number>
+  has(key: string): Promise<boolean>
+  clear(): Promise<void>
+  invalidateTags(tags: string[]): Promise<number>
+  invalidateL1(...keys: string[]): void
+  clearL1(): void
+  namespace(prefix: string): Cache<T>
+  connect(): Promise<void>
+  disconnect(): Promise<void>
+}
+
+/**
+ * Generic cache interface with dynamic type parameters.
+ * All keys are strings, values are typed per-operation.
+ */
+export interface GenericCache {
+  get<V>(key: string, options?: GetOptions): Promise<V | undefined>
+  set(key: string, value: unknown, options?: SetOptions): Promise<void>
+  getOrSet<V>(key: string, loader: Loader<V>, options?: GetSetOptions): Promise<V>
+  pull<V>(key: string): Promise<V | undefined>
+
+  expire(key: string): Promise<boolean>
+  delete(...keys: string[]): Promise<number>
+  has(key: string): Promise<boolean>
+  clear(): Promise<void>
+  invalidateTags(tags: string[]): Promise<number>
+  invalidateL1(...keys: string[]): void
+  clearL1(): void
+  namespace(prefix: string): GenericCache
+  connect(): Promise<void>
+  disconnect(): Promise<void>
+}
+
+// ============================================================================
+// FACTORY - Compile-time Mode Selection via Overloads
+// ============================================================================
+
+/**
+ * Create a generic cache instance with dynamic typing.
+ * @example
+ * ```ts
+ * const cache = createCache()
+ * const user = await cache.get<User>('user:1')
+ * ```
+ */
+export function createCache(config?: CacheConfig): GenericCache
+
+/**
+ * Create a typed cache instance with schema-based type safety.
+ * @example
+ * ```ts
+ * const cache = createCache<{ user: User; session: Session }>()
+ * const user = await cache.get('user') // Type: User | undefined
+ * ```
+ */
+export function createCache<T extends Record<string, unknown>>(config?: CacheConfig): Cache<T>
+
+export function createCache<T extends Record<string, unknown>>(
   config: CacheConfig = {},
-): Cache<T> {
-  return new Cache<T>(config)
+): Cache<T> | GenericCache {
+  return new InternalCache(config) as Cache<T> | GenericCache
 }

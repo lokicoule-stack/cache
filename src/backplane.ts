@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
-import type { Cache } from './cache'
+import type { InternalCache } from './cache'
 import type { CacheBusSchema } from './manager'
 import type { MessageBus } from '@lokiverse/bus'
 
 /**
- * CacheBackplane wraps a Cache instance to add distributed synchronization
+ * CacheBackplane wraps an InternalCache instance to add distributed synchronization
  * via MessageBus. It intercepts mutation operations (delete, invalidateTags, clear)
  * to publish events to other instances, and subscribes to sync L1 invalidations.
  *
@@ -12,13 +12,15 @@ import type { MessageBus } from '@lokiverse/bus'
  * - Read operations: delegate directly to .cache (no overhead)
  * - Write operations: execute locally + publish to bus for cross-instance sync
  * - L1 invalidation: handled via bus subscriptions (L2 is already shared)
+ *
+ * @internal This class is used internally by CacheManager
  */
-export class CacheBackplane<T extends Record<string, unknown> = Record<string, unknown>> {
-  readonly cache: Cache<T>
+export class CacheBackplane {
+  readonly cache: InternalCache
   readonly name: string
   readonly #bus: MessageBus<CacheBusSchema>
 
-  constructor(name: string, cache: Cache<T>, bus: MessageBus<CacheBusSchema>) {
+  constructor(name: string, cache: InternalCache, bus: MessageBus<CacheBusSchema>) {
     this.name = name
     this.cache = cache
     this.#bus = bus
@@ -71,7 +73,7 @@ export class CacheBackplane<T extends Record<string, unknown> = Record<string, u
   /**
    * Create namespaced backplane that shares the same bus
    */
-  namespace(prefix: string): CacheBackplane<T> {
+  namespace(prefix: string): CacheBackplane {
     return new CacheBackplane(this.name, this.cache.namespace(prefix), this.#bus)
   }
 

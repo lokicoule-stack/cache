@@ -1,12 +1,24 @@
-// Core
-export { Cache, createCache } from './cache'
-export { CacheBackplane } from './backplane'
+// Core - Public API (Type Projections)
+export {
+  createCache,
+  type Cache,
+  type GenericCache,
+} from './cache'
+
+export {
+  createCacheManager,
+  type CacheManager,
+  type GenericCacheManager,
+  type CacheBusSchema,
+} from './manager'
+
 export { CacheEntry } from './entry'
 export { CacheError } from './errors'
-export { CacheManager, createCacheManager } from './manager'
 
-// Bus
-export { type CacheBusSchema } from './manager'
+// Internal classes (not exported)
+// - InternalCache
+// - InternalCacheManager
+// - CacheBackplane
 
 // Drivers
 export {

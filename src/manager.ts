@@ -1,7 +1,7 @@
 import { MessageBus, type BusSchema } from '@lokiverse/bus'
 
 import { CacheBackplane } from './backplane'
-import { Cache } from './cache'
+import { InternalCache, type Cache, type GenericCache } from './cache'
 import { createDefaultMemory } from './drivers/memory'
 import { parseOptionalDuration } from './duration'
 import { CacheError } from './errors'
@@ -9,7 +9,15 @@ import { CacheStack } from './stack'
 import { createDedup } from './utils/dedup'
 import { createEventEmitter, type EventEmitter } from './utils/events'
 
-import type { CacheManagerConfig, AsyncDriver, SyncDriver } from './types'
+import type {
+  CacheManagerConfig,
+  AsyncDriver,
+  SyncDriver,
+  GetOptions,
+  SetOptions,
+  GetSetOptions,
+  Loader,
+} from './types'
 
 const DEFAULT_STALE_TIME = 60_000
 
@@ -30,32 +38,16 @@ interface SharedConfig {
 }
 
 /**
- * Central cache manager that orchestrates multiple cache stores.
+ * Internal cache manager implementation (runtime layer).
  *
- * Supports:
- * - Multiple named stores with different driver configurations
- * - Distributed cache synchronization via MessageBus
- * - Shared L1 memory layer across stores (optional)
- * - Circuit breaker protection for L2 drivers
+ * This class is type-agnostic and manipulates `unknown` values only.
+ * Type safety is provided via interface projection (CacheManager<T> / GenericCacheManager).
  *
- * @example
- * ```ts
- * const manager = new CacheManager({
- *   drivers: {
- *     redis: redisDriver({ host: 'localhost' })
- *   },
- *   stores: {
- *     users: ['redis'],
- *     sessions: { drivers: ['redis'], memory: false }
- *   }
- * })
- *
- * await manager.use('users').set('user:1', { name: 'Alice' })
- * ```
+ * @internal This class is not exported - use createCacheManager() factory instead.
  */
-export class CacheManager<T extends Record<string, unknown> = Record<string, unknown>> {
+export class InternalCacheManager {
   readonly emitter: EventEmitter
-  readonly #stores = new Map<string, Cache<T> | CacheBackplane<T>>()
+  readonly #stores = new Map<string, InternalCache | CacheBackplane>()
   readonly #defaultStoreName: string
   readonly #sharedDedup = createDedup()
   readonly #bus?: MessageBus<CacheBusSchema>
@@ -89,7 +81,7 @@ export class CacheManager<T extends Record<string, unknown> = Record<string, unk
    * Get a specific cache store by name.
    *
    * @param name - Store name (defaults to first configured store)
-   * @returns Cache instance for the requested store
+   * @returns InternalCache instance for the requested store
    * @throws {CacheError} If store name not found
    *
    * @example
@@ -98,7 +90,7 @@ export class CacheManager<T extends Record<string, unknown> = Record<string, unk
    * await usersCache.set('user:1', { name: 'Alice' })
    * ```
    */
-  use<S extends Record<string, unknown> = T>(name?: string): Cache<S> {
+  use(name?: string): InternalCache {
     const storeName = name ?? this.#defaultStoreName
     const store = this.#stores.get(storeName)
 
@@ -109,35 +101,35 @@ export class CacheManager<T extends Record<string, unknown> = Record<string, unk
     // If backplane, return the underlying cache; otherwise return the cache directly
     const cache = store instanceof CacheBackplane ? store.cache : store
 
-    return cache as unknown as Cache<S>
+    return cache
   }
 
   /**
    * Get value from default store.
    * Convenience method that delegates to `use().get()`.
    */
-  async get<T>(key: string, options?: Parameters<Cache['get']>[1]): Promise<T | undefined> {
-    return this.use().get(key, options) as Promise<T | undefined>
+  async get(key: string, options?: GetOptions): Promise<unknown> {
+    return this.use().get(key, options)
   }
 
   /**
    * Set value in default store.
    * Convenience method that delegates to `use().set()`.
    */
-  async set<T>(key: string, value: T, options?: Parameters<Cache['set']>[2]): Promise<void> {
-    return this.use().set(key, value as never, options)
+  async set(key: string, value: unknown, options?: SetOptions): Promise<void> {
+    return this.use().set(key, value, options)
   }
 
   /**
    * Get or compute value in default store.
    * Convenience method that delegates to `use().getOrSet()`.
    */
-  async getOrSet<T>(
+  async getOrSet(
     key: string,
-    loader: Parameters<Cache['getOrSet']>[1],
-    options?: Parameters<Cache['getOrSet']>[2],
-  ): Promise<T> {
-    return this.use().getOrSet(key, loader as never, options) as Promise<T>
+    loader: Loader<unknown>,
+    options?: GetSetOptions,
+  ): Promise<unknown> {
+    return this.use().getOrSet(key, loader, options)
   }
 
   /**
@@ -183,7 +175,7 @@ export class CacheManager<T extends Record<string, unknown> = Record<string, unk
       Array.from(this.#stores.values()).map((store) => store.invalidateTags(tags)),
     )
 
-    return results.reduce((a, b) => a + b, 0)
+    return results.reduce((a: number, b: number) => a + b, 0)
   }
 
   /**
@@ -251,7 +243,7 @@ export class CacheManager<T extends Record<string, unknown> = Record<string, unk
       circuitBreakerDuration: shared.cbDuration,
     })
 
-    const cache = new Cache<T>(
+    const cache = new InternalCache(
       {
         stack,
         emitter: this.emitter,
@@ -297,7 +289,7 @@ export class CacheManager<T extends Record<string, unknown> = Record<string, unk
         circuitBreakerDuration: shared.cbDuration,
       })
 
-      const cache = new Cache<T>(
+      const cache = new InternalCache(
         {
           stack,
           emitter: this.emitter,
@@ -316,8 +308,83 @@ export class CacheManager<T extends Record<string, unknown> = Record<string, unk
   }
 }
 
-export function createCacheManager<T extends Record<string, unknown> = Record<string, unknown>>(
+// ============================================================================
+// PUBLIC API - Type Projections (Zero Runtime Cost)
+// ============================================================================
+
+/**
+ * Typed cache manager interface with schema-based type safety.
+ * Keys and values are typed based on the provided schema.
+ */
+export interface CacheManager<T extends Record<string, unknown>> {
+  readonly emitter: EventEmitter
+
+  use<S extends Record<string, unknown> = T>(name?: string): Cache<S>
+  get<K extends keyof T & string>(key: K, options?: GetOptions): Promise<T[K] | undefined>
+  set<K extends keyof T & string>(key: K, value: T[K], options?: SetOptions): Promise<void>
+  getOrSet<K extends keyof T & string>(
+    key: K,
+    loader: Loader<T[K]>,
+    options?: GetSetOptions,
+  ): Promise<T[K]>
+  has(key: string): Promise<boolean>
+
+  delete(...keys: string[]): Promise<number>
+  invalidateTags(tags: string[]): Promise<number>
+  clear(): Promise<void>
+  connect(): Promise<void>
+  disconnect(): Promise<void>
+}
+
+/**
+ * Generic cache manager interface with dynamic type parameters.
+ * All keys are strings, values are typed per-operation.
+ */
+export interface GenericCacheManager {
+  readonly emitter: EventEmitter
+
+  use(name?: string): GenericCache
+  get<V>(key: string, options?: GetOptions): Promise<V | undefined>
+  set(key: string, value: unknown, options?: SetOptions): Promise<void>
+  getOrSet<V>(key: string, loader: Loader<V>, options?: GetSetOptions): Promise<V>
+  has(key: string): Promise<boolean>
+
+  delete(...keys: string[]): Promise<number>
+  invalidateTags(tags: string[]): Promise<number>
+  clear(): Promise<void>
+  connect(): Promise<void>
+  disconnect(): Promise<void>
+}
+
+// ============================================================================
+// FACTORY - Compile-time Mode Selection via Overloads
+// ============================================================================
+
+/**
+ * Create a generic cache manager instance with dynamic typing.
+ * @example
+ * ```ts
+ * const manager = createCacheManager()
+ * const user = await manager.get<User>('user:1')
+ * ```
+ */
+export function createCacheManager(config?: CacheManagerConfig): GenericCacheManager
+
+/**
+ * Create a typed cache manager instance with schema-based type safety.
+ * @example
+ * ```ts
+ * const manager = createCacheManager<{ user: User; session: Session }>()
+ * const user = await manager.get('user') // Type: User | undefined
+ * ```
+ */
+export function createCacheManager<T extends Record<string, unknown>>(
   config?: CacheManagerConfig,
-): CacheManager<T> {
-  return new CacheManager<T>(config)
+): CacheManager<T>
+
+export function createCacheManager<T extends Record<string, unknown>>(
+  config: CacheManagerConfig = {},
+): CacheManager<T> | GenericCacheManager {
+  // Pure type projection - zero runtime cost
+  return new InternalCacheManager(config) as CacheManager<T> | GenericCacheManager
 }

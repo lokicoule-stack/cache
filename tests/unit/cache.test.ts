@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-import { createCache, type Cache } from '@/index'
+import { createCache, type GenericCache } from '@/index'
 import { FakeL1Store } from '../support/fake-store'
 
 describe('Cache', () => {
   let l1: FakeL1Store
-  let cache: Cache
+  let cache: GenericCache
 
   beforeEach(() => {
     l1 = new FakeL1Store()
@@ -156,32 +156,34 @@ describe('Cache', () => {
       const obj = { name: 'John', nested: { age: 30 } }
       await cache.set('user', obj)
 
-      const retrieved = await cache.get('user') as { name: string; nested: { age: number } }
-      retrieved.name = 'Jane'
-      retrieved.nested.age = 40
+      const retrieved = await cache.get<{ name: string; nested: { age: number } }>('user')
+      retrieved!.name = 'Jane'
+      retrieved!.nested.age = 40
 
-      const again = await cache.get('user')
-      expect(again.name).toBe('Jane')
-      expect(again.nested.age).toBe(40)
+      const again = await cache.get<{ name: string; nested: { age: number } }>('user')
+      expect(again!.name).toBe('Jane')
+      expect(again!.nested.age).toBe(40)
     })
 
     it('should NOT mutate cache when clone is true', async () => {
       const obj = { name: 'John', nested: { age: 30 } }
       await cache.set('user', obj)
 
-      const retrieved = await cache.get('user', { clone: true })
-      retrieved.name = 'Jane'
-      retrieved.nested.age = 40
+      const retrieved = await cache.get<{ name: string; nested: { age: number } }>('user', {
+        clone: true,
+      })
+      retrieved!.name = 'Jane'
+      retrieved!.nested.age = 40
 
-      const again = await cache.get('user')
-      expect(again.name).toBe('John')
-      expect(again.nested.age).toBe(30)
+      const again = await cache.get<{ name: string; nested: { age: number } }>('user')
+      expect(again!.name).toBe('John')
+      expect(again!.nested.age).toBe(30)
     })
 
     it('should clone arrays', async () => {
       await cache.set('items', [1, 2, 3])
-      const arr = await cache.get('items', { clone: true })
-      arr.push(4)
+      const arr = await cache.get<number[]>('items', { clone: true })
+      arr?.push(4)
 
       const original = await cache.get('items')
       expect(original).toEqual([1, 2, 3])
@@ -193,8 +195,8 @@ describe('Cache', () => {
       })
       loaded.name = 'Bob'
 
-      const cached = await cache.get('key')
-      expect(cached.name).toBe('Alice')
+      const cached = await cache.get<{ name: string }>('key')
+      expect(cached!.name).toBe('Alice')
     })
 
     it('should fallback to original if cloning fails', async () => {

@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 import { MemoryTransport } from '@lokiverse/bus'
-import { createCacheManager, CacheManager, createDefaultMemory } from '@/index'
+import { createCacheManager, type GenericCacheManager, createDefaultMemory } from '@/index'
 import { FakeL2Store } from '@test/fake-store'
 
 describe('cache bus integration', () => {
-  let manager1: CacheManager
-  let manager2: CacheManager
+  let manager1: GenericCacheManager
+  let manager2: GenericCacheManager
   let memory1: ReturnType<typeof createDefaultMemory>
   let memory2: ReturnType<typeof createDefaultMemory>
   let sharedL2: FakeL2Store

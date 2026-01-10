@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { createCacheManager, CacheManager } from '@/manager'
+import { createCacheManager, type GenericCacheManager } from '@/manager'
 import { FakeL2Store } from '../support/fake-store'
 
 describe('CacheManager', () => {
   describe('with drivers and stores', () => {
     let remote1: FakeL2Store
     let remote2: FakeL2Store
-    let manager: CacheManager
+    let manager: GenericCacheManager
 
     beforeEach(async () => {
       remote1 = new FakeL2Store()
