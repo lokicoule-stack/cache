@@ -137,6 +137,18 @@ export default [
     },
   },
 
+  // Type test files configuration
+  {
+    files: ['tests/types/**/*.test-d.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/ban-ts-comment': 'off', // @ts-expect-error is intentional in type tests
+    },
+  },
+
   // Ignore files
   {
     ignores: [
