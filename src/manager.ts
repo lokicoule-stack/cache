@@ -10,7 +10,7 @@ import { InternalCache } from './cache'
 import { CacheError, ERROR_CODES } from './errors'
 import { createEventEmitter, type EventEmitter } from './observability/events'
 import { createDedup } from './resilience/dedup'
-import { createDefaultMemory } from './storage/drivers/memory'
+import { memoryDriver } from './storage/drivers/memory'
 import { TieredStore } from './storage/tiered-store'
 import { DistributedSync, type CacheBusSchema } from './sync/distributed'
 import { parseOptionalDuration } from './types/duration'
@@ -189,7 +189,7 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
   // ==========================================================================
 
   #buildSharedConfig(config: CacheManagerConfig): SharedConfig {
-    const memory = (config.drivers?.memory as SyncDriver) ?? createDefaultMemory()
+    const memory = (config.drivers?.memory as SyncDriver) ?? memoryDriver()
     const globalMemory = config.memory !== false
     const staleTime = parseOptionalDuration(config.staleTime) ?? DEFAULT_STALE_TIME
     const gcTime = parseOptionalDuration(config.gcTime) ?? staleTime

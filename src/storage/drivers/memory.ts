@@ -1,7 +1,7 @@
 import { LRUCache } from 'lru-cache'
 
-import type { CacheEntry } from '../entry'
-import type { SyncDriver } from '../types'
+import type { SyncDriver } from '@/contracts/driver'
+import type { CacheEntry } from '@/entry'
 
 export interface MemoryDriverConfig {
   maxItems?: number
@@ -85,8 +85,4 @@ export class MemoryDriver implements SyncDriver {
 
 export function memoryDriver(config?: MemoryDriverConfig): MemoryDriver {
   return new MemoryDriver(config)
-}
-
-export function createDefaultMemory(): MemoryDriver {
-  return new MemoryDriver()
 }
