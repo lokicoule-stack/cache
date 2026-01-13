@@ -1,4 +1,9 @@
-export function createDedup() {
+export type DedupFn = <T>(key: string, fn: () => Promise<T>) => Promise<T>
+
+/**
+ * @internal
+ */
+export function createDedup(): DedupFn {
   const pending = new Map<string, Promise<unknown>>()
 
   return <T>(key: string, fn: () => Promise<T>): Promise<T> => {

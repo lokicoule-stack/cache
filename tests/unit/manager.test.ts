@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { createCacheManager, type GenericCacheManager } from '@/manager'
+import { createCacheManager, type GenericCacheManager } from '@/index'
 import { FakeL2Store } from '../support/fake-store'
 
 describe('CacheManager', () => {

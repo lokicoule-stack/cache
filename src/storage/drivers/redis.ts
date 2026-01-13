@@ -6,7 +6,7 @@ import {
 } from 'redis'
 
 import { CacheEntry, type SerializedEntry } from '../entry'
-import { CacheError } from '../errors'
+import { CacheError, ERROR_CODES } from '../errors'
 
 import type { AsyncDriver } from '../types'
 
@@ -158,7 +158,10 @@ export class RedisDriver implements AsyncDriver {
 
   #ensureClient(): RedisInstance {
     if (!this.#client) {
-      throw new CacheError('NOT_CONNECTED', 'Driver not connected. Call connect() first')
+      throw new CacheError(
+        ERROR_CODES.NOT_CONNECTED,
+        'Driver not connected. Call connect() first',
+      )
     }
 
     return this.#client
@@ -171,11 +174,7 @@ export class RedisDriver implements AsyncDriver {
       if (err instanceof CacheError) {
         throw err
       }
-      throw new CacheError(
-        'DRIVER_FAILED',
-        `${operation} failed: ${(err as Error).message}`,
-        err as Error,
-      )
+      throw CacheError.driverError(`${operation} failed: ${(err as Error).message}`, err as Error)
     }
   }
 }

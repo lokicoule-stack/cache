@@ -1,18 +1,24 @@
+import { delay } from './delay'
+
 export interface SwrResult<T> {
   value: T
   stale: boolean
 }
 
 export interface SwrOptions<T> {
+  /** Stale value to return if timeout/background refresh */
   staleValue?: T
+  /** Timeout in ms before returning stale value */
   timeout?: number
   /** If true, abort the fetch on timeout. If false (default), let it continue in background */
   abortOnTimeout?: boolean
+  /** Function to call for background refresh */
   backgroundRefresh?: () => Promise<unknown>
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
+/**
+ * @internal
+ */
 export async function withSwr<T>(
   fn: (signal: AbortSignal) => Promise<T>,
   options: SwrOptions<T> = {},
@@ -35,11 +41,14 @@ export async function withSwr<T>(
   if (timeout !== undefined && timeout > 0) {
     const controller = new AbortController()
 
-    const fetchPromise = fn(controller.signal).then((v) => ({ type: 'fresh' as const, value: v }))
+    const fetchPromise = fn(controller.signal).then((v) => ({
+      type: 'fresh' as const,
+      value: v,
+    }))
 
     const result = await Promise.race([
       fetchPromise,
-      sleep(timeout).then(() => ({ type: 'timeout' as const })),
+      delay(timeout).then(() => ({ type: 'timeout' as const })),
     ])
 
     if (result.type === 'fresh') {

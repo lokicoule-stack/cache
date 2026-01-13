@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 import { MemoryTransport } from '@lokiverse/bus'
-import { createCacheManager, type GenericCacheManager, createDefaultMemory } from '@/index'
+import { createCacheManager, createDefaultMemory, type GenericCacheManager } from '@/index'
 import { FakeL2Store } from '@test/fake-store'
 
 describe('cache bus integration', () => {

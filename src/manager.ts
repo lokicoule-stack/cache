@@ -1,31 +1,35 @@
-import { MessageBus, type BusSchema } from '@lokiverse/bus'
+/**
+ * Multi-store cache manager implementation
+ *
+ * @module manager
+ */
 
-import { CacheBackplane } from './backplane'
-import { InternalCache, type Cache, type GenericCache } from './cache'
-import { createDefaultMemory } from './drivers/memory'
-import { parseOptionalDuration } from './duration'
-import { CacheError } from './errors'
-import { CacheStack } from './stack'
-import { createDedup } from './utils/dedup'
-import { createEventEmitter, type EventEmitter } from './utils/events'
+import { MessageBus } from '@lokiverse/bus'
 
+import { InternalCache } from './cache'
+import { CacheError, ERROR_CODES } from './errors'
+import { createEventEmitter, type EventEmitter } from './observability/events'
+import { createDedup } from './resilience/dedup'
+import { createDefaultMemory } from './storage/drivers/memory'
+import { TieredStore } from './storage/tiered-store'
+import { DistributedSync, type CacheBusSchema } from './sync/distributed'
+import { parseOptionalDuration } from './types/duration'
+
+import type { SyncDriver, AsyncDriver } from './contracts/driver'
+import type { GenericCacheManager, CacheManager } from './contracts/manager'
 import type {
   CacheManagerConfig,
-  AsyncDriver,
-  SyncDriver,
   GetOptions,
-  SetOptions,
   GetSetOptions,
   Loader,
-} from './types'
+  SetOptions,
+} from './types/options'
 
 const DEFAULT_STALE_TIME = 60_000
 
-export interface CacheBusSchema extends BusSchema {
-  'cache:invalidate': { keys: string[]; store: string }
-  'cache:invalidate:tags': { tags: string[]; store: string }
-  'cache:clear': { store: string }
-}
+// ============================================================================
+// Internal Types
+// ============================================================================
 
 interface SharedConfig {
   memory: SyncDriver
@@ -37,120 +41,113 @@ interface SharedConfig {
   externalDrivers: string[]
 }
 
+interface InternalConfig {
+  emitter: EventEmitter
+  stores: Map<string, InternalCache<Record<string, unknown>>>
+  defaultStoreName: string
+  bus?: MessageBus<CacheBusSchema>
+}
+
+// ============================================================================
+// CacheManager Implementation
+// ============================================================================
+
 /**
- * Internal cache manager implementation (runtime layer).
- *
- * This class is type-agnostic and manipulates `unknown` values only.
- * Type safety is provided via interface projection (CacheManager<T> / GenericCacheManager).
- *
- * @internal This class is not exported - use createCacheManager() factory instead.
+ * Internal cache manager implementation
+ * @internal
  */
-export class InternalCacheManager {
+export class InternalCacheManager<T extends Record<string, unknown> = Record<string, unknown>> {
   readonly emitter: EventEmitter
-  readonly #stores = new Map<string, InternalCache | CacheBackplane>()
+  readonly #stores: Map<string, InternalCache<T>>
   readonly #defaultStoreName: string
-  readonly #sharedDedup = createDedup()
   readonly #bus?: MessageBus<CacheBusSchema>
 
-  constructor(config: CacheManagerConfig = {}) {
-    this.emitter = config.emitter ?? createEventEmitter()
+  constructor(config?: CacheManagerConfig)
+  constructor(internal: InternalConfig, isInternal: true)
+  constructor(config?: CacheManagerConfig | InternalConfig, isInternal?: true) {
+    if (isInternal) {
+      const internal = config as InternalConfig
 
-    const shared = this.#buildSharedConfig(config)
-
-    if (config.bus) {
-      this.#bus = new MessageBus<CacheBusSchema>(config.bus)
-    }
-
-    // Determine default store name before initialization
-    if (shared.externalDrivers.length === 0) {
-      this.#defaultStoreName = 'default'
+      this.emitter = internal.emitter
+      this.#stores = internal.stores as Map<string, InternalCache<T>>
+      this.#defaultStoreName = internal.defaultStoreName
+      this.#bus = internal.bus
     } else {
-      const storeConfigs = config.stores ?? { default: shared.externalDrivers }
+      const external = (config as CacheManagerConfig) ?? {}
 
-      this.#defaultStoreName = Object.keys(storeConfigs)[0]
-    }
+      this.emitter = external.emitter ?? createEventEmitter()
 
-    if (shared.externalDrivers.length === 0) {
-      this.#initMemoryOnlyStore(shared)
-    } else {
-      this.#initMultiStores(config, shared)
+      const shared = this.#buildSharedConfig(external)
+
+      if (external.bus) {
+        this.#bus = new MessageBus<CacheBusSchema>(external.bus)
+      }
+
+      this.#stores = new Map()
+
+      if (shared.externalDrivers.length === 0) {
+        this.#defaultStoreName = 'default'
+        this.#initMemoryOnlyStore(shared)
+      } else {
+        const storeConfigs = external.stores ?? { default: shared.externalDrivers }
+        const firstKey = Object.keys(storeConfigs)[0]
+
+        this.#defaultStoreName = firstKey ?? 'default'
+        this.#initMultiStores(external, shared)
+      }
+
+      // Register plugins
+      for (const plugin of external.plugins ?? []) {
+        plugin.register(this.emitter)
+      }
     }
   }
 
   /**
-   * Get a specific cache store by name.
-   *
-   * @param name - Store name (defaults to first configured store)
-   * @returns InternalCache instance for the requested store
-   * @throws {CacheError} If store name not found
-   *
-   * @example
-   * ```ts
-   * const usersCache = manager.use('users')
-   * await usersCache.set('user:1', { name: 'Alice' })
-   * ```
+   * Get a specific cache store by name
    */
-  use(name?: string): InternalCache {
+  use(name?: string): InternalCache<T> {
     const storeName = name ?? this.#defaultStoreName
     const store = this.#stores.get(storeName)
 
     if (!store) {
-      throw new CacheError('INVALID_CONFIG', `Store "${storeName}" not found`)
+      throw new CacheError(ERROR_CODES.STORE_NOT_FOUND, `Store "${storeName}" not found`, {
+        context: { storeName, availableStores: Array.from(this.#stores.keys()) },
+      })
     }
 
-    // If backplane, return the underlying cache; otherwise return the cache directly
-    const cache = store instanceof CacheBackplane ? store.cache : store
-
-    return cache
+    return store
   }
 
-  /**
-   * Get value from default store.
-   * Convenience method that delegates to `use().get()`.
-   */
+  // ==========================================================================
+  // Proxy Methods
+  // ==========================================================================
+
+  get<V = unknown>(key: string, options?: GetOptions): Promise<V | undefined>
+  get<K extends keyof T>(key: K, options?: GetOptions): Promise<T[K] | undefined>
+
   async get(key: string, options?: GetOptions): Promise<unknown> {
     return this.use().get(key, options)
   }
 
-  /**
-   * Set value in default store.
-   * Convenience method that delegates to `use().set()`.
-   */
+  set<V = unknown>(key: string, value: V, options?: SetOptions): Promise<void>
+  set<K extends keyof T>(key: K, value: T[K], options?: SetOptions): Promise<void>
+
   async set(key: string, value: unknown, options?: SetOptions): Promise<void> {
     return this.use().set(key, value, options)
   }
 
-  /**
-   * Get or compute value in default store.
-   * Convenience method that delegates to `use().getOrSet()`.
-   */
-  async getOrSet(
-    key: string,
-    loader: Loader<unknown>,
-    options?: GetSetOptions,
-  ): Promise<unknown> {
+  getOrSet<V = unknown>(key: string, loader: Loader<V>, options?: GetSetOptions): Promise<V>
+  getOrSet<K extends keyof T>(key: K, loader: Loader<T[K]>, options?: GetSetOptions): Promise<T[K]>
+
+  async getOrSet(key: string, loader: Loader<unknown>, options?: GetSetOptions): Promise<unknown> {
     return this.use().getOrSet(key, loader, options)
   }
 
-  /**
-   * Check if key exists in default store.
-   * Convenience method that delegates to `use().has()`.
-   */
   async has(key: string): Promise<boolean> {
     return this.use().has(key)
   }
 
-  /**
-   * Delete keys from ALL stores.
-   *
-   * @param keys - Keys to delete
-   * @returns Maximum deletion count across all stores
-   *
-   * @example
-   * ```ts
-   * await manager.delete('user:1', 'user:2')
-   * ```
-   */
   async delete(...keys: string[]): Promise<number> {
     const results = await Promise.all(
       Array.from(this.#stores.values()).map((store) => store.delete(...keys)),
@@ -159,17 +156,6 @@ export class InternalCacheManager {
     return Math.max(...results, 0)
   }
 
-  /**
-   * Invalidate tags across ALL stores.
-   *
-   * @param tags - Tags to invalidate
-   * @returns Total number of keys deleted across all stores
-   *
-   * @example
-   * ```ts
-   * await manager.invalidateTags(['user', 'profile'])
-   * ```
-   */
   async invalidateTags(tags: string[]): Promise<number> {
     const results = await Promise.all(
       Array.from(this.#stores.values()).map((store) => store.invalidateTags(tags)),
@@ -178,18 +164,10 @@ export class InternalCacheManager {
     return results.reduce((a: number, b: number) => a + b, 0)
   }
 
-  /**
-   * Clear ALL stores.
-   * Removes all entries from every configured store.
-   */
   async clear(): Promise<void> {
     await Promise.all(Array.from(this.#stores.values()).map((store) => store.clear()))
   }
 
-  /**
-   * Connect to all external drivers (L2 layers) and message bus.
-   * Should be called before using the cache in distributed environments.
-   */
   async connect(): Promise<void> {
     if (this.#bus) {
       await this.#bus.connect()
@@ -198,10 +176,6 @@ export class InternalCacheManager {
     await Promise.all(Array.from(this.#stores.values()).map((store) => store.connect()))
   }
 
-  /**
-   * Disconnect from all external drivers and message bus.
-   * Should be called during graceful shutdown.
-   */
   async disconnect(): Promise<void> {
     await Promise.all(Array.from(this.#stores.values()).map((store) => store.disconnect()))
 
@@ -210,11 +184,12 @@ export class InternalCacheManager {
     }
   }
 
-  /**
-   * Builds shared configuration used across all stores
-   */
+  // ==========================================================================
+  // Private Helpers
+  // ==========================================================================
+
   #buildSharedConfig(config: CacheManagerConfig): SharedConfig {
-    const memory = config.drivers?.memory ?? createDefaultMemory()
+    const memory = (config.drivers?.memory as SyncDriver) ?? createDefaultMemory()
     const globalMemory = config.memory !== false
     const staleTime = parseOptionalDuration(config.staleTime) ?? DEFAULT_STALE_TIME
     const gcTime = parseOptionalDuration(config.gcTime) ?? staleTime
@@ -233,38 +208,44 @@ export class InternalCacheManager {
     }
   }
 
-  /**
-   * Initializes a single memory-only store (no external drivers)
-   */
   #initMemoryOnlyStore(shared: SharedConfig): void {
-    const stack = new CacheStack({
+    const sharedDedup = createDedup()
+
+    const store = new TieredStore({
       l1: shared.globalMemory ? shared.memory : undefined,
       l2: [],
       circuitBreakerDuration: shared.cbDuration,
     })
 
-    const cache = new InternalCache(
+    const sync = this.#bus ? new DistributedSync(this.#bus, 'default') : null
+
+    const cache = new InternalCache<T>(
       {
-        stack,
+        store,
         emitter: this.emitter,
-        dedup: this.#sharedDedup,
+        dedup: sharedDedup,
         defaultStaleTime: shared.staleTime,
         defaultGcTime: shared.gcTime,
         storeName: 'default',
+        sync,
       },
       true,
     )
 
-    const store = this.#bus ? new CacheBackplane('default', cache, this.#bus) : cache
+    if (sync) {
+      sync.setup({
+        onRemoteInvalidate: (keys) => store.invalidateL1(...keys),
+        onRemoteClear: () => store.clearL1(),
+        onRemoteInvalidateTags: (tags) => void store.invalidateTags(tags),
+      })
+    }
 
-    this.#stores.set('default', store)
+    this.#stores.set('default', cache)
   }
 
-  /**
-   * Initializes multiple stores with external drivers
-   */
   #initMultiStores(config: CacheManagerConfig, shared: SharedConfig): void {
     const storeConfigs = config.stores ?? { default: shared.externalDrivers }
+    const sharedDedup = createDedup()
 
     for (const [name, storeCfg] of Object.entries(storeConfigs)) {
       const useMemory = Array.isArray(storeCfg)
@@ -276,115 +257,86 @@ export class InternalCacheManager {
         const driver = shared.drivers[n]
 
         if (!driver) {
-          throw new CacheError('INVALID_CONFIG', `Driver "${n}" not found`)
+          throw new CacheError(ERROR_CODES.DRIVER_NOT_FOUND, `Driver "${n}" not found`, {
+            context: { driverName: n, availableDrivers: Object.keys(shared.drivers) },
+          })
         }
 
         return driver
       })
 
-      const stack = new CacheStack({
+      const store = new TieredStore({
         l1: useMemory ? shared.memory : undefined,
         l2,
         prefix: name,
         circuitBreakerDuration: shared.cbDuration,
       })
 
-      const cache = new InternalCache(
+      const sync = this.#bus ? new DistributedSync(this.#bus, name) : null
+
+      const cache = new InternalCache<T>(
         {
-          stack,
+          store,
           emitter: this.emitter,
-          dedup: this.#sharedDedup,
+          dedup: sharedDedup,
           defaultStaleTime: shared.staleTime,
           defaultGcTime: shared.gcTime,
           storeName: name,
+          sync,
         },
         true,
       )
 
-      const store = this.#bus ? new CacheBackplane(name, cache, this.#bus) : cache
+      if (sync) {
+        sync.setup({
+          onRemoteInvalidate: (keys) => store.invalidateL1(...keys),
+          onRemoteClear: () => store.clearL1(),
+          onRemoteInvalidateTags: (tags) => void store.invalidateTags(tags),
+        })
+      }
 
-      this.#stores.set(name, store)
+      this.#stores.set(name, cache)
     }
   }
 }
 
 // ============================================================================
-// PUBLIC API - Type Projections (Zero Runtime Cost)
+// Factory Functions
 // ============================================================================
 
 /**
- * Typed cache manager interface with schema-based type safety.
- * Keys and values are typed based on the provided schema.
- */
-export interface CacheManager<T extends Record<string, unknown>> {
-  readonly emitter: EventEmitter
-
-  use<S extends Record<string, unknown> = T>(name?: string): Cache<S>
-  get<K extends keyof T & string>(key: K, options?: GetOptions): Promise<T[K] | undefined>
-  set<K extends keyof T & string>(key: K, value: T[K], options?: SetOptions): Promise<void>
-  getOrSet<K extends keyof T & string>(
-    key: K,
-    loader: Loader<T[K]>,
-    options?: GetSetOptions,
-  ): Promise<T[K]>
-  has(key: string): Promise<boolean>
-
-  delete(...keys: string[]): Promise<number>
-  invalidateTags(tags: string[]): Promise<number>
-  clear(): Promise<void>
-  connect(): Promise<void>
-  disconnect(): Promise<void>
-}
-
-/**
- * Generic cache manager interface with dynamic type parameters.
- * All keys are strings, values are typed per-operation.
- */
-export interface GenericCacheManager {
-  readonly emitter: EventEmitter
-
-  use(name?: string): GenericCache
-  get<V>(key: string, options?: GetOptions): Promise<V | undefined>
-  set(key: string, value: unknown, options?: SetOptions): Promise<void>
-  getOrSet<V>(key: string, loader: Loader<V>, options?: GetSetOptions): Promise<V>
-  has(key: string): Promise<boolean>
-
-  delete(...keys: string[]): Promise<number>
-  invalidateTags(tags: string[]): Promise<number>
-  clear(): Promise<void>
-  connect(): Promise<void>
-  disconnect(): Promise<void>
-}
-
-// ============================================================================
-// FACTORY - Compile-time Mode Selection via Overloads
-// ============================================================================
-
-/**
- * Create a generic cache manager instance with dynamic typing.
+ * Create a generic cache manager with dynamic typing
+ *
  * @example
  * ```ts
- * const manager = createCacheManager()
+ * const manager = createCacheManager({
+ *   drivers: { redis: redisDriver() },
+ *   stores: { default: ['redis'] }
+ * })
  * const user = await manager.get<User>('user:1')
  * ```
  */
 export function createCacheManager(config?: CacheManagerConfig): GenericCacheManager
 
 /**
- * Create a typed cache manager instance with schema-based type safety.
+ * Create a schema-based cache manager with type-safe key-value mapping
+ *
  * @example
  * ```ts
- * const manager = createCacheManager<{ user: User; session: Session }>()
- * const user = await manager.get('user') // Type: User | undefined
+ * interface Schema {
+ *   'user:1': User
+ *   'session:abc': Session
+ * }
+ * const manager = createCacheManager<Schema>({ staleTime: '5m' })
+ * const user = await manager.get('user:1') // Type: User | undefined
  * ```
  */
 export function createCacheManager<T extends Record<string, unknown>>(
   config?: CacheManagerConfig,
 ): CacheManager<T>
 
-export function createCacheManager<T extends Record<string, unknown>>(
-  config: CacheManagerConfig = {},
-): CacheManager<T> | GenericCacheManager {
-  // Pure type projection - zero runtime cost
-  return new InternalCacheManager(config) as CacheManager<T> | GenericCacheManager
+export function createCacheManager<T extends Record<string, unknown> = Record<string, unknown>>(
+  config?: CacheManagerConfig,
+): GenericCacheManager | CacheManager<T> {
+  return new InternalCacheManager<T>(config) as GenericCacheManager | CacheManager<T>
 }

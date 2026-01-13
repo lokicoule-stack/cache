@@ -47,7 +47,7 @@ describe('Cache', () => {
     it('passes AbortSignal to loader', async () => {
       let receivedSignal: AbortSignal | undefined
 
-      await cache.getOrSet('key', (signal) => {
+      await cache.getOrSet('key', (signal: AbortSignal) => {
         receivedSignal = signal
         return 'value'
       })

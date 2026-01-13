@@ -1,22 +1,22 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
 import { CacheEntry } from '@/entry'
-import { CacheStack } from '@/stack'
+import { TieredStore } from '@/tiered-store'
 import { FakeL1Store, FakeL2Store } from '../support/fake-store'
 
 function entry(value: unknown, staleTime = 60000) {
   return CacheEntry.create(value, { staleTime })
 }
 
-describe('CacheStack', () => {
+describe('TieredStore', () => {
   let l1: FakeL1Store
   let l2: FakeL2Store
-  let stack: CacheStack
+  let stack: TieredStore
 
   beforeEach(() => {
     l1 = new FakeL1Store()
     l2 = new FakeL2Store()
-    stack = new CacheStack({ l1, l2: [l2] })
+    stack = new TieredStore({ l1, l2: [l2] })
   })
 
   describe('get', () => {

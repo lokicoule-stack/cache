@@ -7,14 +7,14 @@ type Session = { token: string; expires: number }
 type AppSchema = { user: User; session: Session }
 
 // =============================================================================
-// Factory Overloads
+// Cache Factory Overloads
 // =============================================================================
 
 test('createCache() returns GenericCache', () => {
   expectTypeOf(createCache()).toEqualTypeOf<GenericCache>()
 })
 
-test('createCache<T>() returns Cache<T>', () => {
+test('createCache<T>() returns Cache<T> (typed mode)', () => {
   expectTypeOf(createCache<AppSchema>()).toEqualTypeOf<Cache<AppSchema>>()
 })
 
@@ -23,20 +23,27 @@ test('createCache<T>() returns Cache<T>', () => {
 // =============================================================================
 
 test('GenericCache supports dynamic typing per operation', () => {
-  const generic = createCache()
+  const cache = createCache()
 
-  expectTypeOf(generic.get<User>('key')).toEqualTypeOf<Promise<User | undefined>>()
-  expectTypeOf(generic.get<Session>('key')).toEqualTypeOf<Promise<Session | undefined>>()
+  // Get with type parameter
+  expectTypeOf(cache.get<User>('key')).toEqualTypeOf<Promise<User | undefined>>()
+  expectTypeOf(cache.get<Session>('key')).toEqualTypeOf<Promise<Session | undefined>>()
 
-  assertType(generic.set('k1', { id: 1, name: 'Alice' }))
-  assertType(generic.set('k2', 'string'))
-  assertType(generic.set('k3', 42))
+  // Set with any value
+  assertType(cache.set('k1', { id: 1, name: 'Alice' }))
+  assertType(cache.set('k2', 'string'))
+  assertType(cache.set('k3', 42))
 
-  expectTypeOf(generic.getOrSet<User>('key', async () => ({ id: 1, name: 'Bob' }))).toEqualTypeOf<
+  // GetOrSet with type parameter
+  expectTypeOf(cache.getOrSet<User>('key', async () => ({ id: 1, name: 'Bob' }))).toEqualTypeOf<
     Promise<User>
   >()
-  expectTypeOf(generic.pull<Session>('key')).toEqualTypeOf<Promise<Session | undefined>>()
-  expectTypeOf(generic.namespace('ns')).toEqualTypeOf<GenericCache>()
+
+  // Pull with type parameter
+  expectTypeOf(cache.pull<Session>('key')).toEqualTypeOf<Promise<Session | undefined>>()
+
+  // Namespace returns GenericCache
+  expectTypeOf(cache.namespace('ns')).toEqualTypeOf<GenericCache>()
 })
 
 // =============================================================================
@@ -44,49 +51,54 @@ test('GenericCache supports dynamic typing per operation', () => {
 // =============================================================================
 
 test('Cache<T> enforces schema keys and types', () => {
-  const typed = createCache<AppSchema>()
+  const cache = createCache<AppSchema>()
 
-  expectTypeOf(typed.get('user')).toEqualTypeOf<Promise<User | undefined>>()
-  expectTypeOf(typed.get('session')).toEqualTypeOf<Promise<Session | undefined>>()
+  // Get - keys must be in schema
+  expectTypeOf(cache.get('user')).toEqualTypeOf<Promise<User | undefined>>()
+  expectTypeOf(cache.get('session')).toEqualTypeOf<Promise<Session | undefined>>()
 
   // @ts-expect-error invalid key not in schema
-  assertType(typed.get('invalid'))
+  assertType(cache.get('invalid'))
 
-  assertType(typed.set('user', { id: 1, name: 'Alice' }))
-  assertType(typed.set('user', { id: 2, name: 'Bob', email: 'bob@test.com' }))
-  assertType(typed.set('session', { token: 'abc', expires: 123 }))
+  // Set - correct types
+  assertType(cache.set('user', { id: 1, name: 'Alice' }))
+  assertType(cache.set('user', { id: 2, name: 'Bob', email: 'bob@test.com' }))
+  assertType(cache.set('session', { token: 'abc', expires: 123 }))
 
   // @ts-expect-error wrong type
-  assertType(typed.set('user', { wrong: 'type' }))
+  assertType(cache.set('user', { wrong: 'type' }))
   // @ts-expect-error user is not a string
-  assertType(typed.set('user', 'string'))
+  assertType(cache.set('user', 'string'))
   // @ts-expect-error session schema mismatch
-  assertType(typed.set('session', { id: 1 }))
+  assertType(cache.set('session', { id: 1 }))
 
   // @ts-expect-error missing required field name
-  assertType(typed.set('user', { id: 1 }))
+  assertType(cache.set('user', { id: 1 }))
   // @ts-expect-error missing required field id
-  assertType(typed.set('user', { name: 'Alice' }))
+  assertType(cache.set('user', { name: 'Alice' }))
 
-  expectTypeOf(typed.getOrSet('user', async () => ({ id: 1, name: 'Alice' }))).toEqualTypeOf<
+  // GetOrSet - loader must return correct type
+  expectTypeOf(cache.getOrSet('user', async () => ({ id: 1, name: 'Alice' }))).toEqualTypeOf<
     Promise<User>
   >()
-  expectTypeOf(typed.getOrSet('session', async () => ({ token: 'x', expires: 1 }))).toEqualTypeOf<
+  expectTypeOf(cache.getOrSet('session', async () => ({ token: 'x', expires: 1 }))).toEqualTypeOf<
     Promise<Session>
   >()
 
   // @ts-expect-error wrong return type
-  assertType(typed.getOrSet('user', async () => ({ wrong: 'type' })))
+  assertType(cache.getOrSet('user', async () => ({ wrong: 'type' })))
   // @ts-expect-error user is not a string
-  assertType(typed.getOrSet('user', async () => 'string'))
+  assertType(cache.getOrSet('user', async () => 'string'))
   // @ts-expect-error session type mismatch
-  assertType(typed.getOrSet('user', async () => ({ token: 'x', expires: 1 })))
+  assertType(cache.getOrSet('user', async () => ({ token: 'x', expires: 1 })))
 
-  expectTypeOf(typed.pull('user')).toEqualTypeOf<Promise<User | undefined>>()
+  // Pull
+  expectTypeOf(cache.pull('user')).toEqualTypeOf<Promise<User | undefined>>()
   // @ts-expect-error invalid key
-  assertType(typed.pull('invalid'))
+  assertType(cache.pull('invalid'))
 
-  expectTypeOf(typed.namespace('ns')).toEqualTypeOf<Cache<AppSchema>>()
+  // Namespace preserves schema type
+  expectTypeOf(cache.namespace('ns')).toEqualTypeOf<Cache<AppSchema>>()
 })
 
 // =============================================================================
@@ -154,13 +166,13 @@ test('options work correctly', () => {
 // =============================================================================
 
 test('other methods have correct types', () => {
-  const generic = createCache()
+  const cache = createCache()
 
-  expectTypeOf(generic.expire('k')).toEqualTypeOf<Promise<boolean>>()
-  expectTypeOf(generic.delete('k1', 'k2')).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(generic.has('k')).toEqualTypeOf<Promise<boolean>>()
-  expectTypeOf(generic.clear()).toEqualTypeOf<Promise<void>>()
-  expectTypeOf(generic.invalidateTags(['tag'])).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(generic.connect()).toEqualTypeOf<Promise<void>>()
-  expectTypeOf(generic.disconnect()).toEqualTypeOf<Promise<void>>()
+  expectTypeOf(cache.expire('k')).toEqualTypeOf<Promise<boolean>>()
+  expectTypeOf(cache.delete('k1', 'k2')).toEqualTypeOf<Promise<number>>()
+  expectTypeOf(cache.has('k')).toEqualTypeOf<Promise<boolean>>()
+  expectTypeOf(cache.clear()).toEqualTypeOf<Promise<void>>()
+  expectTypeOf(cache.invalidateTags(['tag'])).toEqualTypeOf<Promise<number>>()
+  expectTypeOf(cache.connect()).toEqualTypeOf<Promise<void>>()
+  expectTypeOf(cache.disconnect()).toEqualTypeOf<Promise<void>>()
 })

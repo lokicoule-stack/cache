@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { parseDuration, parseOptionalDuration } from '@/duration'
+import { parseDuration, parseOptionalDuration } from '@/utils/duration'
 
 describe('parseDuration', () => {
   it('returns number as-is', () => {
