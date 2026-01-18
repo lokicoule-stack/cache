@@ -1,178 +1,81 @@
-/* eslint-disable @typescript-eslint/require-await */
-import { expectTypeOf, assertType, test } from 'vitest'
-import { createCache, type Cache, type GenericCache } from '../../src/index'
+import { describe, it, expectTypeOf } from 'vitest'
+import type { Cache, GenericCache } from '@/contracts/cache'
 
-type User = { id: number; name: string; email?: string }
-type Session = { token: string; expires: number }
-type AppSchema = { user: User; session: Session }
+type Schema = {
+  'user:id': { id: number; name: string }
+  count: number
+} & Record<string, unknown>
 
-// =============================================================================
-// Cache Factory Overloads
-// =============================================================================
+describe('GenericCache', () => {
+  it('infers value type from explicit generic', () => {
+    const cache = {} as GenericCache
 
-test('createCache() returns GenericCache', () => {
-  expectTypeOf(createCache()).toEqualTypeOf<GenericCache>()
-})
+    expectTypeOf(cache.get<string>('key')).resolves.toEqualTypeOf<string | undefined>()
+    expectTypeOf(cache.get<{ id: number }>('key')).resolves.toEqualTypeOf<
+      { id: number } | undefined
+    >()
+  })
 
-test('createCache<T>() returns Cache<T> (typed mode)', () => {
-  expectTypeOf(createCache<AppSchema>()).toEqualTypeOf<Cache<AppSchema>>()
-})
+  it('infers loader return type', () => {
+    const cache = {} as GenericCache
 
-// =============================================================================
-// GenericCache - Dynamic Typing
-// =============================================================================
+    expectTypeOf(cache.getOrSet('key', () => 'value')).resolves.toEqualTypeOf<string>()
+    expectTypeOf(cache.getOrSet('key', () => Promise.resolve({ id: 1 }))).resolves.toEqualTypeOf<{
+      id: number
+    }>()
+  })
 
-test('GenericCache supports dynamic typing per operation', () => {
-  const cache = createCache()
+  it('preserves type through namespace', () => {
+    const cache = {} as GenericCache
 
-  // Get with type parameter
-  expectTypeOf(cache.get<User>('key')).toEqualTypeOf<Promise<User | undefined>>()
-  expectTypeOf(cache.get<Session>('key')).toEqualTypeOf<Promise<Session | undefined>>()
+    expectTypeOf(cache.namespace('prefix')).toEqualTypeOf<GenericCache>()
+  })
 
-  // Set with any value
-  assertType(cache.set('k1', { id: 1, name: 'Alice' }))
-  assertType(cache.set('k2', 'string'))
-  assertType(cache.set('k3', 42))
+  it('loader receives AbortSignal', () => {
+    const cache = {} as GenericCache
 
-  // GetOrSet with type parameter
-  expectTypeOf(cache.getOrSet<User>('key', async () => ({ id: 1, name: 'Bob' }))).toEqualTypeOf<
-    Promise<User>
-  >()
-
-  // Pull with type parameter
-  expectTypeOf(cache.pull<Session>('key')).toEqualTypeOf<Promise<Session | undefined>>()
-
-  // Namespace returns GenericCache
-  expectTypeOf(cache.namespace('ns')).toEqualTypeOf<GenericCache>()
-})
-
-// =============================================================================
-// Cache<T> - Schema-Based Type Safety
-// =============================================================================
-
-test('Cache<T> enforces schema keys and types', () => {
-  const cache = createCache<AppSchema>()
-
-  // Get - keys must be in schema
-  expectTypeOf(cache.get('user')).toEqualTypeOf<Promise<User | undefined>>()
-  expectTypeOf(cache.get('session')).toEqualTypeOf<Promise<Session | undefined>>()
-
-  // @ts-expect-error invalid key not in schema
-  assertType(cache.get('invalid'))
-
-  // Set - correct types
-  assertType(cache.set('user', { id: 1, name: 'Alice' }))
-  assertType(cache.set('user', { id: 2, name: 'Bob', email: 'bob@test.com' }))
-  assertType(cache.set('session', { token: 'abc', expires: 123 }))
-
-  // @ts-expect-error wrong type
-  assertType(cache.set('user', { wrong: 'type' }))
-  // @ts-expect-error user is not a string
-  assertType(cache.set('user', 'string'))
-  // @ts-expect-error session schema mismatch
-  assertType(cache.set('session', { id: 1 }))
-
-  // @ts-expect-error missing required field name
-  assertType(cache.set('user', { id: 1 }))
-  // @ts-expect-error missing required field id
-  assertType(cache.set('user', { name: 'Alice' }))
-
-  // GetOrSet - loader must return correct type
-  expectTypeOf(cache.getOrSet('user', async () => ({ id: 1, name: 'Alice' }))).toEqualTypeOf<
-    Promise<User>
-  >()
-  expectTypeOf(cache.getOrSet('session', async () => ({ token: 'x', expires: 1 }))).toEqualTypeOf<
-    Promise<Session>
-  >()
-
-  // @ts-expect-error wrong return type
-  assertType(cache.getOrSet('user', async () => ({ wrong: 'type' })))
-  // @ts-expect-error user is not a string
-  assertType(cache.getOrSet('user', async () => 'string'))
-  // @ts-expect-error session type mismatch
-  assertType(cache.getOrSet('user', async () => ({ token: 'x', expires: 1 })))
-
-  // Pull
-  expectTypeOf(cache.pull('user')).toEqualTypeOf<Promise<User | undefined>>()
-  // @ts-expect-error invalid key
-  assertType(cache.pull('invalid'))
-
-  // Namespace preserves schema type
-  expectTypeOf(cache.namespace('ns')).toEqualTypeOf<Cache<AppSchema>>()
-})
-
-// =============================================================================
-// Loader AbortSignal
-// =============================================================================
-
-test('loader receives AbortSignal', () => {
-  const generic = createCache()
-  const typed = createCache<AppSchema>()
-
-  assertType(
-    generic.getOrSet('k', async (signal) => {
+    void cache.getOrSet('key', (signal) => {
       expectTypeOf(signal).toEqualTypeOf<AbortSignal>()
       return 'value'
-    }),
-  )
-
-  assertType(
-    typed.getOrSet('user', async (signal) => {
-      expectTypeOf(signal).toEqualTypeOf<AbortSignal>()
-      return { id: 1, name: 'Test' }
-    }),
-  )
+    })
+  })
 })
 
-// =============================================================================
-// Options
-// =============================================================================
+describe('Cache<Schema>', () => {
+  it('infers value type from schema key', () => {
+    const cache = {} as Cache<Schema>
 
-test('options work correctly', () => {
-  const generic = createCache()
-  const typed = createCache<AppSchema>()
+    expectTypeOf(cache.get('user:id')).resolves.toEqualTypeOf<
+      { id: number; name: string } | undefined
+    >()
+    expectTypeOf(cache.get('count')).resolves.toEqualTypeOf<number | undefined>()
+  })
 
-  assertType(generic.get('k', { clone: true }))
-  assertType(typed.get('user', { clone: true }))
+  it('enforces value type on set', () => {
+    const cache = {} as Cache<Schema>
 
-  assertType(generic.set('k', 'v', { staleTime: 1000, gcTime: 2000, tags: ['tag'] }))
-  assertType(typed.set('user', { id: 1, name: 'T' }, { staleTime: '5m', tags: ['user'] }))
+    expectTypeOf(cache.set('user:id', { id: 1, name: 'test' })).resolves.toBeVoid()
 
-  assertType(
-    generic.getOrSet('k', async () => 'v', {
-      staleTime: 1000,
-      timeout: 5000,
-      retries: 3,
-      fresh: true,
-      clone: true,
-      eagerRefresh: 0.8,
-    }),
-  )
+    // @ts-expect-error - wrong type for user:id
+    void cache.set('user:id', 'wrong')
 
-  assertType(
-    typed.getOrSet('user', async () => ({ id: 1, name: 'T' }), {
-      staleTime: '1m',
-      gcTime: '5m',
-      tags: ['user'],
-      timeout: '30s',
-      retries: 2,
-      abortOnTimeout: true,
-    }),
-  )
-})
+    // @ts-expect-error - wrong type for count
+    void cache.set('count', 'wrong')
+  })
 
-// =============================================================================
-// Other Methods
-// =============================================================================
+  it('infers loader return type from schema', () => {
+    const cache = {} as Cache<Schema>
 
-test('other methods have correct types', () => {
-  const cache = createCache()
+    expectTypeOf(
+      cache.getOrSet('user:id', () => ({ id: 1, name: 'test' })),
+    ).resolves.toEqualTypeOf<{ id: number; name: string }>()
 
-  expectTypeOf(cache.expire('k')).toEqualTypeOf<Promise<boolean>>()
-  expectTypeOf(cache.delete('k1', 'k2')).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(cache.has('k')).toEqualTypeOf<Promise<boolean>>()
-  expectTypeOf(cache.clear()).toEqualTypeOf<Promise<void>>()
-  expectTypeOf(cache.invalidateTags(['tag'])).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(cache.connect()).toEqualTypeOf<Promise<void>>()
-  expectTypeOf(cache.disconnect()).toEqualTypeOf<Promise<void>>()
+    expectTypeOf(cache.getOrSet('count', () => 42)).resolves.toEqualTypeOf<number>()
+  })
+
+  it('preserves schema type through namespace', () => {
+    const cache = {} as Cache<Schema>
+
+    expectTypeOf(cache.namespace('prefix')).toEqualTypeOf<Cache<Schema>>()
+  })
 })

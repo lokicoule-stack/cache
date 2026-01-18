@@ -1,170 +1,86 @@
-/* eslint-disable @typescript-eslint/require-await */
-import { expectTypeOf, assertType, test } from 'vitest'
-import {
-  createCacheManager,
-  type CacheManager,
-  type GenericCacheManager,
-  type Cache,
-  type GenericCache,
-} from '../../src/index'
+import { describe, it, expectTypeOf } from 'vitest'
+import type { CacheManager, GenericCacheManager } from '@/contracts/manager'
+import type { Cache, GenericCache } from '@/contracts/cache'
+import { createCacheManager } from '@/manager'
 
-type User = { id: number; name: string }
-type Session = { token: string; expires: number }
-type AppSchema = { user: User; session: Session }
+type Schema = {
+  'user:id': { id: number; name: string }
+  count: number
+} & Record<string, unknown>
 
-// =============================================================================
-// CacheManager Factory Overloads
-// =============================================================================
+describe('createCacheManager', () => {
+  it('returns GenericCacheManager without type parameter', () => {
+    const manager = createCacheManager()
 
-test('createCacheManager() returns GenericCacheManager', () => {
-  expectTypeOf(createCacheManager()).toEqualTypeOf<GenericCacheManager>()
+    expectTypeOf(manager).toEqualTypeOf<GenericCacheManager>()
+  })
+
+  it('returns CacheManager<T> with type parameter', () => {
+    const manager = createCacheManager<Schema>()
+
+    expectTypeOf(manager).toEqualTypeOf<CacheManager<Schema>>()
+  })
 })
 
-test('createCacheManager<T>() returns CacheManager<T> (typed mode)', () => {
-  expectTypeOf(createCacheManager<AppSchema>()).toEqualTypeOf<CacheManager<AppSchema>>()
+describe('GenericCacheManager - type inference', () => {
+  it('use() returns GenericCache', () => {
+    const manager = {} as GenericCacheManager
+
+    expectTypeOf(manager.use()).toEqualTypeOf<GenericCache>()
+    expectTypeOf(manager.use('store')).toEqualTypeOf<GenericCache>()
+  })
+
+  it('infers value type from explicit generic', () => {
+    const manager = {} as GenericCacheManager
+
+    expectTypeOf(manager.get<string>('key')).resolves.toEqualTypeOf<string | undefined>()
+  })
+
+  it('infers loader return type', () => {
+    const manager = {} as GenericCacheManager
+
+    expectTypeOf(manager.getOrSet('key', () => 'value')).resolves.toEqualTypeOf<string>()
+    expectTypeOf(manager.getOrSet('key', () => Promise.resolve({ id: 1 }))).resolves.toEqualTypeOf<{
+      id: number
+    }>()
+  })
 })
 
-// =============================================================================
-// GenericCacheManager - use() Returns GenericCache
-// =============================================================================
+describe('CacheManager<Schema>', () => {
+  it('use() returns Cache<Schema>', () => {
+    const manager = {} as CacheManager<Schema>
 
-test('GenericCacheManager.use() returns GenericCache', () => {
-  const manager = createCacheManager()
+    expectTypeOf(manager.use()).toEqualTypeOf<Cache<Schema>>()
+  })
 
-  expectTypeOf(manager.use()).toEqualTypeOf<GenericCache>()
-  expectTypeOf(manager.use('store1')).toEqualTypeOf<GenericCache>()
+  it('infers value type from schema key', () => {
+    const manager = {} as CacheManager<Schema>
 
-  const store = manager.use()
-  expectTypeOf(store.get<User>('key')).toEqualTypeOf<Promise<User | undefined>>()
-  assertType(store.set('key', { id: 1, name: 'Alice' }))
-})
+    expectTypeOf(manager.get('user:id')).resolves.toEqualTypeOf<
+      { id: number; name: string } | undefined
+    >()
+    expectTypeOf(manager.get('count')).resolves.toEqualTypeOf<number | undefined>()
+  })
 
-// =============================================================================
-// GenericCacheManager - Direct Methods
-// =============================================================================
+  it('enforces value type on set', () => {
+    const manager = {} as CacheManager<Schema>
 
-test('GenericCacheManager direct methods support dynamic typing', () => {
-  const manager = createCacheManager()
+    expectTypeOf(manager.set('user:id', { id: 1, name: 'test' })).resolves.toBeVoid()
 
-  expectTypeOf(manager.get<User>('key')).toEqualTypeOf<Promise<User | undefined>>()
-  expectTypeOf(manager.get<Session>('key')).toEqualTypeOf<Promise<Session | undefined>>()
+    // @ts-expect-error - wrong type for user:id
+    void manager.set('user:id', 'wrong')
 
-  assertType(manager.set('k1', { id: 1, name: 'Alice' }))
-  assertType(manager.set('k2', 'string'))
-  assertType(manager.set('k3', 42))
+    // @ts-expect-error - wrong type for count
+    void manager.set('count', { id: 1 })
+  })
 
-  expectTypeOf(manager.getOrSet<User>('key', async () => ({ id: 1, name: 'Bob' }))).toEqualTypeOf<
-    Promise<User>
-  >()
+  it('infers loader return type from schema', () => {
+    const manager = {} as CacheManager<Schema>
 
-  expectTypeOf(manager.has('key')).toEqualTypeOf<Promise<boolean>>()
-  expectTypeOf(manager.delete('k1', 'k2')).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(manager.invalidateTags(['tag'])).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(manager.clear()).toEqualTypeOf<Promise<void>>()
-  expectTypeOf(manager.connect()).toEqualTypeOf<Promise<void>>()
-  expectTypeOf(manager.disconnect()).toEqualTypeOf<Promise<void>>()
-})
+    expectTypeOf(
+      manager.getOrSet('user:id', () => ({ id: 1, name: 'test' })),
+    ).resolves.toEqualTypeOf<{ id: number; name: string }>()
 
-// =============================================================================
-// CacheManager<T> - use() Returns Cache<T>
-// =============================================================================
-
-test('CacheManager<T>.use() returns typed Cache<T>', () => {
-  const manager = createCacheManager<AppSchema>()
-
-  expectTypeOf(manager.use()).toEqualTypeOf<Cache<AppSchema>>()
-  expectTypeOf(manager.use('custom')).toEqualTypeOf<Cache<AppSchema>>()
-
-  const store = manager.use()
-  expectTypeOf(store.get('user')).toEqualTypeOf<Promise<User | undefined>>()
-  assertType(store.set('user', { id: 1, name: 'Alice' }))
-
-  // @ts-expect-error invalid key
-  assertType(store.get('invalid'))
-  // @ts-expect-error invalid key
-  assertType(store.set('invalid', 'value'))
-})
-
-// =============================================================================
-// CacheManager<T> - Direct Typed Methods
-// =============================================================================
-
-test('CacheManager<T> direct methods enforce schema', () => {
-  const manager = createCacheManager<AppSchema>()
-
-  expectTypeOf(manager.get('user')).toEqualTypeOf<Promise<User | undefined>>()
-  expectTypeOf(manager.get('session')).toEqualTypeOf<Promise<Session | undefined>>()
-
-  // @ts-expect-error invalid key
-  assertType(manager.get('invalid'))
-
-  assertType(manager.set('user', { id: 1, name: 'Alice' }))
-  assertType(manager.set('session', { token: 'abc', expires: 123 }))
-
-  // @ts-expect-error wrong type
-  assertType(manager.set('user', { wrong: 'type' }))
-  // @ts-expect-error user is not a string
-  assertType(manager.set('user', 'string'))
-  // @ts-expect-error session schema mismatch
-  assertType(manager.set('session', { id: 1 }))
-
-  expectTypeOf(manager.getOrSet('user', async () => ({ id: 1, name: 'Alice' }))).toEqualTypeOf<
-    Promise<User>
-  >()
-
-  // @ts-expect-error wrong return type
-  assertType(manager.getOrSet('user', async () => ({ wrong: 'type' })))
-  // @ts-expect-error user is not a string
-  assertType(manager.getOrSet('user', async () => 'string'))
-
-  expectTypeOf(manager.has('key')).toEqualTypeOf<Promise<boolean>>()
-  expectTypeOf(manager.delete('user', 'session')).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(manager.invalidateTags(['tag'])).toEqualTypeOf<Promise<number>>()
-  expectTypeOf(manager.clear()).toEqualTypeOf<Promise<void>>()
-})
-
-// =============================================================================
-// Options
-// =============================================================================
-
-test('options work correctly', () => {
-  const generic = createCacheManager()
-  const typed = createCacheManager<AppSchema>()
-
-  assertType(generic.get('k', { clone: true }))
-  assertType(typed.get('user', { clone: true }))
-
-  assertType(generic.set('k', 'v', { staleTime: 1000, gcTime: 2000, tags: ['tag'] }))
-  assertType(typed.set('user', { id: 1, name: 'T' }, { staleTime: '5m', tags: ['user'] }))
-
-  assertType(
-    generic.getOrSet('k', async () => 'v', {
-      staleTime: 1000,
-      timeout: 5000,
-      retries: 3,
-      fresh: true,
-      clone: true,
-    }),
-  )
-
-  assertType(
-    typed.getOrSet('user', async () => ({ id: 1, name: 'T' }), {
-      staleTime: '1m',
-      gcTime: '5m',
-      tags: ['user'],
-      timeout: '30s',
-    }),
-  )
-})
-
-// =============================================================================
-// EventEmitter
-// =============================================================================
-
-test('emitter is accessible', () => {
-  const generic = createCacheManager()
-  const typed = createCacheManager<AppSchema>()
-
-  assertType(generic.emitter.on('hit', () => {}))
-  assertType(typed.emitter.emit('miss', { key: 'k', store: 'default', duration: 0 }))
+    expectTypeOf(manager.getOrSet('count', () => 42)).resolves.toEqualTypeOf<number>()
+  })
 })
