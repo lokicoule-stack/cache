@@ -1,11 +1,5 @@
-/**
- * Tiered storage orchestration
- *
- * Manages L1 (sync/memory) and L2 (async/remote) cache layers with
- * circuit breakers and automatic backfill.
- *
- * @module storage/tiered-store
- */
+// L1/L2 tiering with circuit breakers. Falls through layers on miss (L1 → L2₁ → L2₂...), backfills upper layers on hit.
+// Circuit breakers prevent cascading failures when remote layers become unhealthy.
 
 import { createCircuitBreaker, type CircuitBreaker } from '../resilience/circuit-breaker'
 import { TagIndex } from '../sync/tags'
@@ -18,10 +12,6 @@ import type { CacheEntry } from '../entry'
 
 const DEFAULT_CIRCUIT_BREAK_DURATION = 30_000
 const DEFAULT_FAILURE_THRESHOLD = 3
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface TieredStoreConfig {
   l1?: SyncDriver
@@ -42,10 +32,6 @@ interface GuardedLayer {
   cb: CircuitBreaker
 }
 
-// ============================================================================
-// Guarded Call Helper
-// ============================================================================
-
 async function guardedCall<T>(cb: CircuitBreaker, fn: () => Promise<T>, fallback: T): Promise<T> {
   if (cb.isOpen()) {
     return fallback
@@ -64,18 +50,12 @@ async function guardedCall<T>(cb: CircuitBreaker, fn: () => Promise<T>, fallback
   }
 }
 
-// ============================================================================
-// Backfill Helper
-// ============================================================================
-
 function createBackfill(l1: SyncLayer | undefined, layers: GuardedLayer[]) {
   return (key: string, entry: CacheEntry, sourceIndex: number): void => {
-    // Backfill L1 if data came from L2
     if (l1 && sourceIndex > 0) {
       l1.set(key, entry)
     }
 
-    // Backfill earlier L2 layers
     const l2StartIndex = l1 ? 1 : 0
 
     for (let i = l2StartIndex; i < sourceIndex; i++) {
@@ -88,10 +68,6 @@ function createBackfill(l1: SyncLayer | undefined, layers: GuardedLayer[]) {
   }
 }
 
-// ============================================================================
-// Internal Config (for namespace cloning)
-// ============================================================================
-
 interface InternalConfig {
   l1?: SyncLayer
   layers: GuardedLayer[]
@@ -100,10 +76,6 @@ interface InternalConfig {
   cbDuration: number
   cbThreshold: number
 }
-
-// ============================================================================
-// TieredStore Implementation
-// ============================================================================
 
 export class TieredStore {
   readonly #l1?: SyncLayer
@@ -160,10 +132,6 @@ export class TieredStore {
     }
   }
 
-  // ==========================================================================
-  // L1 Direct Access
-  // ==========================================================================
-
   invalidateL1(...keys: string[]): void {
     if (!this.#l1 || keys.length === 0) {
       return
@@ -180,14 +148,9 @@ export class TieredStore {
     }
   }
 
-  // ==========================================================================
-  // Core Operations
-  // ==========================================================================
-
   async get(key: string): Promise<StorageResult> {
     const k = this.#key(key)
 
-    // Try L1 first
     if (this.#l1) {
       const entry = this.#l1.get(k)
 
@@ -196,7 +159,6 @@ export class TieredStore {
       }
     }
 
-    // Try L2 layers
     for (let i = 0; i < this.#layers.length; i++) {
       const guarded = this.#layers[i]
       const entry = await guardedCall(guarded.cb, () => guarded.layer.get(k), undefined)
@@ -224,7 +186,6 @@ export class TieredStore {
     const keyMap = new Map(keys.map((k, i) => [prefixedKeys[i], k]))
     let pending = [...prefixedKeys]
 
-    // Try L1 first
     if (this.#l1 && pending.length > 0) {
       const hits = this.#l1.getMany(pending)
 
@@ -245,7 +206,6 @@ export class TieredStore {
       }
     }
 
-    // Try L2 layers for remaining keys
     for (let i = 0; i < this.#layers.length && pending.length > 0; i++) {
       const guarded = this.#layers[i]
       const hits = await guardedCall(
@@ -281,17 +241,14 @@ export class TieredStore {
   async set(key: string, entry: CacheEntry): Promise<void> {
     const k = this.#key(key)
 
-    // Register tags
     if (entry.tags.length > 0) {
       this.#tags.register(k, entry.tags)
     }
 
-    // Write to L1
     if (this.#l1) {
       this.#l1.set(k, entry)
     }
 
-    // Write to all L2 layers
     await Promise.all(
       this.#layers.map((guarded) =>
         guardedCall(guarded.cb, () => guarded.layer.set(k, entry), undefined),
@@ -306,19 +263,16 @@ export class TieredStore {
 
     const prefixedKeys = keys.map((k) => this.#key(k))
 
-    // Unregister tags
     for (const k of prefixedKeys) {
       this.#tags.unregister(k)
     }
 
     const counts: number[] = []
 
-    // Delete from L1
     if (this.#l1) {
       counts.push(this.#l1.deleteMany(prefixedKeys))
     }
 
-    // Delete from L2 layers
     const l2Counts = await Promise.all(
       this.#layers.map((guarded) =>
         guardedCall(guarded.cb, () => guarded.layer.deleteMany(prefixedKeys), 0),
@@ -386,10 +340,6 @@ export class TieredStore {
     return Math.max(...counts, 0)
   }
 
-  // ==========================================================================
-  // Namespace
-  // ==========================================================================
-
   namespace(prefix: string): TieredStore {
     const newPrefix = this.#prefix ? `${this.#prefix}:${prefix}` : prefix
 
@@ -406,10 +356,6 @@ export class TieredStore {
     )
   }
 
-  // ==========================================================================
-  // Lifecycle
-  // ==========================================================================
-
   async connect(): Promise<void> {
     await Promise.all(
       this.#layers
@@ -425,10 +371,6 @@ export class TieredStore {
         .filter((p): p is Promise<void> => p !== undefined),
     )
   }
-
-  // ==========================================================================
-  // Private
-  // ==========================================================================
 
   #key(key: string): string {
     return this.#prefix ? `${this.#prefix}:${key}` : key

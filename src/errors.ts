@@ -1,6 +1,3 @@
-/**
- * Error code catalog for programmatic error handling
- */
 export const ERROR_CODES = {
   // Configuration Errors
   INVALID_CONFIG: 'INVALID_CONFIG',
@@ -185,9 +182,6 @@ export interface CacheErrorOptions {
   context?: Record<string, unknown>
 }
 
-/**
- * Custom error class for all cache-related errors
- */
 export class CacheError extends Error {
   readonly code: ErrorCode
   override readonly cause?: Error

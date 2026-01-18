@@ -1,4 +1,3 @@
-// Core exports
 export { createCache, InternalCache } from './cache'
 export { createCacheManager, InternalCacheManager } from './manager'
 export {
@@ -15,11 +14,8 @@ export {
   type ErrorSeverity,
 } from './errors'
 
-// Interfaces
 export type { Cache, GenericCache } from './contracts/cache'
 export type { CacheManager, GenericCacheManager } from './contracts/manager'
-
-// Types
 export type { AsyncDriver, SyncDriver } from './contracts/driver'
 export type { CachePlugin } from './contracts/plugin'
 export { parseDuration, parseOptionalDuration } from './types/duration'
@@ -34,12 +30,10 @@ export type {
 } from './types/options'
 export type { Duration } from './types/duration'
 
-// Storage
 export { memoryDriver } from './storage/drivers/memory'
 export { redisDriver } from './storage/drivers/redis'
 export { TieredStore, type StorageResult, type TieredStoreConfig } from './storage/tiered-store'
 
-// Sync
 export {
   DistributedSync,
   type CacheBusSchema,
@@ -47,7 +41,6 @@ export {
 } from './sync/distributed'
 export { TagIndex } from './sync/tags'
 
-// Resilience
 export {
   createCircuitBreaker,
   type CircuitBreaker,
@@ -58,7 +51,6 @@ export { withRetry, type RetryOptions } from './resilience/retry'
 export { withSwr, type SwrOptions, type SwrResult } from './resilience/swr'
 export { delay } from './resilience/delay'
 
-// Observability
 export {
   createEventEmitter,
   type CacheEventMap,

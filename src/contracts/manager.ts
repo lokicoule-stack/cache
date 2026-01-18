@@ -2,7 +2,8 @@ import type { Cache, GenericCache } from './cache'
 import type { GetOptions, GetSetOptions, Loader, SetOptions } from '../types/options'
 
 /**
- * Generic cache manager interface
+ * Cache manager with runtime-typed keys and values.
+ * Use when schema is dynamic or unknown at compile time.
  */
 export interface GenericCacheManager {
   use(name?: string): GenericCache
@@ -18,7 +19,8 @@ export interface GenericCacheManager {
 }
 
 /**
- * Schema-based cache manager interface
+ * Cache manager with schema-locked compile-time key-value validation.
+ * Use when schema is fixed and known at compile time.
  */
 export interface CacheManager<T extends Record<string, unknown>> {
   use(name?: string): Cache<T>

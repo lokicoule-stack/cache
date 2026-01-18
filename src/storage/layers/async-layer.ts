@@ -1,9 +1,7 @@
 import type { AsyncDriver } from '@/contracts/driver'
 import type { CacheEntry } from '@/entry'
 
-/**
- * @internal
- */
+/** @internal */
 export interface AsyncLayer {
   readonly name: string
   readonly driver: AsyncDriver
@@ -16,9 +14,7 @@ export interface AsyncLayer {
   clear(): Promise<void>
 }
 
-/**
- * @internal
- */
+/** @internal */
 export function wrapAsyncDriver(driver: AsyncDriver): AsyncLayer {
   return {
     name: driver.name,

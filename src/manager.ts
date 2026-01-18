@@ -1,8 +1,3 @@
-/**
- * Multi-store cache manager implementation
- *
- * @module manager
- */
 
 import { MessageBus } from '@lokiverse/bus'
 
@@ -27,10 +22,6 @@ import type {
 
 const DEFAULT_STALE_TIME = 60_000
 
-// ============================================================================
-// Internal Types
-// ============================================================================
-
 interface SharedConfig {
   memory: SyncDriver
   globalMemory: boolean
@@ -48,12 +39,7 @@ interface InternalConfig {
   bus?: MessageBus<CacheBusSchema>
 }
 
-// ============================================================================
-// CacheManager Implementation
-// ============================================================================
-
 /**
- * Internal cache manager implementation
  * @internal
  */
 export class InternalCacheManager<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -103,9 +89,6 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
     }
   }
 
-  /**
-   * Get a specific cache store by name
-   */
   use(name?: string): InternalCache<T> {
     const storeName = name ?? this.#defaultStoreName
     const store = this.#stores.get(storeName)
@@ -118,10 +101,6 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
 
     return store
   }
-
-  // ==========================================================================
-  // Proxy Methods
-  // ==========================================================================
 
   get<V = unknown>(key: string, options?: GetOptions): Promise<V | undefined>
   get<K extends keyof T>(key: K, options?: GetOptions): Promise<T[K] | undefined>
@@ -183,10 +162,6 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
       await this.#bus.disconnect()
     }
   }
-
-  // ==========================================================================
-  // Private Helpers
-  // ==========================================================================
 
   #buildSharedConfig(config: CacheManagerConfig): SharedConfig {
     const memory = (config.drivers?.memory as SyncDriver) ?? memoryDriver()
@@ -300,12 +275,10 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
   }
 }
 
-// ============================================================================
-// Factory Functions
-// ============================================================================
-
 /**
- * Create a generic cache manager with dynamic typing
+ * Creates a cache manager with runtime-typed keys and values.
+ * Use when schema is dynamic or unknown at compile time.
+ * For compile-time type safety, use the generic overload.
  *
  * @example
  * ```ts
@@ -313,13 +286,14 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
  *   drivers: { redis: redisDriver() },
  *   stores: { default: ['redis'] }
  * })
- * const user = await manager.get<User>('user:1')
+ * const user = await manager.get<User>('user:1') // Type asserted at call-site
  * ```
  */
 export function createCacheManager(config?: CacheManagerConfig): GenericCacheManager
 
 /**
- * Create a schema-based cache manager with type-safe key-value mapping
+ * Creates a schema-locked cache manager with compile-time key-value validation.
+ * Use when schema is fixed and known at compile time.
  *
  * @example
  * ```ts
@@ -328,7 +302,7 @@ export function createCacheManager(config?: CacheManagerConfig): GenericCacheMan
  *   'session:abc': Session
  * }
  * const manager = createCacheManager<Schema>({ staleTime: '5m' })
- * const user = await manager.get('user:1') // Type: User | undefined
+ * const user = await manager.get('user:1') // Type: User | undefined (validated at compile-time)
  * ```
  */
 export function createCacheManager<T extends Record<string, unknown>>(

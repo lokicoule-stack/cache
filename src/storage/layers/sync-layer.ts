@@ -1,9 +1,7 @@
 import type { SyncDriver } from '@/contracts/driver'
 import type { CacheEntry } from '@/entry'
 
-/**
- * @internal
- */
+/** @internal */
 export interface SyncLayer {
   readonly name: string
   get(key: string): CacheEntry | undefined
@@ -15,9 +13,7 @@ export interface SyncLayer {
   clear(): void
 }
 
-/**
- * @internal
- */
+/** @internal */
 export function wrapSyncDriver(driver: SyncDriver): SyncLayer {
   return {
     name: driver.name,

@@ -1,7 +1,8 @@
 import type { GetOptions, Loader, SetOptions, GetSetOptions } from '../types/options'
 
 /**
- * Generic cache interface with dynamic typing
+ * Cache with runtime-typed keys and values.
+ * Use when schema is dynamic or unknown at compile time.
  */
 export interface GenericCache {
   get<V = unknown>(key: string, options?: GetOptions): Promise<V | undefined>
@@ -19,7 +20,8 @@ export interface GenericCache {
 }
 
 /**
- * Schema-based cache interface with type-safe key-value mapping
+ * Cache with schema-locked compile-time key-value validation.
+ * Use when schema is fixed and known at compile time.
  */
 export interface Cache<T extends Record<string, unknown>> {
   get<K extends keyof T>(key: K, options?: GetOptions): Promise<T[K] | undefined>

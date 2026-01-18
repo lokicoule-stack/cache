@@ -5,10 +5,10 @@ import {
   type RedisClusterOptions,
 } from 'redis'
 
-import { CacheEntry, type SerializedEntry } from '../entry'
-import { CacheError, ERROR_CODES } from '../errors'
+import { CacheEntry, type SerializedEntry } from '../../entry'
+import { CacheError, ERROR_CODES } from '../../errors'
 
-import type { AsyncDriver } from '../types'
+import type { AsyncDriver } from '../../contracts/driver'
 
 export type RedisInstance = ReturnType<typeof createClient> | ReturnType<typeof createCluster>
 
@@ -59,6 +59,11 @@ export class RedisDriver implements AsyncDriver {
             ...this.#config.socket,
           },
         })
+
+        // Suppress global socket errors - each Redis command has error handling in #exec()
+        // Prevents unhandled promise rejections during transient network issues
+        this.#client.on('error', () => {})
+
         await this.#client.connect()
       }
     })

@@ -1,18 +1,12 @@
 export interface CircuitBreakerOptions {
-  /** Duration in ms the circuit stays open */
   breakDuration: number
-  /** Number of consecutive failures before opening (default: 1) */
   failureThreshold?: number
 }
 
 export interface CircuitBreaker {
-  /** Check if circuit is open (should skip calls) */
   isOpen(): boolean
-  /** Record a successful call - resets failure counter */
   recordSuccess(): void
-  /** Record a failed call - may open circuit if threshold reached */
   recordFailure(): void
-  /** Force reset to closed state */
   reset(): void
 }
 

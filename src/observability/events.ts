@@ -1,7 +1,3 @@
-// ============================================================================
-// Event Type Definitions
-// ============================================================================
-
 export interface CacheHitEvent {
   key: string
   store: string
@@ -60,10 +56,6 @@ export interface CacheEventMap {
 }
 
 export type CacheEventType = keyof CacheEventMap
-
-// ============================================================================
-// Emitter Interface & Implementation
-// ============================================================================
 
 export interface Emitter<TEvents = CacheEventMap> {
   on<E extends keyof TEvents & string>(event: E, fn: (data: TEvents[E]) => void): void

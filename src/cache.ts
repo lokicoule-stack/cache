@@ -1,8 +1,3 @@
-/**
- * Main cache implementation
- *
- * @module cache
- */
 
 import { MessageBus } from '@lokiverse/bus'
 
@@ -22,10 +17,6 @@ import type { CacheConfig, GetOptions, GetSetOptions, Loader, SetOptions } from 
 
 const DEFAULT_STALE_TIME = 60_000
 
-// ============================================================================
-// Internal Types
-// ============================================================================
-
 interface InternalConfig {
   store: TieredStore
   emitter: EventEmitter
@@ -44,10 +35,6 @@ interface LoaderOptions {
   retries?: number
   fresh?: boolean
 }
-
-// ============================================================================
-// Cache Loader Helper
-// ============================================================================
 
 class CacheLoader {
   readonly #storage: TieredStore
@@ -121,7 +108,6 @@ class CacheLoader {
     tags?: string[],
   ): void {
     this.#dedup(key, () => this.loadAndStore(key, loader, options, tags)).catch((error) => {
-      // Emit error event instead of silent failure
       this.#emitter.emit('error', {
         key,
         store: this.#storeName,
@@ -148,12 +134,7 @@ class CacheLoader {
   }
 }
 
-// ============================================================================
-// Main Cache Class
-// ============================================================================
-
 /**
- * Internal cache implementation
  * @internal
  */
 export class InternalCache<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -222,10 +203,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
     }
   }
 
-  // ==========================================================================
-  // Get
-  // ==========================================================================
-
   get<V = unknown>(key: string, options?: GetOptions): Promise<V | undefined>
   get<K extends keyof T>(key: K, options?: GetOptions): Promise<T[K] | undefined>
 
@@ -259,10 +236,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
     })
   }
 
-  // ==========================================================================
-  // Set
-  // ==========================================================================
-
   set<V = unknown>(key: string, value: V, options?: SetOptions): Promise<void>
   set<K extends keyof T>(key: K, value: T[K], options?: SetOptions): Promise<void>
 
@@ -286,10 +259,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
     })
   }
 
-  // ==========================================================================
-  // GetOrSet
-  // ==========================================================================
-
   getOrSet<V = unknown>(key: string, loader: Loader<V>, options?: GetSetOptions): Promise<V>
   getOrSet<K extends keyof T>(key: K, loader: Loader<T[K]>, options?: GetSetOptions): Promise<T[K]>
 
@@ -309,9 +278,7 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
 
         const result = await this.#store.get(key)
 
-        // Fresh hit
         if (result.entry && !result.entry.isStale()) {
-          // Eager refresh if near expiration
           if (options?.eagerRefresh && result.entry.isNearExpiration(options.eagerRefresh)) {
             this.#loader.refreshInBackground(key, loader, loaderOpts, options?.tags)
           }
@@ -327,7 +294,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
           return this.#clone(result.entry.value, loaderOpts.clone)
         }
 
-        // Stale hit - use SWR
         if (result.entry && !result.entry.isGced()) {
           const value = await this.#loader.handleSwr(
             key,
@@ -341,7 +307,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
           return this.#clone(value, loaderOpts.clone)
         }
 
-        // Miss - load fresh
         const value = await this.#dedup(key, () =>
           this.#loader.loadAndStore(key, loader, loaderOpts, options?.tags),
         )
@@ -352,10 +317,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
       }
     })
   }
-
-  // ==========================================================================
-  // Delete
-  // ==========================================================================
 
   delete(...keys: string[]): Promise<number>
   delete(...keys: (keyof T)[]): Promise<number>
@@ -384,10 +345,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
     })
   }
 
-  // ==========================================================================
-  // L1 Cache Control
-  // ==========================================================================
-
   invalidateL1(...keys: string[]): void {
     this.#store.invalidateL1(...keys)
   }
@@ -395,10 +352,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   clearL1(): void {
     this.#store.clearL1()
   }
-
-  // ==========================================================================
-  // Other Operations
-  // ==========================================================================
 
   async has(key: string): Promise<boolean> {
     return this.#store.has(key)
@@ -481,10 +434,6 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
     await this.#store.disconnect()
   }
 
-  // ==========================================================================
-  // Private Helpers
-  // ==========================================================================
-
   async #withMetrics<R>(operation: (timer: Timer) => Promise<R>): Promise<R> {
     const timer = createTimer()
 
@@ -518,24 +467,23 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   }
 }
 
-// ============================================================================
-// Factory Functions
-// ============================================================================
-
 /**
- * Create a generic cache with dynamic typing
+ * Creates a cache with runtime-typed keys and values.
+ * Use when schema is dynamic or unknown at compile time.
+ * For compile-time type safety, use the generic overload.
  *
  * @example
  * ```ts
  * const cache = createCache({ staleTime: '5m' })
- * const user = await cache.get<User>('user:1')
+ * const user = await cache.get<User>('user:1') // Type asserted at call-site
  * await cache.set('user:1', { id: 1, name: 'Alice' })
  * ```
  */
 export function createCache(config?: CacheConfig): GenericCache
 
 /**
- * Create a schema-based cache with type-safe key-value mapping
+ * Creates a schema-locked cache with compile-time key-value validation.
+ * Use when schema is fixed and known at compile time.
  *
  * @example
  * ```ts
@@ -544,7 +492,7 @@ export function createCache(config?: CacheConfig): GenericCache
  *   'session:abc': Session
  * }
  * const cache = createCache<Schema>({ staleTime: '5m' })
- * const user = await cache.get('user:1') // Type: User | undefined
+ * const user = await cache.get('user:1') // Type: User | undefined (validated at compile-time)
  * ```
  */
 export function createCache<T extends Record<string, unknown>>(config?: CacheConfig): Cache<T>

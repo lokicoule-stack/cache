@@ -5,9 +5,7 @@ export interface Timer {
   end(): number
 }
 
-/**
- * @internal
- */
+/** @internal */
 export function createTimer(): Timer {
   const start = performance.now()
   let final: number | null = null

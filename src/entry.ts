@@ -35,9 +35,6 @@ export class CacheEntry {
     this.tags = data.tags
   }
 
-  /**
-   * Create a new cache entry
-   */
   static create(value: unknown, options: CacheEntryOptions): CacheEntry {
     const now = Date.now()
 
@@ -50,9 +47,6 @@ export class CacheEntry {
     })
   }
 
-  /**
-   * Deserialize from storage format
-   */
   static deserialize(data: SerializedEntry): CacheEntry {
     return new CacheEntry({
       value: data.v,
@@ -63,24 +57,14 @@ export class CacheEntry {
     })
   }
 
-  /**
-   * Check if entry is stale (past staleAt but not gcAt)
-   */
   isStale(): boolean {
     return Date.now() >= this.staleAt
   }
 
-  /**
-   * Check if entry should be garbage collected
-   */
   isGced(): boolean {
     return Date.now() >= this.gcAt
   }
 
-  /**
-   * Check if entry is approaching expiration
-   * @param ratio 0-1, e.g. 0.8 = 80% of lifetime elapsed
-   */
   isNearExpiration(ratio: number = 0.8): boolean {
     const lifetime = this.staleAt - this.createdAt
     const elapsed = Date.now() - this.createdAt
@@ -88,9 +72,6 @@ export class CacheEntry {
     return elapsed >= lifetime * ratio
   }
 
-  /**
-   * Serialize for storage
-   */
   serialize(): SerializedEntry {
     return {
       v: this.value,
@@ -101,9 +82,6 @@ export class CacheEntry {
     }
   }
 
-  /**
-   * Create an expired copy of this entry
-   */
   expire(): CacheEntry {
     return new CacheEntry({
       value: this.value,

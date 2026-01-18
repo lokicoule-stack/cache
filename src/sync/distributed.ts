@@ -12,19 +12,7 @@ export interface DistributedSyncCallbacks {
   onRemoteInvalidateTags: (tags: string[]) => void
 }
 
-/**
- * Distributed sync coordinator
- *
- * Responsibilities:
- * - Publish local mutations to other instances
- * - Subscribe to remote mutations and apply them locally
- * - Handle message bus lifecycle
- *
- * Architecture:
- * - Write operations: publish events to bus
- * - Read operations: no overhead (direct local cache)
- * - Remote events: trigger callbacks to invalidate local L1
- */
+// Publishes local mutations and subscribes to remote cache invalidations
 export class DistributedSync {
   readonly #bus: MessageBus<CacheBusSchema>
   readonly #storeName: string
@@ -35,17 +23,11 @@ export class DistributedSync {
     this.#storeName = storeName
   }
 
-  /**
-   * Setup callbacks for remote events
-   */
   setup(callbacks: DistributedSyncCallbacks): void {
     this.#callbacks = callbacks
     this.#subscribeToRemoteEvents()
   }
 
-  /**
-   * Publish key deletion to other instances
-   */
   async onDelete(keys: string[]): Promise<void> {
     if (keys.length === 0) {
       return
@@ -57,18 +39,12 @@ export class DistributedSync {
     })
   }
 
-  /**
-   * Publish cache clear to other instances
-   */
   async onClear(): Promise<void> {
     await this.#bus.publish('cache:clear', {
       store: this.#storeName,
     })
   }
 
-  /**
-   * Publish tag invalidation to other instances
-   */
   async onInvalidateTags(tags: string[]): Promise<void> {
     if (tags.length === 0) {
       return
