@@ -1,0 +1,5 @@
+export { OpenTelemetryPlugin } from './plugin.js'
+export { CacheMetrics } from './metrics.js'
+export { CacheTracing } from './tracing.js'
+export type { OpenTelemetryPluginConfig } from './types.js'
+export { CacheAttributes, CacheOperations } from './types.js'

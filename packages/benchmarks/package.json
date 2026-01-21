@@ -1,0 +1,40 @@
+{
+  "name": "@lokiverse/benchmarks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "FAANG-level benchmark suite for @lokiverse/cache",
+  "scripts": {
+    "bench": "tsx bin/run-all.ts",
+    "bench:micro": "tsx bin/run-micro.ts",
+    "bench:throughput": "tsx bin/run-throughput.ts",
+    "bench:scenarios": "tsx bin/run-scenarios.ts",
+    "bench:memory": "node --expose-gc -r tsx/esm bin/run-memory.ts",
+    "typecheck": "tsc --noEmit",
+    "docker:up": "docker compose up -d && sleep 3",
+    "docker:down": "docker compose down",
+    "bench:full": "npm run docker:up && REDIS_URL=redis://localhost:6379 npm run bench; npm run docker:down"
+  },
+  "keywords": [
+    "benchmark",
+    "cache",
+    "redis",
+    "bentocache",
+    "performance"
+  ],
+  "author": "Loik F. (https://github.com/Lokicoule)",
+  "license": "MIT",
+  "dependencies": {
+    "@lokiverse/cache": "workspace:*",
+    "bentocache": "^1.2.0",
+    "redis": "^5.10.0",
+    "tinybench": "^3.0.0"
+  },
+  "devDependencies": {
+    "@testcontainers/redis": "^11.9.0",
+    "@types/node": "^22.10.2",
+    "testcontainers": "^11.9.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2"
+  }
+}

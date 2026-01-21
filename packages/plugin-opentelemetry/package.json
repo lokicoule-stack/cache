@@ -1,0 +1,70 @@
+{
+  "name": "@lokiverse/cache-plugin-opentelemetry",
+  "version": "0.0.1",
+  "description": "OpenTelemetry plugin for @lokiverse/cache - metrics, tracing, and observability",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "keywords": [
+    "opentelemetry",
+    "observability",
+    "metrics",
+    "tracing",
+    "cache",
+    "prometheus",
+    "grafana",
+    "jaeger",
+    "tempo"
+  ],
+  "author": "Loik F. (https://github.com/Lokicoule)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lokicoule-stack/cache.git",
+    "directory": "packages/plugin-opentelemetry"
+  },
+  "bugs": {
+    "url": "https://github.com/lokicoule-stack/cache/issues"
+  },
+  "homepage": "https://github.com/lokicoule-stack/cache#readme",
+  "peerDependencies": {
+    "@lokiverse/cache": ">=0.0.2",
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "dependencies": {
+    "@opentelemetry/instrumentation": "^0.56.0",
+    "@opentelemetry/semantic-conventions": "^1.29.0"
+  },
+  "devDependencies": {
+    "@lokiverse/cache": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-metrics": "^1.29.0",
+    "@opentelemetry/sdk-trace-base": "^1.29.0",
+    "@opentelemetry/sdk-trace-node": "^1.29.0",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

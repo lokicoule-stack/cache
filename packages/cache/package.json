@@ -1,0 +1,104 @@
+{
+  "name": "@lokiverse/cache",
+  "version": "0.0.2",
+  "description": "TypeScript-first multi-layer cache with SWR, stampede protection, and bus sync",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    }
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "build:api": "api-extractor run --local --verbose",
+    "build:api:prod": "api-extractor run --verbose",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
+    "test:types": "vitest --typecheck --run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:types && pnpm test"
+  },
+  "keywords": [
+    "typescript",
+    "cache",
+    "multi-layer",
+    "swr",
+    "stale-while-revalidate",
+    "stampede-protection",
+    "redis",
+    "lru"
+  ],
+  "author": "Loik F. (https://github.com/Lokicoule)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lokicoule-stack/cache.git",
+    "directory": "packages/cache"
+  },
+  "bugs": {
+    "url": "https://github.com/lokicoule-stack/cache/issues"
+  },
+  "homepage": "https://github.com/lokicoule-stack/cache#readme",
+  "peerDependencies": {
+    "@lokiverse/bus": ">=0.1.0",
+    "redis": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@lokiverse/bus": {
+      "optional": true
+    },
+    "redis": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@lokiverse/bus": "link:../../../../../bus",
+    "@microsoft/api-extractor": "^7.55.2",
+    "@rollup/plugin-alias": "^6.0.0",
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.1",
+    "@stryker-mutator/core": "^9.4.0",
+    "@stryker-mutator/typescript-checker": "^9.4.0",
+    "@stryker-mutator/vitest-runner": "^9.4.0",
+    "@testcontainers/redis": "^11.9.0",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "2.1.8",
+    "redis": "^5.10.0",
+    "rollup": "^4.28.1",
+    "rollup-plugin-dts": "^6.1.1",
+    "testcontainers": "^11.9.0",
+    "tsd": "^0.33.0",
+    "tslib": "^2.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest"
+  },
+  "dependencies": {
+    "@msgpack/msgpack": "^3.1.2",
+    "lru-cache": "^11.2.4"
+  }
+}
