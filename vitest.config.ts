@@ -11,6 +11,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    include: ['tests/**/*.test.ts'],
+    exclude: ['tests-old/**', 'node_modules/**'],
     typecheck: {
       enabled: true,
       include: ['tests/types/**/*.test-d.ts'],

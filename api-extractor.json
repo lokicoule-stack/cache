@@ -9,20 +9,20 @@
   "apiReport": {
     "enabled": true,
     "reportFolder": "<projectFolder>/etc/",
-    "reportFileName": "lokiverse-bus",
+    "reportFileName": "lokiverse-cache",
     "reportTempFolder": "<projectFolder>/temp/",
     "includeForgottenExports": false
   },
   "docModel": {
     "enabled": true,
-    "apiJsonFilePath": "<projectFolder>/temp/lokiverse-bus.api.json",
+    "apiJsonFilePath": "<projectFolder>/temp/lokiverse-cache.api.json",
     "includeForgottenExports": false,
-    "projectFolderUrl": "https://github.com/lokicoule-stack/bus/tree/main"
+    "projectFolderUrl": "https://github.com/lokicoule-stack/cache/tree/main"
   },
   "dtsRollup": {
     "enabled": true,
-    "untrimmedFilePath": "<projectFolder>/dist/lokiverse-bus.d.ts",
-    "publicTrimmedFilePath": "<projectFolder>/dist/lokiverse-bus-public.d.ts"
+    "untrimmedFilePath": "<projectFolder>/dist/lokiverse-cache.d.ts",
+    "publicTrimmedFilePath": "<projectFolder>/dist/lokiverse-cache-public.d.ts"
   },
   "tsdocMetadata": {
     "enabled": true,
