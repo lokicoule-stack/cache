@@ -1,5 +1,16 @@
 import { metrics, trace } from '@opentelemetry/api'
-import type { CachePlugin } from '@lokiverse/cache'
+import type {
+  CachePlugin,
+  EventEmitter,
+  CacheHitEvent,
+  CacheMissEvent,
+  CacheSetEvent,
+  CacheDeleteEvent,
+  CacheClearEvent,
+  CacheErrorEvent,
+  BusPublishedEvent,
+  BusReceivedEvent,
+} from '@lokiverse/cache'
 import { CacheMetrics } from './metrics.js'
 import { CacheTracing } from './tracing.js'
 import type { OpenTelemetryPluginConfig } from './types.js'
@@ -45,13 +56,12 @@ export class OpenTelemetryPlugin implements CachePlugin {
     this.tracing = new CacheTracing(tracer, config.tracing)
   }
 
-  register(emitter: any): void {
-    // Cache hit events
-    emitter.on('hit', (event: any) => {
+  register(emitter: EventEmitter): void {
+    emitter.on('hit', (event: CacheHitEvent) => {
       this.metrics.recordHit({
         store: event.store,
         driver: event.driver,
-        graced: event.graced ?? false,
+        graced: event.graced,
         duration: event.duration,
       })
 
@@ -59,13 +69,12 @@ export class OpenTelemetryPlugin implements CachePlugin {
         key: event.key,
         store: event.store,
         driver: event.driver,
-        graced: event.graced ?? false,
+        graced: event.graced,
       })
       span.end()
     })
 
-    // Cache miss events
-    emitter.on('miss', (event: any) => {
+    emitter.on('miss', (event: CacheMissEvent) => {
       this.metrics.recordMiss({
         store: event.store,
         duration: event.duration,
@@ -78,8 +87,7 @@ export class OpenTelemetryPlugin implements CachePlugin {
       span.end()
     })
 
-    // Set events
-    emitter.on('set', (event: any) => {
+    emitter.on('set', (event: CacheSetEvent) => {
       this.metrics.recordSet({
         store: event.store,
         duration: event.duration,
@@ -92,8 +100,7 @@ export class OpenTelemetryPlugin implements CachePlugin {
       span.end()
     })
 
-    // Delete events
-    emitter.on('delete', (event: any) => {
+    emitter.on('delete', (event: CacheDeleteEvent) => {
       this.metrics.recordDelete({
         store: event.store,
         duration: event.duration,
@@ -106,8 +113,7 @@ export class OpenTelemetryPlugin implements CachePlugin {
       span.end()
     })
 
-    // Clear events
-    emitter.on('clear', (event: any) => {
+    emitter.on('clear', (event: CacheClearEvent) => {
       this.metrics.recordClear({
         store: event.store,
         duration: event.duration,
@@ -119,11 +125,10 @@ export class OpenTelemetryPlugin implements CachePlugin {
       span.end()
     })
 
-    // Error events
-    emitter.on('error', (event: any) => {
+    emitter.on('error', (event: CacheErrorEvent) => {
       this.metrics.recordError({
         store: event.store,
-        errorType: event.error?.constructor?.name ?? 'Error',
+        errorType: event.error.constructor.name,
         duration: event.duration,
       })
 
@@ -135,15 +140,14 @@ export class OpenTelemetryPlugin implements CachePlugin {
       span.end()
     })
 
-    // Bus sync events
-    emitter.on('bus:published', (event: any) => {
+    emitter.on('bus:published', (event: BusPublishedEvent) => {
       this.metrics.recordBusEvent({
         channel: event.channel,
         direction: 'published',
       })
     })
 
-    emitter.on('bus:received', (event: any) => {
+    emitter.on('bus:received', (event: BusReceivedEvent) => {
       this.metrics.recordBusEvent({
         channel: event.channel,
         direction: 'received',
