@@ -24,6 +24,7 @@ interface InternalConfig {
   defaultGcTime: number
   storeName: string
   sync?: DistributedSync | null
+  autoConnect: boolean
 }
 
 interface LoaderOptions {
@@ -145,6 +146,9 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   readonly #storeName: string
   readonly #loader: CacheLoader
   readonly #sync: DistributedSync | null
+  readonly #autoConnect: boolean
+  #connected = false
+  #connecting?: Promise<void>
 
   constructor(config?: CacheConfig)
   constructor(internal: InternalConfig, isInternal: true)
@@ -160,6 +164,7 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
       this.#storeName = internal.storeName
       this.#loader = new CacheLoader(this.#store, this.#emitter, this.#storeName, internal.dedup)
       this.#sync = internal.sync ?? null
+      this.#autoConnect = internal.autoConnect
     } else {
       const external = (config as CacheConfig) ?? {}
       const staleTime = parseOptionalDuration(external.staleTime) ?? DEFAULT_STALE_TIME
@@ -181,6 +186,7 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
       this.#emitter = emitter
       this.#storeName = 'default'
       this.#loader = new CacheLoader(this.#store, this.#emitter, this.#storeName, dedup)
+      this.#autoConnect = external.autoConnect ?? true
 
       // Distributed sync setup
       this.#sync = external.bus
@@ -206,6 +212,8 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   get<K extends keyof T>(key: K, options?: GetOptions): Promise<T[K] | undefined>
 
   async get(key: string, options?: GetOptions): Promise<unknown> {
+    await this.#ensureConnected()
+
     return this.#withMetrics(async (metrics) => {
       try {
         const result = await this.#store.get(key)
@@ -239,6 +247,8 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   set<K extends keyof T>(key: K, value: T[K], options?: SetOptions): Promise<void>
 
   async set(key: string, value: unknown, options?: SetOptions): Promise<void> {
+    await this.#ensureConnected()
+
     await this.#withMetrics(async (metrics) => {
       try {
         const staleTime = parseOptionalDuration(options?.staleTime) ?? this.#defaultStaleTime
@@ -262,6 +272,8 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   getOrSet<K extends keyof T>(key: K, loader: Loader<T[K]>, options?: GetSetOptions): Promise<T[K]>
 
   async getOrSet(key: string, loader: Loader<unknown>, options?: GetSetOptions): Promise<unknown> {
+    await this.#ensureConnected()
+
     return this.#withMetrics(async (metrics) => {
       try {
         const loaderOpts = this.#buildLoaderOptions(options)
@@ -321,6 +333,8 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   delete(...keys: (keyof T)[]): Promise<number>
 
   async delete(...keys: string[]): Promise<number> {
+    await this.#ensureConnected()
+
     return this.#withMetrics(async (metrics) => {
       try {
         const count = await this.#store.delete(...keys)
@@ -353,10 +367,14 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   }
 
   async has(key: string): Promise<boolean> {
+    await this.#ensureConnected()
+
     return this.#store.has(key)
   }
 
   async clear(): Promise<void> {
+    await this.#ensureConnected()
+
     await this.#withMetrics(async (metrics) => {
       await this.#store.clear()
       this.#emitter.emit('clear', {
@@ -371,6 +389,8 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   }
 
   async invalidateTags(tags: string[]): Promise<number> {
+    await this.#ensureConnected()
+
     const count = await this.#store.invalidateTags(tags)
 
     if (this.#sync) {
@@ -394,6 +414,8 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
   }
 
   async expire(key: string): Promise<boolean> {
+    await this.#ensureConnected()
+
     const result = await this.#store.get(key)
 
     if (!result.entry) {
@@ -414,16 +436,24 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
       defaultGcTime: this.#defaultGcTime,
       storeName: this.#storeName,
       sync: this.#sync,
+      autoConnect: this.#autoConnect,
     }
 
     return new InternalCache<T>(config, true)
   }
 
   async connect(): Promise<void> {
-    await this.#store.connect()
-    if (this.#sync) {
-      await this.#sync.connect()
+    if (this.#connected) {
+      return
     }
+
+    if (this.#connecting) {
+      return this.#connecting
+    }
+
+    this.#connecting = this.#doConnect()
+
+    return this.#connecting
   }
 
   async disconnect(): Promise<void> {
@@ -431,6 +461,27 @@ export class InternalCache<T extends Record<string, unknown> = Record<string, un
       await this.#sync.disconnect()
     }
     await this.#store.disconnect()
+    this.#connected = false
+    this.#connecting = undefined
+  }
+
+  async #doConnect(): Promise<void> {
+    await this.#store.connect()
+    if (this.#sync) {
+      await this.#sync.connect()
+    }
+    this.#connected = true
+    this.#connecting = undefined
+  }
+
+  async #ensureConnected(): Promise<void> {
+    if (this.#connected) {
+      return
+    }
+
+    if (this.#autoConnect) {
+      await this.connect()
+    }
   }
 
   async #withMetrics<R>(operation: (timer: Timer) => Promise<R>): Promise<R> {

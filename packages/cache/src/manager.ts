@@ -30,6 +30,7 @@ interface SharedConfig {
   cbDuration: number | undefined
   drivers: Record<string, AsyncDriver>
   externalDrivers: string[]
+  autoConnect: boolean
 }
 
 interface InternalConfig {
@@ -171,6 +172,7 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
     const cbDuration = parseOptionalDuration(config.circuitBreakerDuration)
     const drivers = (config.drivers ?? {}) as Record<string, AsyncDriver>
     const externalDrivers = Object.keys(drivers).filter((n) => n !== 'memory')
+    const autoConnect = config.autoConnect ?? true
 
     return {
       memory,
@@ -180,6 +182,7 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
       cbDuration,
       drivers,
       externalDrivers,
+      autoConnect,
     }
   }
 
@@ -203,6 +206,7 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
         defaultGcTime: shared.gcTime,
         storeName: 'default',
         sync,
+        autoConnect: shared.autoConnect,
       },
       true,
     )
@@ -258,6 +262,7 @@ export class InternalCacheManager<T extends Record<string, unknown> = Record<str
           defaultGcTime: shared.gcTime,
           storeName: name,
           sync,
+          autoConnect: shared.autoConnect,
         },
         true,
       )

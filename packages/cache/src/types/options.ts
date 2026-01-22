@@ -68,6 +68,8 @@ export interface CacheConfig {
   bus?: BusOptions
   /** Plugins for extending functionality */
   plugins?: CachePlugin[]
+  /** Auto-connect on first operation (default: true) */
+  autoConnect?: boolean
 }
 
 // ============================================================================
@@ -100,4 +102,6 @@ export interface CacheManagerConfig {
   emitter?: EventEmitter
   /** Plugins for extending functionality */
   plugins?: CachePlugin[]
+  /** Auto-connect on first operation (default: true) */
+  autoConnect?: boolean
 }
